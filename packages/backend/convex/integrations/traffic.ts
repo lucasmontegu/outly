@@ -1,9 +1,10 @@
 "use node";
 
-import { action } from "../_generated/server";
+import { action, internalAction } from "../_generated/server";
 import { v } from "convex/values";
 
-export const fetchHereTraffic = action({
+// Internal version for scheduled jobs
+export const fetchHereTraffic = internalAction({
   args: {
     lat: v.number(),
     lng: v.number(),
