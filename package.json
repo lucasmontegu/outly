@@ -25,5 +25,9 @@
     "turbo": "^2.6.3",
     "typescript": "^5"
   },
-  "packageManager": "npm@11.7.0"
+  "packageManager": "npm@11.7.0",
+  "overrides": {
+    "react": "19.1.0",
+    "react-dom": "19.1.0"
+  }
 }
