@@ -1,0 +1,29 @@
+{
+  "name": "outly",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "type": "module",
+  "scripts": {
+    "dev": "turbo dev",
+    "build": "turbo build",
+    "check-types": "turbo check-types",
+    "dev:native": "turbo -F native dev",
+    "dev:web": "turbo -F web dev",
+    "dev:server": "turbo -F @outly/backend dev",
+    "dev:setup": "turbo -F @outly/backend dev:setup"
+  },
+  "dependencies": {
+    "@outly/env": "*",
+    "dotenv": "^17.2.2",
+    "zod": "^4.1.13"
+  },
+  "devDependencies": {
+    "@outly/config": "*",
+    "turbo": "^2.6.3",
+    "typescript": "^5"
+  },
+  "packageManager": "npm@11.7.0"
+}

@@ -1,0 +1,3 @@
+{
+  "extends": "@outly/config/tsconfig.base.json"
+}
