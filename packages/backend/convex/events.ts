@@ -1,22 +1,43 @@
 import { v } from "convex/values";
 import { mutation, query, internalMutation } from "./_generated/server";
 
+// Event document validator (reusable)
+const eventDoc = v.object({
+  _id: v.id("events"),
+  _creationTime: v.number(),
+  type: v.union(v.literal("weather"), v.literal("traffic")),
+  subtype: v.string(),
+  location: v.object({
+    lat: v.number(),
+    lng: v.number(),
+  }),
+  radius: v.number(),
+  severity: v.number(),
+  source: v.union(
+    v.literal("openweathermap"),
+    v.literal("tomorrow"),
+    v.literal("here"),
+    v.literal("user")
+  ),
+  confidenceScore: v.number(),
+  ttl: v.number(),
+  rawData: v.optional(v.any()),
+});
+
 export const listActive = query({
   args: {
     type: v.optional(v.union(v.literal("weather"), v.literal("traffic"))),
   },
+  returns: v.array(eventDoc),
   handler: async (ctx, args) => {
     const now = Date.now();
 
-    let eventsQuery = ctx.db.query("events");
-
-    if (args.type) {
-      eventsQuery = eventsQuery.withIndex("by_type", (q) =>
-        q.eq("type", args.type)
-      );
-    }
-
-    const events = await eventsQuery.collect();
+    const events = args.type
+      ? await ctx.db
+          .query("events")
+          .withIndex("by_type", (q) => q.eq("type", args.type!))
+          .collect()
+      : await ctx.db.query("events").collect();
 
     // Filter expired and low confidence events
     return events.filter((e) => e.ttl > now && e.confidenceScore > 20);
@@ -29,6 +50,7 @@ export const listNearby = query({
     lng: v.number(),
     radiusKm: v.number(),
   },
+  returns: v.array(eventDoc),
   handler: async (ctx, args) => {
     const now = Date.now();
     const events = await ctx.db.query("events").collect();
@@ -59,6 +81,7 @@ export const report = mutation({
     }),
     severity: v.number(),
   },
+  returns: v.id("events"),
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Not authenticated");
@@ -96,6 +119,7 @@ export const upsertFromAPI = internalMutation({
     ttl: v.number(),
     rawData: v.optional(v.any()),
   },
+  returns: v.id("events"),
   handler: async (ctx, args) => {
     // API events have 100 confidence
     return await ctx.db.insert("events", {
@@ -108,6 +132,7 @@ export const upsertFromAPI = internalMutation({
 // Internal: clean expired events
 export const cleanExpired = internalMutation({
   args: {},
+  returns: v.number(),
   handler: async (ctx) => {
     const now = Date.now();
     const expired = await ctx.db

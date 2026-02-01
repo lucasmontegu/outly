@@ -1,6 +1,7 @@
 import { v } from "convex/values";
+import { GenericDatabaseWriter } from "convex/server";
 import { query, mutation, internalMutation } from "./_generated/server";
-import { Id } from "./_generated/dataModel";
+import { DataModel, Id } from "./_generated/dataModel";
 
 // Level thresholds and requirements
 const LEVELS = [
@@ -603,16 +604,16 @@ export const recordAccuracyResult = mutation({
   },
 });
 
-// Helper to award a badge
-async function awardBadge(
-  ctx: { db: any },
+// Helper to award a badge - takes db directly for internal use
+async function internalAwardBadge(
+  db: GenericDatabaseWriter<DataModel>,
   userId: string,
   badgeId: string
 ): Promise<void> {
   // Check if already has badge
-  const existing = await ctx.db
+  const existing = await db
     .query("userBadges")
-    .withIndex("by_user_badge", (q: any) =>
+    .withIndex("by_user_badge", (q) =>
       q.eq("userId", userId).eq("badgeId", badgeId)
     )
     .first();
@@ -620,12 +621,12 @@ async function awardBadge(
   if (existing) {
     // Reactivate if was deactivated
     if (!existing.isActive) {
-      await ctx.db.patch(existing._id, { isActive: true });
+      await db.patch(existing._id, { isActive: true });
     }
     return;
   }
 
-  await ctx.db.insert("userBadges", {
+  await db.insert("userBadges", {
     userId,
     badgeId,
     earnedAt: Date.now(),
@@ -633,7 +634,187 @@ async function awardBadge(
   });
 }
 
-// ============ INTERNAL MUTATIONS (for cron jobs) ============
+// Helper to award a badge - takes ctx for public mutations
+async function awardBadge(
+  ctx: { db: GenericDatabaseWriter<DataModel> },
+  userId: string,
+  badgeId: string
+): Promise<void> {
+  await internalAwardBadge(ctx.db, userId, badgeId);
+}
+
+// ============ INTERNAL MUTATIONS ============
+
+// Internal mutation to record a vote from confirmations.ts
+// This avoids code duplication by centralizing gamification logic
+export const internalRecordVote = internalMutation({
+  args: {
+    userId: v.string(),
+    eventType: v.union(v.literal("weather"), v.literal("traffic")),
+    isFirstVote: v.boolean(),
+  },
+  returns: v.object({
+    pointsEarned: v.number(),
+    newBadges: v.array(v.string()),
+  }),
+  handler: async (ctx, args) => {
+    // Get or create user stats
+    let stats = await ctx.db
+      .query("userStats")
+      .withIndex("by_user", (q) => q.eq("userId", args.userId))
+      .first();
+
+    if (!stats) {
+      const statsId = await ctx.db.insert("userStats", {
+        userId: args.userId,
+        totalPoints: 0,
+        level: 1,
+        totalVotes: 0,
+        correctVotes: 0,
+        accuracyPercent: 0,
+        currentStreak: 0,
+        longestStreak: 0,
+        lastVoteDate: "",
+        votesThisWeek: 0,
+        inactiveWeeks: 0,
+        weatherVotes: 0,
+        trafficVotes: 0,
+        firstResponderCount: 0,
+        percentileRank: 100,
+      });
+      stats = await ctx.db.get(statsId);
+      if (!stats) throw new Error("Failed to create stats");
+    }
+
+    let pointsEarned = 5; // Base points
+    const newBadges: string[] = [];
+
+    // First responder bonus
+    if (args.isFirstVote) {
+      pointsEarned += 10;
+    }
+
+    // Update streak
+    const today = getTodayString();
+    const yesterday = getYesterdayString();
+    let newStreak = stats.currentStreak;
+
+    if (stats.lastVoteDate === yesterday) {
+      newStreak += 1;
+    } else if (stats.lastVoteDate !== today) {
+      newStreak = 1;
+    }
+
+    const newLongestStreak = Math.max(newStreak, stats.longestStreak);
+
+    // Category tracking
+    const newWeatherVotes =
+      args.eventType === "weather" ? stats.weatherVotes + 1 : stats.weatherVotes;
+    const newTrafficVotes =
+      args.eventType === "traffic" ? stats.trafficVotes + 1 : stats.trafficVotes;
+    const newFirstResponderCount = args.isFirstVote
+      ? stats.firstResponderCount + 1
+      : stats.firstResponderCount;
+
+    const newTotalVotes = stats.totalVotes + 1;
+    const newTotalPoints = stats.totalPoints + pointsEarned;
+    const newLevel = calculateLevel(newTotalPoints);
+
+    // Update stats
+    await ctx.db.patch(stats._id, {
+      totalPoints: newTotalPoints,
+      level: newLevel,
+      totalVotes: newTotalVotes,
+      currentStreak: newStreak,
+      longestStreak: newLongestStreak,
+      lastVoteDate: today,
+      votesThisWeek: stats.votesThisWeek + 1,
+      inactiveWeeks: 0,
+      weatherVotes: newWeatherVotes,
+      trafficVotes: newTrafficVotes,
+      firstResponderCount: newFirstResponderCount,
+    });
+
+    // Check for new badges
+    const earnedBadges = await ctx.db
+      .query("userBadges")
+      .withIndex("by_user", (q) => q.eq("userId", args.userId))
+      .collect();
+    const earnedBadgeIds = new Set(earnedBadges.map((b) => b.badgeId));
+
+    // Milestone badges
+    if (newTotalVotes >= 5 && !earnedBadgeIds.has("first_steps")) {
+      await internalAwardBadge(ctx.db, args.userId, "first_steps");
+      newBadges.push("first_steps");
+      pointsEarned += BADGES.first_steps.points;
+    }
+    if (newTotalVotes >= 50 && !earnedBadgeIds.has("dedicated")) {
+      await internalAwardBadge(ctx.db, args.userId, "dedicated");
+      newBadges.push("dedicated");
+      pointsEarned += BADGES.dedicated.points;
+    }
+    if (newTotalVotes >= 250 && !earnedBadgeIds.has("veteran")) {
+      await internalAwardBadge(ctx.db, args.userId, "veteran");
+      newBadges.push("veteran");
+      pointsEarned += BADGES.veteran.points;
+    }
+    if (newTotalVotes >= 1000 && !earnedBadgeIds.has("elite_validator")) {
+      await internalAwardBadge(ctx.db, args.userId, "elite_validator");
+      newBadges.push("elite_validator");
+      pointsEarned += BADGES.elite_validator.points;
+    }
+
+    // Streak badges
+    if (newStreak >= 7 && !earnedBadgeIds.has("weekly_warrior")) {
+      await internalAwardBadge(ctx.db, args.userId, "weekly_warrior");
+      newBadges.push("weekly_warrior");
+      pointsEarned += BADGES.weekly_warrior.points;
+    }
+    if (newStreak >= 30 && !earnedBadgeIds.has("monthly_guardian")) {
+      await internalAwardBadge(ctx.db, args.userId, "monthly_guardian");
+      newBadges.push("monthly_guardian");
+      pointsEarned += BADGES.monthly_guardian.points;
+    }
+    if (newStreak >= 90 && !earnedBadgeIds.has("quarterly_legend")) {
+      await internalAwardBadge(ctx.db, args.userId, "quarterly_legend");
+      newBadges.push("quarterly_legend");
+      pointsEarned += BADGES.quarterly_legend.points;
+    }
+
+    // Special badges
+    if (newWeatherVotes >= 50 && !earnedBadgeIds.has("storm_chaser")) {
+      await internalAwardBadge(ctx.db, args.userId, "storm_chaser");
+      newBadges.push("storm_chaser");
+      pointsEarned += BADGES.storm_chaser.points;
+    }
+    if (newTrafficVotes >= 50 && !earnedBadgeIds.has("traffic_master")) {
+      await internalAwardBadge(ctx.db, args.userId, "traffic_master");
+      newBadges.push("traffic_master");
+      pointsEarned += BADGES.traffic_master.points;
+    }
+    if (newFirstResponderCount >= 25 && !earnedBadgeIds.has("first_responder")) {
+      await internalAwardBadge(ctx.db, args.userId, "first_responder");
+      newBadges.push("first_responder");
+      pointsEarned += BADGES.first_responder.points;
+    }
+
+    // Update total points with badge bonuses
+    if (newBadges.length > 0) {
+      const finalStats = await ctx.db.get(stats._id);
+      if (finalStats) {
+        const badgeBonus = newBadges.reduce((sum, badgeId) => {
+          return sum + (BADGES[badgeId as keyof typeof BADGES]?.points || 0);
+        }, 0);
+        await ctx.db.patch(stats._id, {
+          totalPoints: finalStats.totalPoints + badgeBonus,
+          level: calculateLevel(finalStats.totalPoints + badgeBonus),
+        });
+      }
+    }
+
+    return { pointsEarned, newBadges };
+  },
+});
 
 export const weeklyDecay = internalMutation({
   args: {},

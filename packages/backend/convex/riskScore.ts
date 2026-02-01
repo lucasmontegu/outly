@@ -86,8 +86,31 @@ function calculateEventScore(
   return Math.min(100, score);
 }
 
+// Risk snapshot validator (reusable)
+const riskSnapshotDoc = v.object({
+  _id: v.id("riskSnapshots"),
+  _creationTime: v.number(),
+  locationId: v.id("userLocations"),
+  userId: v.string(),
+  score: v.number(),
+  previousScore: v.optional(v.number()),
+  classification: v.union(
+    v.literal("low"),
+    v.literal("medium"),
+    v.literal("high")
+  ),
+  breakdown: v.object({
+    weatherScore: v.number(),
+    trafficScore: v.number(),
+    eventScore: v.number(),
+  }),
+  weatherData: v.optional(v.any()),
+  trafficData: v.optional(v.any()),
+});
+
 export const getForLocation = query({
   args: { locationId: v.id("userLocations") },
+  returns: v.union(riskSnapshotDoc, v.null()),
   handler: async (ctx, args) => {
     const snapshots = await ctx.db
       .query("riskSnapshots")
@@ -101,6 +124,7 @@ export const getForLocation = query({
 
 export const listForUser = query({
   args: {},
+  returns: v.array(riskSnapshotDoc),
   handler: async (ctx) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Not authenticated");
@@ -118,6 +142,26 @@ export const getCurrentRisk = query({
     lat: v.number(),
     lng: v.number(),
   },
+  returns: v.object({
+    score: v.number(),
+    classification: v.union(v.literal("low"), v.literal("medium"), v.literal("high")),
+    breakdown: v.object({
+      weatherScore: v.number(),
+      trafficScore: v.number(),
+      eventScore: v.number(),
+    }),
+    description: v.string(),
+    nearbyEvents: v.array(
+      v.object({
+        _id: v.id("events"),
+        type: v.union(v.literal("weather"), v.literal("traffic")),
+        subtype: v.string(),
+        severity: v.number(),
+        confidenceScore: v.number(),
+        _creationTime: v.number(),
+      })
+    ),
+  }),
   handler: async (ctx, args) => {
     // Get nearby events
     const now = Date.now();
@@ -163,7 +207,7 @@ export const getCurrentRisk = query({
     eventScore = Math.min(100, Math.round(eventScore));
 
     const score = Math.round(weatherScore * 0.35 + trafficScore * 0.45 + eventScore * 0.2);
-    const classification = score < 34 ? "low" : score < 67 ? "medium" : "high";
+    const classification: "low" | "medium" | "high" = score < 34 ? "low" : score < 67 ? "medium" : "high";
 
     // Generate description
     let description: string;
@@ -222,6 +266,7 @@ export const calculate = internalMutation({
       })
     ),
   },
+  returns: v.id("riskSnapshots"),
   handler: async (ctx, args) => {
     const location = await ctx.db.get(args.locationId);
     if (!location) throw new Error("Location not found");

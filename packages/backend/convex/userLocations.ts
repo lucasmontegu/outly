@@ -1,8 +1,24 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 
+// User location document validator (reusable)
+const userLocationDoc = v.object({
+  _id: v.id("userLocations"),
+  _creationTime: v.number(),
+  userId: v.string(),
+  name: v.string(),
+  location: v.object({
+    lat: v.number(),
+    lng: v.number(),
+  }),
+  address: v.optional(v.string()),
+  isDefault: v.boolean(),
+  pushToken: v.optional(v.string()),
+});
+
 export const list = query({
   args: {},
+  returns: v.array(userLocationDoc),
   handler: async (ctx) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Not authenticated");
@@ -24,6 +40,7 @@ export const create = mutation({
     address: v.optional(v.string()),
     isDefault: v.boolean(),
   },
+  returns: v.id("userLocations"),
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Not authenticated");
@@ -66,6 +83,7 @@ export const update = mutation({
     isDefault: v.optional(v.boolean()),
     pushToken: v.optional(v.string()),
   },
+  returns: v.null(),
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Not authenticated");
@@ -92,11 +110,13 @@ export const update = mutation({
     }
 
     await ctx.db.patch(id, updates);
+    return null;
   },
 });
 
 export const remove = mutation({
   args: { id: v.id("userLocations") },
+  returns: v.null(),
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Not authenticated");
@@ -107,5 +127,6 @@ export const remove = mutation({
     }
 
     await ctx.db.delete(args.id);
+    return null;
   },
 });
