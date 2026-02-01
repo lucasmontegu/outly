@@ -27,8 +27,15 @@ import { Card, Button } from "heroui-native";
 import { LinearGradient } from "expo-linear-gradient";
 
 import { useLocation } from "@/hooks/use-location";
+import { LocationSearchModal } from "@/components/location-search";
 
 type RouteIcon = "building" | "running" | "home";
+
+type LocationData = {
+  name: string;
+  lat: number;
+  lng: number;
+};
 
 const DAYS = ["M", "T", "W", "T", "F", "S", "S"];
 
@@ -45,17 +52,21 @@ export default function AddRouteScreen() {
   const savedLocations = useQuery(api.userLocations.list);
 
   const [name, setName] = useState("");
-  const [fromName, setFromName] = useState("");
-  const [toName, setToName] = useState("");
+  const [fromData, setFromData] = useState<LocationData | null>(null);
+  const [toData, setToData] = useState<LocationData | null>(null);
   const [selectedIcon, setSelectedIcon] = useState<RouteIcon>("building");
   const [monitorDays, setMonitorDays] = useState([true, true, true, true, true, false, false]);
   const [alertThreshold, setAlertThreshold] = useState(40);
   const [alertTime, setAlertTime] = useState("7:30 AM");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Use current location as default "from"
-  const fromLocation = location || { lat: 0, lng: 0 };
-  const toLocation = { lat: 0, lng: 0 }; // Would be set by location picker
+  // Search modals
+  const [showFromSearch, setShowFromSearch] = useState(false);
+  const [showToSearch, setShowToSearch] = useState(false);
+
+  // Use current location as default "from" if not set
+  const fromLocation = fromData || (location ? { name: address || "Current Location", lat: location.lat, lng: location.lng } : null);
+  const toLocation = toData;
 
   const toggleDay = (index: number) => {
     const newDays = [...monitorDays];
@@ -68,12 +79,12 @@ export default function AddRouteScreen() {
       Alert.alert("Error", "Please enter a route name");
       return;
     }
-    if (!fromName.trim()) {
-      Alert.alert("Error", "Please enter a starting location");
+    if (!fromLocation) {
+      Alert.alert("Error", "Please select a starting location");
       return;
     }
-    if (!toName.trim()) {
-      Alert.alert("Error", "Please enter a destination");
+    if (!toLocation) {
+      Alert.alert("Error", "Please select a destination");
       return;
     }
 
@@ -81,10 +92,10 @@ export default function AddRouteScreen() {
     try {
       await createRoute({
         name: name.trim(),
-        fromName: fromName.trim(),
-        toName: toName.trim(),
-        fromLocation,
-        toLocation,
+        fromName: fromLocation.name,
+        toName: toLocation.name,
+        fromLocation: { lat: fromLocation.lat, lng: fromLocation.lng },
+        toLocation: { lat: toLocation.lat, lng: toLocation.lng },
         icon: selectedIcon,
         monitorDays,
         alertThreshold,
@@ -158,23 +169,26 @@ export default function AddRouteScreen() {
           {/* From Location */}
           <View style={styles.section}>
             <Text style={styles.label}>From</Text>
-            <View style={styles.locationInputContainer}>
+            <TouchableOpacity
+              style={styles.locationInputContainer}
+              onPress={() => setShowFromSearch(true)}
+            >
               <HugeiconsIcon icon={Location01Icon} size={20} color="#10B981" />
-              <TextInput
-                style={styles.locationInput}
-                placeholder="Starting location"
-                placeholderTextColor="#9CA3AF"
-                value={fromName}
-                onChangeText={setFromName}
-              />
-              <TouchableOpacity style={styles.searchButton}>
-                <HugeiconsIcon icon={Search01Icon} size={18} color="#6B7280" />
-              </TouchableOpacity>
-            </View>
-            {address && !fromName && (
+              <Text
+                style={[
+                  styles.locationInput,
+                  !fromLocation && styles.locationPlaceholder,
+                ]}
+                numberOfLines={1}
+              >
+                {fromLocation?.name || "Starting location"}
+              </Text>
+              <HugeiconsIcon icon={Search01Icon} size={18} color="#6B7280" />
+            </TouchableOpacity>
+            {address && location && !fromData && (
               <TouchableOpacity
                 style={styles.currentLocationSuggestion}
-                onPress={() => setFromName(address)}
+                onPress={() => setFromData({ name: address, lat: location.lat, lng: location.lng })}
               >
                 <Text style={styles.suggestionText}>Use current: {address}</Text>
               </TouchableOpacity>
@@ -184,27 +198,30 @@ export default function AddRouteScreen() {
           {/* To Location */}
           <View style={styles.section}>
             <Text style={styles.label}>To</Text>
-            <View style={styles.locationInputContainer}>
+            <TouchableOpacity
+              style={styles.locationInputContainer}
+              onPress={() => setShowToSearch(true)}
+            >
               <HugeiconsIcon icon={Location01Icon} size={20} color="#EF4444" />
-              <TextInput
-                style={styles.locationInput}
-                placeholder="Destination"
-                placeholderTextColor="#9CA3AF"
-                value={toName}
-                onChangeText={setToName}
-              />
-              <TouchableOpacity style={styles.searchButton}>
-                <HugeiconsIcon icon={Search01Icon} size={18} color="#6B7280" />
-              </TouchableOpacity>
-            </View>
+              <Text
+                style={[
+                  styles.locationInput,
+                  !toLocation && styles.locationPlaceholder,
+                ]}
+                numberOfLines={1}
+              >
+                {toLocation?.name || "Destination"}
+              </Text>
+              <HugeiconsIcon icon={Search01Icon} size={18} color="#6B7280" />
+            </TouchableOpacity>
             {/* Saved locations suggestions */}
-            {savedLocations && savedLocations.length > 0 && !toName && (
+            {savedLocations && savedLocations.length > 0 && !toData && (
               <View style={styles.savedLocationsList}>
                 {savedLocations.slice(0, 3).map((loc) => (
                   <TouchableOpacity
                     key={loc._id}
                     style={styles.savedLocationItem}
-                    onPress={() => setToName(loc.name)}
+                    onPress={() => setToData({ name: loc.name, lat: loc.location.lat, lng: loc.location.lng })}
                   >
                     <Text style={styles.savedLocationText}>{loc.name}</Text>
                   </TouchableOpacity>
@@ -327,12 +344,26 @@ export default function AddRouteScreen() {
             size="lg"
             className="w-full h-14 rounded-xl"
             onPress={handleSubmit}
-            isDisabled={isSubmitting || !name.trim() || !fromName.trim() || !toName.trim()}
+            isDisabled={isSubmitting || !name.trim() || !fromLocation || !toLocation}
           >
             {isSubmitting ? "Creating..." : "Create Route"}
           </Button>
         </View>
       </KeyboardAvoidingView>
+
+      {/* Location Search Modals */}
+      <LocationSearchModal
+        visible={showFromSearch}
+        onClose={() => setShowFromSearch(false)}
+        onSelect={(loc) => setFromData({ name: loc.name, lat: loc.lat, lng: loc.lng })}
+        placeholder="Search starting location..."
+      />
+      <LocationSearchModal
+        visible={showToSearch}
+        onClose={() => setShowToSearch(false)}
+        onSelect={(loc) => setToData({ name: loc.name, lat: loc.lat, lng: loc.lng })}
+        placeholder="Search destination..."
+      />
     </SafeAreaView>
   );
 }
@@ -441,8 +472,8 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: "#111827",
   },
-  searchButton: {
-    padding: 8,
+  locationPlaceholder: {
+    color: "#9CA3AF",
   },
   currentLocationSuggestion: {
     marginTop: 8,

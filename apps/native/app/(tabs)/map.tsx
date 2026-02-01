@@ -7,25 +7,33 @@ import {
   CheckmarkCircle02Icon,
   Cancel01Icon,
   CloudIcon,
+  Location01Icon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react-native";
 import {
   View,
   Text,
   StyleSheet,
-  TextInput,
   TouchableOpacity,
-  Dimensions,
   ActivityIndicator,
+  TextInput,
+  Keyboard,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Card } from "heroui-native";
-import { useState } from "react";
-import { LinearGradient } from "expo-linear-gradient";
+import { useState, useRef, useEffect } from "react";
+import MapView, { Marker, Callout, Circle, Polyline, PROVIDER_DEFAULT } from "react-native-maps";
+import { useLocalSearchParams } from "expo-router";
 
 import { useLocation } from "@/hooks/use-location";
 
-const { width } = Dimensions.get("window");
+type SearchResult = {
+  placeId: string;
+  name: string;
+  displayName: string;
+  lat: number;
+  lng: number;
+};
 
 type EventType = {
   _id: Id<"events">;
@@ -35,18 +43,32 @@ type EventType = {
   severity: number;
   _creationTime: number;
   ttl: number;
+  location: {
+    lat: number;
+    lng: number;
+  };
+  routePoints?: {
+    lat: number;
+    lng: number;
+  }[];
 };
 
 export default function MapScreen() {
   const { location } = useLocation();
+  const { eventId: eventIdParam } = useLocalSearchParams<{ eventId?: string }>();
   const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [showResults, setShowResults] = useState(false);
   const [selectedEventId, setSelectedEventId] = useState<Id<"events"> | null>(null);
+  const mapRef = useRef<MapView>(null);
+  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Query nearby events
   const events = useQuery(
     api.events.listNearby,
     location ? { lat: location.lat, lng: location.lng, radiusKm: 10 } : "skip"
-  );
+  ) as EventType[] | undefined;
 
   // Get selected event details
   const selectedEvent = events?.find((e) => e._id === selectedEventId);
@@ -60,9 +82,51 @@ export default function MapScreen() {
   // Vote mutation
   const vote = useMutation(api.confirmations.vote);
 
+  // Select event from navigation params
+  useEffect(() => {
+    if (eventIdParam && events) {
+      const eventExists = events.some((e) => e._id === eventIdParam);
+      if (eventExists) {
+        setSelectedEventId(eventIdParam as Id<"events">);
+      }
+    }
+  }, [eventIdParam, events]);
+
+  // Center map on user location when it loads
+  useEffect(() => {
+    if (location && mapRef.current && !eventIdParam) {
+      mapRef.current.animateToRegion({
+        latitude: location.lat,
+        longitude: location.lng,
+        latitudeDelta: 0.05,
+        longitudeDelta: 0.05,
+      }, 500);
+    }
+  }, [location, eventIdParam]);
+
+  // Center map on selected event
+  useEffect(() => {
+    if (selectedEvent && mapRef.current) {
+      mapRef.current.animateToRegion({
+        latitude: selectedEvent.location.lat,
+        longitude: selectedEvent.location.lng,
+        latitudeDelta: 0.02,
+        longitudeDelta: 0.02,
+      }, 300);
+    }
+  }, [selectedEvent]);
+
   const handleVote = async (voteType: "still_active" | "cleared" | "not_exists") => {
     if (!selectedEventId) return;
     await vote({ eventId: selectedEventId, vote: voteType });
+  };
+
+  const handleMarkerPress = (eventId: Id<"events">) => {
+    setSelectedEventId(eventId);
+  };
+
+  const handleMapPress = () => {
+    setSelectedEventId(null);
   };
 
   const getTimeRemaining = (ttl: number): string => {
@@ -91,6 +155,12 @@ export default function MapScreen() {
     return "#3B82F6";
   };
 
+  const getMarkerColor = (severity: number): string => {
+    if (severity >= 4) return "#DC2626"; // red-600
+    if (severity >= 3) return "#D97706"; // amber-600
+    return "#2563EB"; // blue-600
+  };
+
   const getConfidenceLabel = (score: number): string => {
     if (score >= 80) return "High Confidence";
     if (score >= 50) return "Medium Confidence";
@@ -104,6 +174,102 @@ export default function MapScreen() {
       .join(" ");
   };
 
+  const centerOnUser = () => {
+    if (location && mapRef.current) {
+      mapRef.current.animateToRegion({
+        latitude: location.lat,
+        longitude: location.lng,
+        latitudeDelta: 0.05,
+        longitudeDelta: 0.05,
+      }, 500);
+    }
+  };
+
+  // Search locations using OpenStreetMap Nominatim
+  const searchLocations = async (query: string) => {
+    if (!query.trim() || query.length < 3) {
+      setSearchResults([]);
+      setShowResults(false);
+      return;
+    }
+
+    setIsSearching(true);
+    try {
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/search?` +
+          new URLSearchParams({
+            q: query,
+            format: "json",
+            addressdetails: "1",
+            limit: "5",
+          }),
+        {
+          headers: {
+            "User-Agent": "Outly/1.0",
+          },
+        }
+      );
+
+      if (response.ok) {
+        const data = await response.json();
+        const results: SearchResult[] = data.map((item: any) => ({
+          placeId: item.place_id.toString(),
+          name: item.name || item.display_name.split(",")[0],
+          displayName: item.display_name,
+          lat: parseFloat(item.lat),
+          lng: parseFloat(item.lon),
+        }));
+        setSearchResults(results);
+        setShowResults(results.length > 0);
+      }
+    } catch (err) {
+      console.error("Search error:", err);
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  // Debounced search
+  const handleSearchChange = (text: string) => {
+    setSearchQuery(text);
+
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
+    }
+
+    if (text.length >= 3) {
+      searchTimeoutRef.current = setTimeout(() => {
+        searchLocations(text);
+      }, 300);
+    } else {
+      setSearchResults([]);
+      setShowResults(false);
+    }
+  };
+
+  const handleSearchSelect = (result: SearchResult) => {
+    setSearchQuery(result.name);
+    setSearchResults([]);
+    setShowResults(false);
+    setSelectedEventId(null);
+    Keyboard.dismiss();
+
+    if (mapRef.current) {
+      mapRef.current.animateToRegion({
+        latitude: result.lat,
+        longitude: result.lng,
+        latitudeDelta: 0.02,
+        longitudeDelta: 0.02,
+      }, 500);
+    }
+  };
+
+  const clearSearch = () => {
+    setSearchQuery("");
+    setSearchResults([]);
+    setShowResults(false);
+  };
+
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
       {/* Search Bar */}
@@ -112,62 +278,156 @@ export default function MapScreen() {
           <HugeiconsIcon icon={Search01Icon} size={20} color="#9CA3AF" />
           <TextInput
             style={styles.searchInput}
-            placeholder="Search location or route..."
+            placeholder="Search location..."
             placeholderTextColor="#9CA3AF"
             value={searchQuery}
-            onChangeText={setSearchQuery}
+            onChangeText={handleSearchChange}
+            onFocus={() => searchQuery.length >= 3 && setShowResults(true)}
+            returnKeyType="search"
           />
+          {isSearching && (
+            <ActivityIndicator size="small" color="#3B82F6" />
+          )}
+          {searchQuery.length > 0 && !isSearching && (
+            <TouchableOpacity onPress={clearSearch} style={styles.clearButton}>
+              <HugeiconsIcon icon={Cancel01Icon} size={18} color="#9CA3AF" />
+            </TouchableOpacity>
+          )}
         </View>
+
+        {/* Search Results Dropdown */}
+        {showResults && searchResults.length > 0 && (
+          <View style={styles.searchResults}>
+            {searchResults.map((result) => (
+              <TouchableOpacity
+                key={result.placeId}
+                style={styles.searchResultItem}
+                onPress={() => handleSearchSelect(result)}
+              >
+                <HugeiconsIcon icon={Location01Icon} size={18} color="#3B82F6" />
+                <View style={styles.searchResultText}>
+                  <Text style={styles.searchResultName} numberOfLines={1}>
+                    {result.name}
+                  </Text>
+                  <Text style={styles.searchResultAddress} numberOfLines={1}>
+                    {result.displayName}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
       </View>
 
-      {/* Map Placeholder */}
+      {/* Map */}
       <View style={styles.mapContainer}>
-        <LinearGradient
-          colors={["#E2E8F0", "#CBD5E1", "#94A3B8"]}
-          style={styles.mapPlaceholder}
-        >
-          <View style={styles.mapContent}>
-            {/* Event markers */}
-            {events === undefined ? (
-              <ActivityIndicator size="large" color="#3B82F6" />
-            ) : events.length === 0 ? (
-              <View style={styles.noEventsContainer}>
-                <Text style={styles.noEventsText}>No events nearby</Text>
-              </View>
-            ) : (
-              events.slice(0, 5).map((event, index) => (
-                <TouchableOpacity
-                  key={event._id}
-                  style={[
-                    styles.eventMarker,
-                    {
-                      top: `${25 + index * 12}%`,
-                      left: `${20 + index * 15}%`,
-                    },
-                    selectedEventId === event._id && styles.eventMarkerSelected,
-                  ]}
-                  onPress={() => setSelectedEventId(event._id)}
-                >
-                  <View
-                    style={[
-                      styles.markerIcon,
-                      { borderColor: getEventColor(event.severity) },
-                    ]}
-                  >
-                    <HugeiconsIcon
-                      icon={getEventIcon(event.type)}
-                      size={16}
-                      color={getEventColor(event.severity)}
-                    />
-                  </View>
-                  <Text style={[styles.markerLabel, { color: getEventColor(event.severity) }]}>
-                    {formatSubtype(event.subtype).split(" ")[0]}
-                  </Text>
-                </TouchableOpacity>
-              ))
-            )}
+        {!location ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#3B82F6" />
+            <Text style={styles.loadingText}>Getting your location...</Text>
           </View>
-        </LinearGradient>
+        ) : (
+          <MapView
+            ref={mapRef}
+            style={styles.map}
+            provider={PROVIDER_DEFAULT}
+            initialRegion={{
+              latitude: location.lat,
+              longitude: location.lng,
+              latitudeDelta: 0.05,
+              longitudeDelta: 0.05,
+            }}
+            showsUserLocation
+            showsMyLocationButton={false}
+            onPress={handleMapPress}
+          >
+            {/* Traffic route polylines (like Waze congestion lines) */}
+            {events?.filter((e) => e.routePoints && e.routePoints.length > 1).map((event) => (
+              <Polyline
+                key={`polyline-${event._id}`}
+                coordinates={event.routePoints!.map((p) => ({
+                  latitude: p.lat,
+                  longitude: p.lng,
+                }))}
+                strokeColor={getMarkerColor(event.severity)}
+                strokeWidth={event.severity >= 4 ? 8 : event.severity >= 3 ? 6 : 4}
+                lineCap="round"
+                lineJoin="round"
+                tappable
+                onPress={() => handleMarkerPress(event._id)}
+              />
+            ))}
+
+            {/* Event circles (area of effect) - only for events without route points */}
+            {events?.filter((e) => !e.routePoints || e.routePoints.length < 2).map((event) => (
+              <Circle
+                key={`circle-${event._id}`}
+                center={{
+                  latitude: event.location.lat,
+                  longitude: event.location.lng,
+                }}
+                radius={event.type === "traffic" ? 500 : 1000}
+                fillColor={`${getMarkerColor(event.severity)}20`}
+                strokeColor={`${getMarkerColor(event.severity)}60`}
+                strokeWidth={2}
+              />
+            ))}
+
+            {/* Event markers */}
+            {events?.map((event) => (
+              <Marker
+                key={event._id}
+                coordinate={{
+                  latitude: event.location.lat,
+                  longitude: event.location.lng,
+                }}
+                onPress={() => handleMarkerPress(event._id)}
+              >
+                <View style={[
+                  styles.customMarker,
+                  { borderColor: getMarkerColor(event.severity) },
+                  selectedEventId === event._id && styles.customMarkerSelected,
+                ]}>
+                  <HugeiconsIcon
+                    icon={getEventIcon(event.type)}
+                    size={18}
+                    color={getMarkerColor(event.severity)}
+                  />
+                </View>
+                <Callout tooltip onPress={() => handleMarkerPress(event._id)}>
+                  <View style={styles.calloutContainer}>
+                    <View style={[styles.calloutBadge, { backgroundColor: getMarkerColor(event.severity) }]}>
+                      <Text style={styles.calloutBadgeText}>
+                        {event.type === "traffic" ? "TRAFFIC" : "WEATHER"}
+                      </Text>
+                    </View>
+                    <Text style={styles.calloutTitle}>{formatSubtype(event.subtype)}</Text>
+                    <Text style={styles.calloutSubtext}>
+                      {getTimeAgo(event._creationTime)} · {event.confidenceScore}% confidence
+                    </Text>
+                    <Text style={styles.calloutHint}>Tap for details</Text>
+                  </View>
+                </Callout>
+              </Marker>
+            ))}
+          </MapView>
+        )}
+
+        {/* My Location Button */}
+        {location && (
+          <TouchableOpacity style={styles.myLocationButton} onPress={centerOnUser}>
+            <HugeiconsIcon icon={Location01Icon} size={22} color="#3B82F6" />
+          </TouchableOpacity>
+        )}
+
+        {/* Events count badge */}
+        {events && events.length > 0 && (
+          <View style={styles.eventsBadge}>
+            <Text style={styles.eventsBadgeText}>
+              {events.length} signal{events.length !== 1 ? "s" : ""} nearby
+            </Text>
+          </View>
+        )}
       </View>
 
       {/* Event Detail Card */}
@@ -295,54 +555,153 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: "#111827",
   },
+  clearButton: {
+    padding: 4,
+  },
+  searchResults: {
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    marginTop: 8,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
+    overflow: "hidden",
+  },
+  searchResultItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    gap: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: "#F3F4F6",
+  },
+  searchResultText: {
+    flex: 1,
+  },
+  searchResultName: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#111827",
+  },
+  searchResultAddress: {
+    fontSize: 12,
+    color: "#6B7280",
+    marginTop: 2,
+  },
   mapContainer: {
     flex: 1,
   },
-  mapPlaceholder: {
+  map: {
+    flex: 1,
+  },
+  loadingContainer: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
+    backgroundColor: "#F3F4F6",
+    gap: 12,
   },
-  mapContent: {
-    flex: 1,
-    width: "100%",
-    alignItems: "center",
-    justifyContent: "center",
-    position: "relative",
-  },
-  noEventsContainer: {
-    padding: 20,
-    backgroundColor: "rgba(255,255,255,0.9)",
-    borderRadius: 12,
-  },
-  noEventsText: {
-    fontSize: 16,
+  loadingText: {
+    fontSize: 14,
     color: "#6B7280",
   },
-  eventMarker: {
-    position: "absolute",
-    alignItems: "center",
-  },
-  eventMarkerSelected: {
-    transform: [{ scale: 1.2 }],
-  },
-  markerIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+  customMarker: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     backgroundColor: "#fff",
     alignItems: "center",
     justifyContent: "center",
-    borderWidth: 2,
+    borderWidth: 3,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 4,
   },
-  markerLabel: {
-    marginTop: 4,
-    fontSize: 11,
-    fontWeight: "600",
+  customMarkerSelected: {
+    transform: [{ scale: 1.2 }],
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+  },
+  calloutContainer: {
     backgroundColor: "#fff",
-    paddingHorizontal: 6,
-    paddingVertical: 2,
+    borderRadius: 12,
+    padding: 12,
+    minWidth: 180,
+    maxWidth: 220,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  calloutBadge: {
+    alignSelf: "flex-start",
+    paddingHorizontal: 8,
+    paddingVertical: 3,
     borderRadius: 4,
+    marginBottom: 6,
+  },
+  calloutBadgeText: {
+    fontSize: 9,
+    fontWeight: "700",
+    color: "#fff",
+    letterSpacing: 0.5,
+  },
+  calloutTitle: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#111827",
+    marginBottom: 4,
+  },
+  calloutSubtext: {
+    fontSize: 11,
+    color: "#6B7280",
+    marginBottom: 6,
+  },
+  calloutHint: {
+    fontSize: 10,
+    color: "#3B82F6",
+    fontWeight: "600",
+  },
+  myLocationButton: {
+    position: "absolute",
+    right: 16,
+    top: 120,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "#fff",
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  eventsBadge: {
+    position: "absolute",
+    left: 16,
+    top: 120,
+    backgroundColor: "#fff",
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  eventsBadgeText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#374151",
   },
   eventCardContainer: {
     position: "absolute",
