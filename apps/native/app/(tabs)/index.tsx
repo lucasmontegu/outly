@@ -16,6 +16,7 @@ import {
   StyleSheet,
   ScrollView,
   RefreshControl,
+  TouchableOpacity,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Card } from "heroui-native";
@@ -215,32 +216,43 @@ export default function OverviewScreen() {
                 entering={FadeInDown.duration(300).delay(550 + index * 50)}
                 layout={Layout.springify().damping(20)}
               >
-                <Card style={styles.signalCard}>
-                  <Card.Body style={styles.signalCardBody}>
-                    <View
-                      style={[
-                        styles.signalIndicator,
-                        { backgroundColor: getEventColor(event.type, event.severity) },
-                      ]}
-                    />
-                    <View
-                      style={[
-                        styles.signalIcon,
-                        { backgroundColor: `${getEventColor(event.type, event.severity)}20` },
-                      ]}
-                    >
-                      <HugeiconsIcon
-                        icon={Alert02Icon}
-                        size={20}
-                        color={getEventColor(event.type, event.severity)}
+                <TouchableOpacity
+                  activeOpacity={0.7}
+                  onPress={() => {
+                    lightHaptic();
+                    router.push({
+                      pathname: "/(tabs)/map",
+                      params: { eventId: event._id },
+                    });
+                  }}
+                >
+                  <Card style={styles.signalCard}>
+                    <Card.Body style={styles.signalCardBody}>
+                      <View
+                        style={[
+                          styles.signalIndicator,
+                          { backgroundColor: getEventColor(event.type, event.severity) },
+                        ]}
                       />
-                    </View>
-                    <View style={styles.signalContent}>
-                      <Text style={styles.signalTitle}>{formatEventSubtype(event.subtype)}</Text>
-                    </View>
-                    <Text style={styles.signalTime}>{formatTimeAgo(event._creationTime)}</Text>
-                  </Card.Body>
-                </Card>
+                      <View
+                        style={[
+                          styles.signalIcon,
+                          { backgroundColor: `${getEventColor(event.type, event.severity)}20` },
+                        ]}
+                      >
+                        <HugeiconsIcon
+                          icon={Alert02Icon}
+                          size={20}
+                          color={getEventColor(event.type, event.severity)}
+                        />
+                      </View>
+                      <View style={styles.signalContent}>
+                        <Text style={styles.signalTitle}>{formatEventSubtype(event.subtype)}</Text>
+                      </View>
+                      <Text style={styles.signalTime}>{formatTimeAgo(event._creationTime)}</Text>
+                    </Card.Body>
+                  </Card>
+                </TouchableOpacity>
               </Animated.View>
             ))
           ) : (
