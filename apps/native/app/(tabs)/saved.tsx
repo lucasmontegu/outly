@@ -182,8 +182,7 @@ export default function SavedScreen() {
               Add your first route to start monitoring conditions
             </Text>
             <Button
-              variant="primary"
-              style={styles.addRouteButton}
+              className="px-6 h-12 rounded-xl"
               onPress={() => router.push("/add-route")}
             >
               Add Route
@@ -326,11 +325,7 @@ export default function SavedScreen() {
                       {/* Actions */}
                       <View style={styles.actions}>
                         <Button
-                          variant="primary"
-                          style={[
-                            styles.saveButton,
-                            !hasChanges(route._id) && styles.saveButtonDisabled,
-                          ]}
+                          className="flex-1 h-12 rounded-xl"
                           onPress={() => handleSaveChanges(route._id)}
                           isDisabled={!hasChanges(route._id)}
                         >
@@ -418,9 +413,6 @@ const styles = StyleSheet.create({
     textAlign: "center",
     lineHeight: 20,
     marginBottom: 24,
-  },
-  addRouteButton: {
-    paddingHorizontal: 32,
   },
   routeCard: {
     backgroundColor: "#fff",
@@ -601,15 +593,6 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     gap: 12,
     marginTop: 20,
-  },
-  saveButton: {
-    flex: 1,
-    height: 48,
-    borderRadius: 12,
-    backgroundColor: "#111827",
-  },
-  saveButtonDisabled: {
-    backgroundColor: "#9CA3AF",
   },
   deleteButton: {
     width: 48,

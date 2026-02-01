@@ -190,9 +190,8 @@ export default function SignInScreen() {
             </TouchableOpacity>
 
             <Button
-              variant="primary"
               size="lg"
-              style={styles.signInButton}
+              className="w-full mt-2"
               onPress={onSignInPress}
               isDisabled={isLoading || !emailAddress || !password || isSocialLoading !== null}
             >
@@ -329,13 +328,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "500",
     color: "#3B82F6",
-  },
-  signInButton: {
-    width: "100%",
-    height: 52,
-    borderRadius: 12,
-    backgroundColor: "#111827",
-    marginTop: 8,
   },
   footer: {
     flexDirection: "row",

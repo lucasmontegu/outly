@@ -237,9 +237,9 @@ export default function SmartDepartureScreen() {
       {/* Bottom CTA */}
       <View style={styles.bottomCta}>
         <Button
-          variant="primary"
+          color="accent"
           size="lg"
-          style={styles.ctaButton}
+          className="w-full h-14 rounded-xl"
           onPress={() => {}}
         >
           <View style={styles.ctaContent}>
@@ -465,12 +465,6 @@ const styles = StyleSheet.create({
     padding: 16,
     borderTopWidth: 1,
     borderTopColor: "#E5E7EB",
-  },
-  ctaButton: {
-    width: "100%",
-    height: 56,
-    borderRadius: 16,
-    backgroundColor: "#111827",
   },
   ctaContent: {
     flexDirection: "row",

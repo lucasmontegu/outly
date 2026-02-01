@@ -177,9 +177,9 @@ export default function PreferencesScreen() {
       {/* CTA */}
       <View style={styles.footer}>
         <Button
-          variant="primary"
+          color="accent"
           size="lg"
-          style={styles.button}
+          className="w-full h-14 rounded-xl"
           onPress={handleContinue}
           isDisabled={isLoading}
         >
@@ -420,12 +420,6 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: "#F3F4F6",
     backgroundColor: "#fff",
-  },
-  button: {
-    width: "100%",
-    height: 56,
-    borderRadius: 12,
-    backgroundColor: "#111827",
   },
   skipButton: {
     alignItems: "center",

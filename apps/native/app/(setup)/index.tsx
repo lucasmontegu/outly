@@ -113,9 +113,9 @@ export default function SetupLocationPermission() {
       <View style={styles.footer}>
         {isGranted ? (
           <Button
-            variant="primary"
+            color="accent"
             size="lg"
-            style={styles.button}
+            className="w-full h-14 rounded-xl"
             onPress={() => router.replace("/(setup)/save-location")}
           >
             Continue
@@ -123,9 +123,9 @@ export default function SetupLocationPermission() {
         ) : (
           <>
             <Button
-              variant="primary"
+              color="accent"
               size="lg"
-              style={styles.button}
+              className="w-full h-14 rounded-xl"
               onPress={requestLocationPermission}
               isDisabled={isRequesting}
             >
@@ -224,12 +224,6 @@ const styles = StyleSheet.create({
   footer: {
     paddingHorizontal: 24,
     paddingBottom: 24,
-  },
-  button: {
-    width: "100%",
-    height: 56,
-    borderRadius: 12,
-    backgroundColor: "#111827",
   },
   skipButton: {
     width: "100%",

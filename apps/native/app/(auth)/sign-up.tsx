@@ -207,9 +207,8 @@ export default function SignUpScreen() {
             </View>
 
             <Button
-              variant="primary"
               size="lg"
-              style={styles.submitButton}
+              className="w-full mt-2"
               onPress={onSignUpPress}
               isDisabled={isLoading || !emailAddress || !password || isSocialLoading !== null}
             >
@@ -338,13 +337,6 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 15,
     color: "#111827",
-  },
-  submitButton: {
-    width: "100%",
-    height: 52,
-    borderRadius: 12,
-    backgroundColor: "#111827",
-    marginTop: 8,
   },
   footer: {
     flexDirection: "row",

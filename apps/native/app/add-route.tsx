@@ -323,9 +323,9 @@ export default function AddRouteScreen() {
         {/* Submit Button */}
         <View style={styles.footer}>
           <Button
-            variant="primary"
+            color="accent"
             size="lg"
-            style={styles.submitButton}
+            className="w-full h-14 rounded-xl"
             onPress={handleSubmit}
             isDisabled={isSubmitting || !name.trim() || !fromName.trim() || !toName.trim()}
           >
@@ -600,11 +600,5 @@ const styles = StyleSheet.create({
     padding: 16,
     borderTopWidth: 1,
     borderTopColor: "#E5E7EB",
-  },
-  submitButton: {
-    width: "100%",
-    height: 52,
-    borderRadius: 12,
-    backgroundColor: "#111827",
   },
 });

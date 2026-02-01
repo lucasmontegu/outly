@@ -222,8 +222,8 @@ export default function SavedLocationsScreen() {
                   Add your frequently visited places for quick access
                 </Text>
                 <Button
-                  variant="primary"
-                  style={styles.emptyButton}
+                  color="accent"
+                  className="px-6 h-12 rounded-xl"
                   onPress={handleOpenAdd}
                 >
                   Add Location
@@ -410,9 +410,9 @@ export default function SavedLocationsScreen() {
 
             <View style={styles.modalFooter}>
               <Button
-                variant="primary"
+                color="accent"
                 size="lg"
-                style={styles.modalSubmitButton}
+                className="w-full h-14 rounded-xl"
                 onPress={handleSubmit}
                 isDisabled={isSubmitting || !newName.trim()}
               >
@@ -550,9 +550,6 @@ const styles = StyleSheet.create({
     color: "#6B7280",
     textAlign: "center",
     marginBottom: 20,
-  },
-  emptyButton: {
-    paddingHorizontal: 24,
   },
   locationCard: {
     backgroundColor: "#fff",
@@ -754,11 +751,5 @@ const styles = StyleSheet.create({
     padding: 16,
     borderTopWidth: 1,
     borderTopColor: "#E5E7EB",
-  },
-  modalSubmitButton: {
-    width: "100%",
-    height: 52,
-    borderRadius: 12,
-    backgroundColor: "#111827",
   },
 });

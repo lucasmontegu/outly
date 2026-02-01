@@ -133,9 +133,9 @@ export default function PaywallScreen() {
       {/* Bottom CTA */}
       <SafeAreaView style={styles.bottomCta} edges={["bottom"]}>
         <Button
-          variant="primary"
+          color="accent"
           size="lg"
-          style={styles.ctaButton}
+          className="w-full h-14 rounded-xl"
           onPress={handleStartTrial}
         >
           Start 7-Day Free Trial
@@ -291,12 +291,6 @@ const styles = StyleSheet.create({
   bottomCta: {
     paddingHorizontal: 24,
     paddingBottom: 16,
-  },
-  ctaButton: {
-    width: "100%",
-    height: 56,
-    borderRadius: 16,
-    backgroundColor: "#fff",
   },
   disclaimerText: {
     fontSize: 12,
