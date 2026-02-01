@@ -54,7 +54,7 @@ export default function SignInScreen() {
           await setActiveSession({ session: createdSessionId });
           // Ensure user exists in Convex
           await ensureUser();
-          router.replace("/(tabs)");
+          router.replace("/(setup)");
         }
       } catch (err: any) {
         console.error("Social sign in error:", err);
@@ -82,7 +82,7 @@ export default function SignInScreen() {
         await setActive({ session: signInAttempt.createdSessionId });
         // Ensure user exists in Convex
         await ensureUser();
-        router.replace("/(tabs)");
+        router.replace("/(setup)");
       } else {
         setError("Sign in incomplete. Please try again.");
       }
@@ -214,7 +214,6 @@ export default function SignInScreen() {
     </SafeAreaView>
   );
 }
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -355,3 +354,4 @@ const styles = StyleSheet.create({
     color: "#3B82F6",
   },
 });
+

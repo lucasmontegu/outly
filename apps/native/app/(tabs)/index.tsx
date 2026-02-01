@@ -25,6 +25,7 @@ import { useState, useCallback } from "react";
 import Svg, { Circle } from "react-native-svg";
 
 import { useLocation } from "@/hooks/use-location";
+import { NotificationPrompt } from "@/components/NotificationPrompt";
 
 export default function OverviewScreen() {
   const router = useRouter();
@@ -183,6 +184,9 @@ export default function OverviewScreen() {
           )}
         </View>
       </ScrollView>
+
+      {/* Notification permission prompt - shown after user sees value */}
+      <NotificationPrompt />
     </SafeAreaView>
   );
 }

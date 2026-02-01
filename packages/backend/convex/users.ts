@@ -12,6 +12,17 @@ const userDoc = v.object({
   imageUrl: v.optional(v.string()),
   tier: v.union(v.literal("free"), v.literal("pro")),
   onboardingCompleted: v.boolean(),
+  preferences: v.optional(
+    v.object({
+      primaryConcern: v.union(
+        v.literal("weather"),
+        v.literal("traffic"),
+        v.literal("both")
+      ),
+      commuteTime: v.optional(v.string()),
+      alertAdvanceMinutes: v.optional(v.number()),
+    })
+  ),
 });
 
 // Get current authenticated user - creates user if doesn't exist
@@ -101,6 +112,44 @@ export const updateTier = mutation({
     }
 
     await ctx.db.patch(user._id, { tier: args.tier });
+    return null;
+  },
+});
+
+// Save user preferences
+export const savePreferences = mutation({
+  args: {
+    primaryConcern: v.union(
+      v.literal("weather"),
+      v.literal("traffic"),
+      v.literal("both")
+    ),
+    commuteTime: v.optional(v.string()),
+    alertAdvanceMinutes: v.optional(v.number()),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Not authenticated");
+    }
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+      .unique();
+
+    if (!user) {
+      throw new Error("User not found");
+    }
+
+    await ctx.db.patch(user._id, {
+      preferences: {
+        primaryConcern: args.primaryConcern,
+        commuteTime: args.commuteTime,
+        alertAdvanceMinutes: args.alertAdvanceMinutes,
+      },
+    });
     return null;
   },
 });

@@ -54,7 +54,7 @@ export default function SignUpScreen() {
           await setActiveSession({ session: createdSessionId });
           // Ensure user exists in Convex
           await ensureUser();
-          router.replace("/(tabs)");
+          router.replace("/(setup)");
         }
       } catch (err: any) {
         console.error("Social sign up error:", err);
@@ -84,7 +84,7 @@ export default function SignUpScreen() {
         await setActive({ session: signUpAttempt.createdSessionId });
         // Ensure user exists in Convex
         await ensureUser();
-        router.replace("/(tabs)");
+        router.replace("/(setup)");
       } else if (signUpAttempt.status === "missing_requirements") {
         // If Clerk requires verification, try to complete anyway
         // This happens when email verification is disabled in Clerk dashboard
@@ -95,13 +95,13 @@ export default function SignUpScreen() {
         if (completeSignUp?.status === "complete") {
           await setActive({ session: completeSignUp.createdSessionId });
           await ensureUser();
-          router.replace("/(tabs)");
+          router.replace("/(setup)");
         } else {
           // Fallback: just set the session active
           if (signUpAttempt.createdSessionId) {
             await setActive({ session: signUpAttempt.createdSessionId });
             await ensureUser();
-            router.replace("/(tabs)");
+            router.replace("/(setup)");
           } else {
             setError("Unable to complete sign up. Please try again.");
           }
@@ -231,7 +231,6 @@ export default function SignUpScreen() {
     </SafeAreaView>
   );
 }
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -364,3 +363,4 @@ const styles = StyleSheet.create({
     color: "#3B82F6",
   },
 });
+

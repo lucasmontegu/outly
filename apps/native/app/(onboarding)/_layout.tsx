@@ -8,17 +8,14 @@ export default function OnboardingLayout() {
     return null;
   }
 
-  // If user is signed in, redirect to main app
+  // If user is signed in, redirect to setup flow (which will check onboarding status)
   if (isSignedIn) {
-    return <Redirect href="/(tabs)" />;
+    return <Redirect href="/(setup)" />;
   }
 
   return (
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="index" />
-      <Stack.Screen name="step-2" />
-      <Stack.Screen name="step-3" />
-      <Stack.Screen name="step-4" />
     </Stack>
   );
 }

@@ -11,6 +11,18 @@ export default defineSchema({
     imageUrl: v.optional(v.string()),
     tier: v.union(v.literal("free"), v.literal("pro")),
     onboardingCompleted: v.boolean(),
+    // User preferences from onboarding
+    preferences: v.optional(
+      v.object({
+        primaryConcern: v.union(
+          v.literal("weather"),
+          v.literal("traffic"),
+          v.literal("both")
+        ),
+        commuteTime: v.optional(v.string()),
+        alertAdvanceMinutes: v.optional(v.number()),
+      })
+    ),
   })
     .index("by_clerk_id", ["clerkId"])
     .index("by_email", ["email"]),
