@@ -1,6 +1,16 @@
-import React from "react";
+import React, { useCallback } from "react";
 import { View, Text, StyleSheet, Pressable } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+  FadeInDown,
+  Layout,
+} from "react-native-reanimated";
+import { lightHaptic } from "@/lib/haptics";
+
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 type Classification = "low" | "medium" | "high";
 
@@ -11,6 +21,10 @@ type LocationCardProps = {
   classification: Classification;
   isDefault?: boolean;
   onPress?: () => void;
+  /**
+   * Index for staggered entrance animation
+   */
+  index?: number;
 };
 
 const COLORS = {
@@ -35,16 +49,40 @@ export function LocationCard({
   classification,
   isDefault,
   onPress,
+  index = 0,
 }: LocationCardProps) {
   const iconName = ICONS[name] ?? "location";
 
+  // Animation values
+  const scale = useSharedValue(1);
+  const translateY = useSharedValue(0);
+
+  const handlePressIn = useCallback(() => {
+    scale.value = withSpring(0.98, { damping: 20, stiffness: 400 });
+    translateY.value = withSpring(2, { damping: 20, stiffness: 400 });
+    lightHaptic();
+  }, []);
+
+  const handlePressOut = useCallback(() => {
+    scale.value = withSpring(1, { damping: 20, stiffness: 400 });
+    translateY.value = withSpring(0, { damping: 20, stiffness: 400 });
+  }, []);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [
+      { scale: scale.value },
+      { translateY: translateY.value },
+    ],
+  }));
+
   return (
-    <Pressable
-      style={({ pressed }) => [
-        styles.container,
-        pressed && styles.pressed,
-      ]}
+    <AnimatedPressable
+      entering={FadeInDown.delay(index * 50).duration(300).springify().damping(20)}
+      layout={Layout.springify().damping(20)}
+      style={[styles.container, animatedStyle]}
       onPress={onPress}
+      onPressIn={handlePressIn}
+      onPressOut={handlePressOut}
     >
       <View style={styles.iconContainer}>
         <Ionicons name={iconName} size={24} color="#94a3b8" />
@@ -54,9 +92,9 @@ export function LocationCard({
         <View style={styles.header}>
           <Text style={styles.name}>{name}</Text>
           {isDefault && (
-            <View style={styles.defaultBadge}>
+            <Animated.View style={styles.defaultBadge}>
               <Text style={styles.defaultText}>Principal</Text>
-            </View>
+            </Animated.View>
           )}
         </View>
         {address && <Text style={styles.address} numberOfLines={1}>{address}</Text>}
@@ -65,7 +103,7 @@ export function LocationCard({
       <View style={[styles.scoreBadge, { backgroundColor: COLORS[classification] }]}>
         <Text style={styles.scoreText}>{score}</Text>
       </View>
-    </Pressable>
+    </AnimatedPressable>
   );
 }
 
@@ -77,9 +115,6 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 16,
     marginBottom: 12,
-  },
-  pressed: {
-    opacity: 0.8,
   },
   iconContainer: {
     width: 40,

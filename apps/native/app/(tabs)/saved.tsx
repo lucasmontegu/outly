@@ -16,14 +16,29 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  TouchableOpacity,
-  ActivityIndicator,
   Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Card, Button } from "heroui-native";
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { LinearGradient } from "expo-linear-gradient";
+import Animated, {
+  FadeIn,
+  FadeInDown,
+  FadeOut,
+  Layout,
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+} from "react-native-reanimated";
+import { Pressable } from "react-native";
+
+import { AnimatedIconButton, AnimatedCard } from "@/components/ui/animated-pressable";
+import { RouteCardSkeleton } from "@/components/ui/skeleton";
+import { useToast } from "@/components/ui/toast";
+import { lightHaptic, mediumHaptic, successHaptic, errorHaptic, warningHaptic } from "@/lib/haptics";
+
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 const DAYS = ["M", "T", "W", "T", "F", "S", "S"];
 
@@ -31,6 +46,7 @@ type RouteIcon = "building" | "running" | "home";
 
 export default function SavedScreen() {
   const router = useRouter();
+  const toast = useToast();
   const [expandedRoute, setExpandedRoute] = useState<string | null>(null);
   const [pendingChanges, setPendingChanges] = useState<Record<string, {
     monitorDays?: boolean[];
@@ -81,7 +97,8 @@ export default function SavedScreen() {
     }
   };
 
-  const toggleDay = (routeId: string, dayIndex: number, currentDays: boolean[]) => {
+  const toggleDay = useCallback((routeId: string, dayIndex: number, currentDays: boolean[]) => {
+    lightHaptic();
     const currentPending = pendingChanges[routeId] || {};
     const newDays = [...(currentPending.monitorDays || currentDays)];
     newDays[dayIndex] = !newDays[dayIndex];
@@ -89,7 +106,7 @@ export default function SavedScreen() {
       ...pendingChanges,
       [routeId]: { ...currentPending, monitorDays: newDays },
     });
-  };
+  }, [pendingChanges]);
 
   const updateThreshold = (routeId: string, threshold: number) => {
     const currentPending = pendingChanges[routeId] || {};
@@ -99,22 +116,31 @@ export default function SavedScreen() {
     });
   };
 
-  const handleSaveChanges = async (routeId: Id<"routes">) => {
+  const handleSaveChanges = useCallback(async (routeId: Id<"routes">) => {
     const changes = pendingChanges[routeId];
     if (!changes) return;
 
-    await updateRoute({
-      routeId,
-      ...(changes.monitorDays && { monitorDays: changes.monitorDays }),
-      ...(changes.alertThreshold !== undefined && { alertThreshold: changes.alertThreshold }),
-    });
+    try {
+      await updateRoute({
+        routeId,
+        ...(changes.monitorDays && { monitorDays: changes.monitorDays }),
+        ...(changes.alertThreshold !== undefined && { alertThreshold: changes.alertThreshold }),
+      });
 
-    // Clear pending changes for this route
-    const { [routeId]: _, ...rest } = pendingChanges;
-    setPendingChanges(rest);
-  };
+      // Clear pending changes for this route
+      const { [routeId]: _, ...rest } = pendingChanges;
+      setPendingChanges(rest);
 
-  const handleDeleteRoute = (routeId: Id<"routes">, routeName: string) => {
+      successHaptic();
+      toast.success("Route settings saved");
+    } catch (error) {
+      errorHaptic();
+      toast.error("Failed to save changes");
+    }
+  }, [pendingChanges, updateRoute, toast]);
+
+  const handleDeleteRoute = useCallback((routeId: Id<"routes">, routeName: string) => {
+    warningHaptic();
     Alert.alert(
       "Delete Route",
       `Are you sure you want to delete "${routeName}"?`,
@@ -124,12 +150,19 @@ export default function SavedScreen() {
           text: "Delete",
           style: "destructive",
           onPress: async () => {
-            await deleteRoute({ routeId });
+            try {
+              await deleteRoute({ routeId });
+              successHaptic();
+              toast.success("Route deleted");
+            } catch (error) {
+              errorHaptic();
+              toast.error("Failed to delete route");
+            }
           },
         },
       ]
     );
-  };
+  }, [deleteRoute, toast]);
 
   const getEffectiveDays = (routeId: string, originalDays: boolean[]): boolean[] => {
     return pendingChanges[routeId]?.monitorDays || originalDays;
@@ -152,10 +185,19 @@ export default function SavedScreen() {
   if (routes === undefined) {
     return (
       <SafeAreaView style={styles.container} edges={["top"]}>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#3B82F6" />
-          <Text style={styles.loadingText}>Loading routes...</Text>
-        </View>
+        {/* Header */}
+        <Animated.View entering={FadeIn.duration(300)} style={styles.header}>
+          <View style={styles.headerSpacer} />
+          <Text style={styles.headerTitle}>My Routes</Text>
+          <View style={styles.headerSpacer} />
+        </Animated.View>
+        <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
+          <RouteCardSkeleton />
+          <View style={{ height: 16 }} />
+          <RouteCardSkeleton />
+          <View style={{ height: 16 }} />
+          <RouteCardSkeleton />
+        </ScrollView>
       </SafeAreaView>
     );
   }
@@ -163,20 +205,26 @@ export default function SavedScreen() {
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
       {/* Header */}
-      <View style={styles.header}>
+      <Animated.View entering={FadeInDown.duration(300)} style={styles.header}>
         <View style={styles.headerSpacer} />
         <Text style={styles.headerTitle}>My Routes</Text>
-        <TouchableOpacity style={styles.addButton} onPress={() => router.push("/add-route")}>
+        <AnimatedIconButton
+          style={styles.addButton}
+          onPress={() => router.push("/add-route")}
+        >
           <HugeiconsIcon icon={Add01Icon} size={24} color="#3B82F6" />
-        </TouchableOpacity>
-      </View>
+        </AnimatedIconButton>
+      </Animated.View>
 
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
       >
         {routes.length === 0 ? (
-          <View style={styles.emptyContainer}>
+          <Animated.View
+            entering={FadeIn.duration(400).delay(200)}
+            style={styles.emptyContainer}
+          >
             <Text style={styles.emptyTitle}>No routes saved</Text>
             <Text style={styles.emptyText}>
               Add your first route to start monitoring conditions
@@ -187,20 +235,24 @@ export default function SavedScreen() {
             >
               Add Route
             </Button>
-          </View>
+          </Animated.View>
         ) : (
-          routes.map((route) => (
-            <Card
+          routes.map((route, index) => (
+            <Animated.View
               key={route._id}
-              style={[
-                styles.routeCard,
-                expandedRoute === route._id && styles.routeCardExpanded,
-              ]}
+              entering={FadeInDown.delay(index * 80).duration(350).springify().damping(20)}
+              exiting={FadeOut.duration(200)}
+              layout={Layout.springify().damping(20)}
             >
-              <TouchableOpacity
-                onPress={() =>
-                  setExpandedRoute(expandedRoute === route._id ? null : route._id)
-                }
+              <AnimatedCard
+                style={[
+                  styles.routeCard,
+                  expandedRoute === route._id && styles.routeCardExpanded,
+                ]}
+                onPress={() => {
+                  mediumHaptic();
+                  setExpandedRoute(expandedRoute === route._id ? null : route._id);
+                }}
               >
                 <Card.Body style={styles.routeCardBody}>
                   {/* Route Header */}
@@ -238,50 +290,51 @@ export default function SavedScreen() {
 
                   {/* Expanded Content */}
                   {expandedRoute === route._id && (
-                    <>
+                    <Animated.View entering={FadeIn.duration(250)}>
                       {/* Map Preview */}
-                      <View style={styles.mapPreview}>
+                      <Animated.View
+                        entering={FadeInDown.duration(300).delay(50)}
+                        style={styles.mapPreview}
+                      >
                         <LinearGradient
                           colors={["#E2E8F0", "#CBD5E1"]}
                           style={styles.mapGradient}
                         >
-                          <TouchableOpacity style={styles.editPathButton}>
+                          <AnimatedPressable
+                            style={styles.editPathButton}
+                            onPress={() => lightHaptic()}
+                          >
                             <Text style={styles.editPathText}>Edit Path</Text>
-                          </TouchableOpacity>
+                          </AnimatedPressable>
                         </LinearGradient>
-                      </View>
+                      </Animated.View>
 
                       {/* Monitor Days */}
-                      <View style={styles.section}>
+                      <Animated.View
+                        entering={FadeInDown.duration(300).delay(100)}
+                        style={styles.section}
+                      >
                         <Text style={styles.sectionLabel}>MONITOR DAYS</Text>
                         <View style={styles.daysRow}>
-                          {DAYS.map((day, index) => {
+                          {DAYS.map((day, dayIndex) => {
                             const effectiveDays = getEffectiveDays(route._id, route.monitorDays);
                             return (
-                              <TouchableOpacity
-                                key={index}
-                                style={[
-                                  styles.dayButton,
-                                  effectiveDays[index] && styles.dayButtonActive,
-                                ]}
-                                onPress={() => toggleDay(route._id, index, route.monitorDays)}
-                              >
-                                <Text
-                                  style={[
-                                    styles.dayText,
-                                    effectiveDays[index] && styles.dayTextActive,
-                                  ]}
-                                >
-                                  {day}
-                                </Text>
-                              </TouchableOpacity>
+                              <DayButton
+                                key={dayIndex}
+                                day={day}
+                                isActive={effectiveDays[dayIndex]}
+                                onPress={() => toggleDay(route._id, dayIndex, route.monitorDays)}
+                              />
                             );
                           })}
                         </View>
-                      </View>
+                      </Animated.View>
 
                       {/* Alert Threshold */}
-                      <View style={styles.section}>
+                      <Animated.View
+                        entering={FadeInDown.duration(300).delay(150)}
+                        style={styles.section}
+                      >
                         <View style={styles.thresholdHeader}>
                           <Text style={styles.sectionLabel}>ALERT THRESHOLD</Text>
                           <Text style={styles.thresholdValue}>
@@ -306,10 +359,13 @@ export default function SavedScreen() {
                           </View>
                           <Text style={styles.sliderLabel}>Critical Only</Text>
                         </View>
-                      </View>
+                      </Animated.View>
 
                       {/* Alert Info */}
-                      <View style={styles.alertInfo}>
+                      <Animated.View
+                        entering={FadeInDown.duration(300).delay(200)}
+                        style={styles.alertInfo}
+                      >
                         <Text style={styles.alertInfoIcon}>ℹ️</Text>
                         <Text style={styles.alertInfoText}>
                           You will be notified at{" "}
@@ -320,10 +376,13 @@ export default function SavedScreen() {
                           </Text>{" "}
                           (Rain, Congestion, or Accidents).
                         </Text>
-                      </View>
+                      </Animated.View>
 
                       {/* Actions */}
-                      <View style={styles.actions}>
+                      <Animated.View
+                        entering={FadeInDown.duration(300).delay(250)}
+                        style={styles.actions}
+                      >
                         <Button
                           className="flex-1 h-12 rounded-xl"
                           onPress={() => handleSaveChanges(route._id)}
@@ -331,22 +390,64 @@ export default function SavedScreen() {
                         >
                           {hasChanges(route._id) ? "Save Changes" : "No Changes"}
                         </Button>
-                        <TouchableOpacity
+                        <AnimatedIconButton
                           style={styles.deleteButton}
                           onPress={() => handleDeleteRoute(route._id, route.name)}
                         >
                           <HugeiconsIcon icon={Delete02Icon} size={20} color="#9CA3AF" />
-                        </TouchableOpacity>
-                      </View>
-                    </>
+                        </AnimatedIconButton>
+                      </Animated.View>
+                    </Animated.View>
                   )}
                 </Card.Body>
-              </TouchableOpacity>
-            </Card>
+              </AnimatedCard>
+            </Animated.View>
           ))
         )}
       </ScrollView>
     </SafeAreaView>
+  );
+}
+
+// Animated Day Button component
+function DayButton({
+  day,
+  isActive,
+  onPress,
+}: {
+  day: string;
+  isActive: boolean;
+  onPress: () => void;
+}) {
+  const scale = useSharedValue(1);
+
+  const handlePressIn = useCallback(() => {
+    scale.value = withSpring(0.9, { damping: 15, stiffness: 400 });
+  }, []);
+
+  const handlePressOut = useCallback(() => {
+    scale.value = withSpring(1, { damping: 15, stiffness: 400 });
+  }, []);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+
+  return (
+    <AnimatedPressable
+      style={[
+        styles.dayButton,
+        isActive && styles.dayButtonActive,
+        animatedStyle,
+      ]}
+      onPress={onPress}
+      onPressIn={handlePressIn}
+      onPressOut={handlePressOut}
+    >
+      <Text style={[styles.dayText, isActive && styles.dayTextActive]}>
+        {day}
+      </Text>
+    </AnimatedPressable>
   );
 }
 

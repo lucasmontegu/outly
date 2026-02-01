@@ -16,6 +16,7 @@ import { HeroUINativeProvider } from "heroui-native";
 import { setAndroidNavigationBar } from "@/lib/android-navigation-bar";
 import { NAV_THEME } from "@/lib/constants";
 import { useColorScheme } from "@/lib/use-color-scheme";
+import { ToastProvider } from "@/components/ui/toast";
 
 const LIGHT_THEME: Theme = {
   ...DefaultTheme,
@@ -68,14 +69,16 @@ export default function RootLayout() {
           <StatusBar style={isDarkColorScheme ? "light" : "dark"} />
           <GestureHandlerRootView style={styles.container}>
             <HeroUINativeProvider>
-              <Stack screenOptions={{ headerShown: false }}>
-                <Stack.Screen name="(onboarding)" />
-                <Stack.Screen name="(auth)" />
-                <Stack.Screen name="(setup)" />
-                <Stack.Screen name="(tabs)" />
-                <Stack.Screen name="paywall" options={{ presentation: "modal" }} />
-                <Stack.Screen name="smart-departure" options={{ presentation: "card" }} />
+              <ToastProvider>
+                <Stack screenOptions={{ headerShown: false }}>
+                  <Stack.Screen name="(onboarding)" />
+                  <Stack.Screen name="(auth)" />
+                  <Stack.Screen name="(setup)" />
+                  <Stack.Screen name="(tabs)" />
+                  <Stack.Screen name="paywall" options={{ presentation: "modal" }} />
+                  <Stack.Screen name="smart-departure" options={{ presentation: "card" }} />
                 </Stack>
+              </ToastProvider>
             </HeroUINativeProvider>
           </GestureHandlerRootView>
         </ThemeProvider>

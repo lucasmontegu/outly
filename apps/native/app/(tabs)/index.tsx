@@ -15,17 +15,32 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  TouchableOpacity,
   RefreshControl,
-  ActivityIndicator,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Card } from "heroui-native";
 import { useState, useCallback } from "react";
 import Svg, { Circle } from "react-native-svg";
+import Animated, {
+  FadeIn,
+  FadeInDown,
+  FadeInUp,
+  withSpring,
+  useSharedValue,
+  useAnimatedStyle,
+  Layout,
+} from "react-native-reanimated";
 
 import { useLocation } from "@/hooks/use-location";
 import { NotificationPrompt } from "@/components/NotificationPrompt";
+import { AnimatedIconButton } from "@/components/ui/animated-pressable";
+import {
+  RiskCircleSkeleton,
+  DataCardSkeleton,
+  EventCardSkeleton,
+  Skeleton,
+} from "@/components/ui/skeleton";
+import { lightHaptic } from "@/lib/haptics";
 
 export default function OverviewScreen() {
   const router = useRouter();
@@ -55,6 +70,7 @@ export default function OverviewScreen() {
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
+    lightHaptic();
     // The query will automatically refetch when we reset
     setTimeout(() => setRefreshing(false), 1000);
   }, []);
@@ -71,118 +87,172 @@ export default function OverviewScreen() {
         }
       >
         {/* Header */}
-        <View style={styles.header}>
+        <Animated.View entering={FadeInDown.duration(400).delay(100)} style={styles.header}>
           <View style={styles.locationInfo}>
             <View style={styles.locationLabel}>
               <HugeiconsIcon icon={Location01Icon} size={14} color="#6B7280" />
               <Text style={styles.locationLabelText}>CURRENT LOCATION</Text>
             </View>
-            <Text style={styles.locationName}>
-              {address || "Detecting location..."}
-            </Text>
+            {address ? (
+              <Animated.Text entering={FadeIn.duration(300)} style={styles.locationName}>
+                {address}
+              </Animated.Text>
+            ) : (
+              <Skeleton width={180} height={24} borderRadius={6} style={{ marginTop: 4 }} />
+            )}
           </View>
-          <TouchableOpacity
+          <AnimatedIconButton
             style={styles.profileButton}
             onPress={() => router.push("/(tabs)/settings")}
           >
             <HugeiconsIcon icon={UserIcon} size={24} color="#6B7280" />
-          </TouchableOpacity>
-        </View>
+          </AnimatedIconButton>
+        </Animated.View>
 
         {/* Risk Score Circle */}
-        <View style={styles.riskCircleContainer}>
+        <Animated.View
+          entering={FadeIn.duration(500).delay(200)}
+          style={styles.riskCircleContainer}
+        >
           {isLoading ? (
-            <View style={styles.loadingContainer}>
-              <ActivityIndicator size="large" color="#3B82F6" />
-              <Text style={styles.loadingText}>Analyzing conditions...</Text>
-            </View>
+            <RiskCircleSkeleton />
           ) : (
             <>
               <RiskCircle score={riskScore} level={riskLevel} />
-              <View style={[styles.riskBadge, { backgroundColor: `${riskLevel.color}20` }]}>
+              <Animated.View
+                entering={FadeInUp.duration(300).delay(400)}
+                style={[styles.riskBadge, { backgroundColor: `${riskLevel.color}20` }]}
+              >
                 <View style={[styles.riskDot, { backgroundColor: riskLevel.color }]} />
                 <Text style={[styles.riskBadgeText, { color: riskLevel.color }]}>
                   {riskLevel.label}
                 </Text>
-              </View>
+              </Animated.View>
             </>
           )}
-        </View>
+        </Animated.View>
 
         {/* Risk Description */}
-        <Text style={styles.riskDescription}>{riskDescription}</Text>
+        <Animated.Text
+          entering={FadeIn.duration(400).delay(300)}
+          style={styles.riskDescription}
+        >
+          {riskDescription}
+        </Animated.Text>
 
         {/* Weather & Traffic Cards */}
-        <View style={styles.dataCards}>
-          <Card style={styles.dataCard}>
-            <Card.Body style={styles.dataCardBody}>
-              <View style={styles.dataCardIcon}>
-                <HugeiconsIcon icon={CloudIcon} size={24} color="#3B82F6" />
-              </View>
-              <Text style={styles.dataCardLabel}>WEATHER</Text>
-              <Text style={styles.dataCardValue}>{weatherStatus.label}</Text>
-              <Text style={styles.dataCardSubtext}>{weatherStatus.subtext}</Text>
-            </Card.Body>
-          </Card>
+        <Animated.View
+          entering={FadeInDown.duration(400).delay(400)}
+          style={styles.dataCards}
+        >
+          {isLoading ? (
+            <>
+              <DataCardSkeleton />
+              <View style={{ width: 12 }} />
+              <DataCardSkeleton />
+            </>
+          ) : (
+            <>
+              <Animated.View
+                entering={FadeInDown.duration(300).delay(450)}
+                style={styles.dataCard}
+              >
+                <Card style={styles.dataCardInner}>
+                  <Card.Body style={styles.dataCardBody}>
+                    <View style={styles.dataCardIcon}>
+                      <HugeiconsIcon icon={CloudIcon} size={24} color="#3B82F6" />
+                    </View>
+                    <Text style={styles.dataCardLabel}>WEATHER</Text>
+                    <Text style={styles.dataCardValue}>{weatherStatus.label}</Text>
+                    <Text style={styles.dataCardSubtext}>{weatherStatus.subtext}</Text>
+                  </Card.Body>
+                </Card>
+              </Animated.View>
 
-          <Card style={styles.dataCard}>
-            <Card.Body style={styles.dataCardBody}>
-              <View style={[styles.dataCardIcon, styles.trafficIcon]}>
-                <HugeiconsIcon icon={Car01Icon} size={24} color="#10B981" />
-              </View>
-              <Text style={styles.dataCardLabel}>TRAFFIC</Text>
-              <Text style={styles.dataCardValue}>{trafficStatus.label}</Text>
-              <Text style={styles.dataCardSubtext}>{trafficStatus.subtext}</Text>
-            </Card.Body>
-          </Card>
-        </View>
+              <Animated.View
+                entering={FadeInDown.duration(300).delay(500)}
+                style={styles.dataCard}
+              >
+                <Card style={styles.dataCardInner}>
+                  <Card.Body style={styles.dataCardBody}>
+                    <View style={[styles.dataCardIcon, styles.trafficIcon]}>
+                      <HugeiconsIcon icon={Car01Icon} size={24} color="#10B981" />
+                    </View>
+                    <Text style={styles.dataCardLabel}>TRAFFIC</Text>
+                    <Text style={styles.dataCardValue}>{trafficStatus.label}</Text>
+                    <Text style={styles.dataCardSubtext}>{trafficStatus.subtext}</Text>
+                  </Card.Body>
+                </Card>
+              </Animated.View>
+            </>
+          )}
+        </Animated.View>
 
         {/* Nearby Signals Section */}
-        <View style={styles.signalsSection}>
+        <Animated.View
+          entering={FadeInDown.duration(400).delay(500)}
+          style={styles.signalsSection}
+        >
           <View style={styles.signalsHeader}>
             <Text style={styles.signalsTitle}>Nearby Signals</Text>
-            <TouchableOpacity onPress={() => router.push("/(tabs)/map")}>
+            <AnimatedIconButton
+              onPress={() => router.push("/(tabs)/map")}
+              style={styles.viewMapButton}
+            >
               <Text style={styles.viewMapLink}>View Map</Text>
-            </TouchableOpacity>
+            </AnimatedIconButton>
           </View>
 
-          {riskData?.nearbyEvents && riskData.nearbyEvents.length > 0 ? (
-            riskData.nearbyEvents.slice(0, 3).map((event) => (
-              <Card key={event._id} style={styles.signalCard}>
-                <Card.Body style={styles.signalCardBody}>
-                  <View
-                    style={[
-                      styles.signalIndicator,
-                      { backgroundColor: getEventColor(event.type, event.severity) },
-                    ]}
-                  />
-                  <View
-                    style={[
-                      styles.signalIcon,
-                      { backgroundColor: `${getEventColor(event.type, event.severity)}20` },
-                    ]}
-                  >
-                    <HugeiconsIcon
-                      icon={Alert02Icon}
-                      size={20}
-                      color={getEventColor(event.type, event.severity)}
+          {isLoading ? (
+            <>
+              <EventCardSkeleton />
+              <EventCardSkeleton />
+            </>
+          ) : riskData?.nearbyEvents && riskData.nearbyEvents.length > 0 ? (
+            riskData.nearbyEvents.slice(0, 3).map((event, index) => (
+              <Animated.View
+                key={event._id}
+                entering={FadeInDown.duration(300).delay(550 + index * 50)}
+                layout={Layout.springify().damping(20)}
+              >
+                <Card style={styles.signalCard}>
+                  <Card.Body style={styles.signalCardBody}>
+                    <View
+                      style={[
+                        styles.signalIndicator,
+                        { backgroundColor: getEventColor(event.type, event.severity) },
+                      ]}
                     />
-                  </View>
-                  <View style={styles.signalContent}>
-                    <Text style={styles.signalTitle}>{formatEventSubtype(event.subtype)}</Text>
-                  </View>
-                  <Text style={styles.signalTime}>{formatTimeAgo(event._creationTime)}</Text>
-                </Card.Body>
-              </Card>
+                    <View
+                      style={[
+                        styles.signalIcon,
+                        { backgroundColor: `${getEventColor(event.type, event.severity)}20` },
+                      ]}
+                    >
+                      <HugeiconsIcon
+                        icon={Alert02Icon}
+                        size={20}
+                        color={getEventColor(event.type, event.severity)}
+                      />
+                    </View>
+                    <View style={styles.signalContent}>
+                      <Text style={styles.signalTitle}>{formatEventSubtype(event.subtype)}</Text>
+                    </View>
+                    <Text style={styles.signalTime}>{formatTimeAgo(event._creationTime)}</Text>
+                  </Card.Body>
+                </Card>
+              </Animated.View>
             ))
           ) : (
-            <Card style={styles.signalCard}>
-              <Card.Body style={styles.emptySignalBody}>
-                <Text style={styles.emptySignalText}>No nearby signals reported</Text>
-              </Card.Body>
-            </Card>
+            <Animated.View entering={FadeIn.duration(300).delay(550)}>
+              <Card style={styles.signalCard}>
+                <Card.Body style={styles.emptySignalBody}>
+                  <Text style={styles.emptySignalText}>No nearby signals reported</Text>
+                </Card.Body>
+              </Card>
+            </Animated.View>
           )}
-        </View>
+        </Animated.View>
       </ScrollView>
 
       {/* Notification permission prompt - shown after user sees value */}
@@ -395,6 +465,8 @@ const styles = StyleSheet.create({
   },
   dataCard: {
     flex: 1,
+  },
+  dataCardInner: {
     backgroundColor: "#F9FAFB",
     borderRadius: 16,
     overflow: "hidden",
@@ -445,6 +517,10 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: "700",
     color: "#111827",
+  },
+  viewMapButton: {
+    paddingVertical: 4,
+    paddingHorizontal: 8,
   },
   viewMapLink: {
     fontSize: 14,
