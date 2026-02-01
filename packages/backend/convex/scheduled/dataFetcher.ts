@@ -36,6 +36,18 @@ export const fetchAllData = internalAction({
           { lat: center.lat, lng: center.lng, radiusMeters: 10000 }
         );
 
+        // Fetch Tomorrow.io nowcasting data (minute-by-minute precipitation)
+        let nowcastData = null;
+        try {
+          nowcastData = await ctx.runAction(
+            internal.integrations.weather.fetchTomorrowIO,
+            { lat: center.lat, lng: center.lng }
+          );
+        } catch (error) {
+          // Tomorrow.io is optional - continue without it
+          console.warn("Tomorrow.io fetch failed:", error);
+        }
+
         // Get nearby events
         const nearbyEvents = await ctx.runQuery(
           internal.scheduled.dataFetcherQueries.getNearbyEvents,
@@ -44,9 +56,20 @@ export const fetchAllData = internalAction({
 
         // Calculate risk for each location in cell
         for (const location of cellLocations as any[]) {
+          // Combine weather data with alerts for risk calculation
+          const weatherDataForRisk = {
+            ...weatherData.current,
+            alerts: weatherData.alerts,
+            // Add nowcast precipitation if available (next 10 minutes)
+            nowcastPrecipitation: nowcastData?.minutely?.slice(0, 10)?.reduce(
+              (max: number, m: any) => Math.max(max, m.precipitationIntensity ?? 0),
+              0
+            ),
+          };
+
           await ctx.runMutation(internal.riskScore.calculate, {
             locationId: location._id,
-            weatherData: weatherData.current,
+            weatherData: weatherDataForRisk,
             trafficData,
             nearbyEvents: nearbyEvents.map((e: any) => ({
               severity: e.severity,

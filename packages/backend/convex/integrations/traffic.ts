@@ -21,17 +21,21 @@ export const fetchHereTraffic = internalAction({
 
     const flowResponse = await fetch(flowUrl);
     if (!flowResponse.ok) {
-      throw new Error(`HERE Traffic Flow API error: ${flowResponse.status}`);
+      const errorBody = await flowResponse.text();
+      console.error("HERE Flow error body:", errorBody);
+      throw new Error(`HERE Traffic Flow API error: ${flowResponse.status} - ${errorBody}`);
     }
 
     const flowData = await flowResponse.json();
 
     // Fetch incidents
-    const incidentsUrl = `https://data.traffic.hereapi.com/v7/incidents?in=circle:${args.lat},${args.lng};r=${radius}&apiKey=${apiKey}`;
+    const incidentsUrl = `https://data.traffic.hereapi.com/v7/incidents?in=circle:${args.lat},${args.lng};r=${radius}&locationReferencing=shape&apiKey=${apiKey}`;
 
     const incidentsResponse = await fetch(incidentsUrl);
     if (!incidentsResponse.ok) {
-      throw new Error(`HERE Traffic Incidents API error: ${incidentsResponse.status}`);
+      const errorBody = await incidentsResponse.text();
+      console.error("HERE Incidents error body:", errorBody);
+      throw new Error(`HERE Traffic Incidents API error: ${incidentsResponse.status} - ${errorBody}`);
     }
 
     const incidentsData = await incidentsResponse.json();

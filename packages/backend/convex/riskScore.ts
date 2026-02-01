@@ -4,17 +4,24 @@ import { query, internalMutation } from "./_generated/server";
 // Weather score thresholds
 function calculateWeatherScore(data: {
   precipitation?: number; // mm/h
+  nowcastPrecipitation?: number; // mm/h from Tomorrow.io (next 10 min)
   windSpeed?: number; // km/h
   visibility?: number; // meters
   hasSevereAlert?: boolean;
 }): number {
   let score = 0;
 
+  // Use max of current precipitation or upcoming nowcast precipitation
+  const effectivePrecipitation = Math.max(
+    data.precipitation ?? 0,
+    data.nowcastPrecipitation ?? 0
+  );
+
   // Precipitation
-  if (data.precipitation) {
-    if (data.precipitation > 10) score += 30;
-    else if (data.precipitation > 5) score += 20;
-    else if (data.precipitation > 1) score += 10;
+  if (effectivePrecipitation > 0) {
+    if (effectivePrecipitation > 10) score += 30;
+    else if (effectivePrecipitation > 5) score += 20;
+    else if (effectivePrecipitation > 1) score += 10;
   }
 
   // Wind
@@ -285,6 +292,7 @@ export const calculate = internalMutation({
       ? calculateWeatherScore({
           precipitation:
             args.weatherData.rain?.["1h"] ?? args.weatherData.rain,
+          nowcastPrecipitation: args.weatherData.nowcastPrecipitation, // from Tomorrow.io
           windSpeed: args.weatherData.wind?.speed
             ? args.weatherData.wind.speed * 3.6
             : undefined, // m/s to km/h

@@ -1,6 +1,6 @@
 "use node";
 
-import { action, internalAction } from "../_generated/server";
+import { internalAction } from "../_generated/server";
 import { v } from "convex/values";
 
 // Internal version for scheduled jobs
@@ -26,7 +26,8 @@ export const fetchOpenWeatherMap = internalAction({
       current: {
         temp: data.current.temp,
         humidity: data.current.humidity,
-        windSpeed: data.current.wind_speed,
+        // Structure to match riskScore.ts expectations
+        wind: { speed: data.current.wind_speed }, // m/s
         visibility: data.current.visibility,
         weather: data.current.weather[0],
         rain: data.current.rain,
@@ -44,7 +45,8 @@ export const fetchOpenWeatherMap = internalAction({
   },
 });
 
-export const fetchTomorrowIO = action({
+// Internal version for scheduled jobs (changed from action to internalAction)
+export const fetchTomorrowIO = internalAction({
   args: {
     lat: v.number(),
     lng: v.number(),
