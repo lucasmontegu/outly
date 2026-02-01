@@ -75,7 +75,7 @@ export default function RootLayout() {
                 <Stack.Screen name="(tabs)" />
                 <Stack.Screen name="paywall" options={{ presentation: "modal" }} />
                 <Stack.Screen name="smart-departure" options={{ presentation: "card" }} />
-              </Stack>
+                </Stack>
             </HeroUINativeProvider>
           </GestureHandlerRootView>
         </ThemeProvider>

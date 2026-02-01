@@ -79,7 +79,7 @@ export default function SettingsScreen() {
       iconColor: "#8B5CF6",
       iconBg: "#EDE9FE",
       label: "Notifications",
-      sublabel: "Push alerts & reminders",
+      sublabel: "Alerts, timing & preferences",
       action: () => router.push("/notifications"),
       showArrow: true,
     },
