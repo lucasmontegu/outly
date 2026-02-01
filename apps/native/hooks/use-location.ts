@@ -8,18 +8,20 @@ export type LocationCoords = {
 
 export type LocationState = {
   location: LocationCoords | null;
-  loading: boolean;
+  address: string | null;
+  isLoading: boolean;
   error: string | null;
   refresh: () => Promise<void>;
 };
 
 export function useLocation(): LocationState {
   const [location, setLocation] = useState<LocationCoords | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [address, setAddress] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const fetchLocation = useCallback(async () => {
-    setLoading(true);
+    setIsLoading(true);
     setError(null);
 
     try {
@@ -27,7 +29,7 @@ export function useLocation(): LocationState {
 
       if (status !== "granted") {
         setError("Location permission denied");
-        setLoading(false);
+        setIsLoading(false);
         return;
       }
 
@@ -35,14 +37,35 @@ export function useLocation(): LocationState {
         accuracy: Location.Accuracy.Balanced,
       });
 
-      setLocation({
+      const coords = {
         lat: position.coords.latitude,
         lng: position.coords.longitude,
-      });
+      };
+      setLocation(coords);
+
+      // Reverse geocode to get address
+      try {
+        const [geocode] = await Location.reverseGeocodeAsync({
+          latitude: coords.lat,
+          longitude: coords.lng,
+        });
+
+        if (geocode) {
+          const addressParts = [
+            geocode.district,
+            geocode.subregion,
+            geocode.city,
+          ].filter(Boolean);
+          setAddress(addressParts[0] || geocode.name || "Unknown location");
+        }
+      } catch {
+        // Geocoding failed, use coordinates as fallback
+        setAddress(`${coords.lat.toFixed(2)}, ${coords.lng.toFixed(2)}`);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to get location");
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
   }, []);
 
@@ -52,7 +75,8 @@ export function useLocation(): LocationState {
 
   return {
     location,
-    loading,
+    address,
+    isLoading,
     error,
     refresh: fetchLocation,
   };

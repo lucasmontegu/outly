@@ -112,6 +112,103 @@ export const listForUser = query({
   },
 });
 
+// Public query to get current risk for a location (coordinates-based, no stored location needed)
+export const getCurrentRisk = query({
+  args: {
+    lat: v.number(),
+    lng: v.number(),
+  },
+  handler: async (ctx, args) => {
+    // Get nearby events
+    const now = Date.now();
+    const events = await ctx.db.query("events").collect();
+
+    const nearbyEvents = events.filter((e) => {
+      if (e.ttl <= now || e.confidenceScore <= 20) return false;
+
+      const distance = haversineDistance(
+        args.lat,
+        args.lng,
+        e.location.lat,
+        e.location.lng
+      );
+      return distance <= 10; // 10km radius
+    });
+
+    // Calculate scores
+    let weatherScore = 0;
+    let trafficScore = 0;
+    let eventScore = 0;
+
+    for (const event of nearbyEvents) {
+      const distance = haversineDistance(
+        args.lat,
+        args.lng,
+        event.location.lat,
+        event.location.lng
+      );
+      const impactFactor = Math.max(0, 1 - distance / 10);
+      const impact = event.severity * impactFactor * (event.confidenceScore / 100) * 10;
+
+      if (event.type === "weather") {
+        weatherScore += impact;
+      } else {
+        trafficScore += impact;
+      }
+      eventScore += impact * 0.5;
+    }
+
+    weatherScore = Math.min(100, Math.round(weatherScore));
+    trafficScore = Math.min(100, Math.round(trafficScore));
+    eventScore = Math.min(100, Math.round(eventScore));
+
+    const score = Math.round(weatherScore * 0.35 + trafficScore * 0.45 + eventScore * 0.2);
+    const classification = score < 34 ? "low" : score < 67 ? "medium" : "high";
+
+    // Generate description
+    let description: string;
+    if (score <= 20) {
+      description = "Conditions are optimal. Minimal traffic and clear skies reported in your area.";
+    } else if (score <= 40) {
+      description = "Conditions are generally good with minor concerns. Light traffic expected.";
+    } else if (score <= 60) {
+      description = "Moderate risk level. Monitor conditions before departing.";
+    } else if (score <= 80) {
+      description = "Elevated risk. Consider delaying departure or using alternative routes.";
+    } else {
+      description = "High risk conditions. Travel not recommended unless necessary.";
+    }
+
+    return {
+      score,
+      classification,
+      breakdown: { weatherScore, trafficScore, eventScore },
+      description,
+      nearbyEvents: nearbyEvents.map((e) => ({
+        _id: e._id,
+        type: e.type,
+        subtype: e.subtype,
+        severity: e.severity,
+        confidenceScore: e.confidenceScore,
+        _creationTime: e._creationTime,
+      })),
+    };
+  },
+});
+
+// Haversine formula for distance
+function haversineDistance(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 6371;
+  const dLat = toRad(lat2 - lat1);
+  const dLng = toRad(lng2 - lng1);
+  const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function toRad(deg: number): number {
+  return deg * (Math.PI / 180);
+}
+
 // Internal mutation to calculate and store risk score
 export const calculate = internalMutation({
   args: {

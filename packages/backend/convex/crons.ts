@@ -11,4 +11,12 @@ crons.interval(
   internal.scheduled.dataFetcher.fetchAllData
 );
 
+// Run weekly decay every Sunday at midnight UTC
+// Applies point decay for inactive users, downgrades levels, recalculates percentiles
+crons.weekly(
+  "weekly gamification decay",
+  { dayOfWeek: "sunday", hourUTC: 0, minuteUTC: 0 },
+  internal.gamification.weeklyDecay
+);
+
 export default crons;

@@ -2,6 +2,19 @@ import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 
 export default defineSchema({
+  // Users synced from Clerk
+  users: defineTable({
+    clerkId: v.string(),
+    email: v.string(),
+    firstName: v.optional(v.string()),
+    lastName: v.optional(v.string()),
+    imageUrl: v.optional(v.string()),
+    tier: v.union(v.literal("free"), v.literal("pro")),
+    onboardingCompleted: v.boolean(),
+  })
+    .index("by_clerk_id", ["clerkId"])
+    .index("by_email", ["email"]),
+
   // Weather and traffic events from APIs and users
   events: defineTable({
     type: v.union(v.literal("weather"), v.literal("traffic")),
@@ -52,6 +65,29 @@ export default defineSchema({
     .index("by_event", ["eventId"])
     .index("by_user_event", ["userId", "eventId"]),
 
+  // User saved routes
+  routes: defineTable({
+    userId: v.string(),
+    name: v.string(),
+    fromLocationId: v.optional(v.id("userLocations")),
+    fromName: v.string(),
+    toLocationId: v.optional(v.id("userLocations")),
+    toName: v.string(),
+    fromLocation: v.object({
+      lat: v.number(),
+      lng: v.number(),
+    }),
+    toLocation: v.object({
+      lat: v.number(),
+      lng: v.number(),
+    }),
+    icon: v.union(v.literal("building"), v.literal("running"), v.literal("home")),
+    monitorDays: v.array(v.boolean()),
+    alertThreshold: v.number(),
+    alertTime: v.string(),
+    isActive: v.boolean(),
+  }).index("by_user", ["userId"]),
+
   // Calculated risk scores per location
   riskSnapshots: defineTable({
     locationId: v.id("userLocations"),
@@ -73,4 +109,46 @@ export default defineSchema({
   })
     .index("by_location", ["locationId"])
     .index("by_user", ["userId"]),
+
+  // Gamification: User stats and progression
+  userStats: defineTable({
+    userId: v.string(),
+
+    // Points & Level
+    totalPoints: v.number(),
+    level: v.number(),
+
+    // Accuracy tracking
+    totalVotes: v.number(),
+    correctVotes: v.number(),
+    accuracyPercent: v.number(),
+
+    // Activity tracking
+    currentStreak: v.number(),
+    longestStreak: v.number(),
+    lastVoteDate: v.string(),
+    votesThisWeek: v.number(),
+    inactiveWeeks: v.number(),
+
+    // Category stats
+    weatherVotes: v.number(),
+    trafficVotes: v.number(),
+    firstResponderCount: v.number(),
+
+    // Percentile (recalculated periodically)
+    percentileRank: v.number(),
+  })
+    .index("by_user", ["userId"])
+    .index("by_points", ["totalPoints"]),
+
+  // Gamification: Earned badges
+  userBadges: defineTable({
+    userId: v.string(),
+    badgeId: v.string(),
+    earnedAt: v.number(),
+    isActive: v.boolean(),
+  })
+    .index("by_user", ["userId"])
+    .index("by_badge", ["badgeId"])
+    .index("by_user_badge", ["userId", "badgeId"]),
 });
