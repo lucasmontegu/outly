@@ -35,6 +35,15 @@ export default defineSchema({
       lat: v.number(),
       lng: v.number(),
     }),
+    // Route points for drawing polylines (traffic events)
+    routePoints: v.optional(
+      v.array(
+        v.object({
+          lat: v.number(),
+          lng: v.number(),
+        })
+      )
+    ),
     radius: v.number(),
     severity: v.number(),
     source: v.union(

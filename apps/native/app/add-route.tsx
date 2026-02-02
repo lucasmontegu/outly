@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useRouter } from "expo-router";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@outly/backend/convex/_generated/api";
@@ -9,6 +9,7 @@ import {
   WorkoutRunIcon,
   Home01Icon,
   Search01Icon,
+  Cancel01Icon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react-native";
 import {
@@ -21,18 +22,27 @@ import {
   KeyboardAvoidingView,
   Platform,
   Alert,
+  ActivityIndicator,
+  Keyboard,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Card, Button } from "heroui-native";
 import { LinearGradient } from "expo-linear-gradient";
 
 import { useLocation } from "@/hooks/use-location";
-import { LocationSearchModal } from "@/components/location-search";
 
 type RouteIcon = "building" | "running" | "home";
 
 type LocationData = {
   name: string;
+  lat: number;
+  lng: number;
+};
+
+type SearchResult = {
+  placeId: string;
+  name: string;
+  displayName: string;
   lat: number;
   lng: number;
 };
@@ -60,13 +70,128 @@ export default function AddRouteScreen() {
   const [alertTime, setAlertTime] = useState("7:30 AM");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Search modals
-  const [showFromSearch, setShowFromSearch] = useState(false);
-  const [showToSearch, setShowToSearch] = useState(false);
+  // Search state for "From" field
+  const [fromQuery, setFromQuery] = useState("");
+  const [fromResults, setFromResults] = useState<SearchResult[]>([]);
+  const [fromSearching, setFromSearching] = useState(false);
+  const [showFromResults, setShowFromResults] = useState(false);
+  const fromTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Search state for "To" field
+  const [toQuery, setToQuery] = useState("");
+  const [toResults, setToResults] = useState<SearchResult[]>([]);
+  const [toSearching, setToSearching] = useState(false);
+  const [showToResults, setShowToResults] = useState(false);
+  const toTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Use current location as default "from" if not set
   const fromLocation = fromData || (location ? { name: address || "Current Location", lat: location.lat, lng: location.lng } : null);
   const toLocation = toData;
+
+  // Search locations using OpenStreetMap Nominatim
+  const searchLocations = async (
+    query: string,
+    setResults: (results: SearchResult[]) => void,
+    setSearching: (searching: boolean) => void,
+    setShowResults: (show: boolean) => void
+  ) => {
+    if (!query.trim() || query.length < 3) {
+      setResults([]);
+      setShowResults(false);
+      return;
+    }
+
+    setSearching(true);
+    try {
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/search?` +
+          new URLSearchParams({
+            q: query,
+            format: "json",
+            addressdetails: "1",
+            limit: "5",
+          }),
+        {
+          headers: {
+            "User-Agent": "Outly/1.0",
+          },
+        }
+      );
+
+      if (response.ok) {
+        const data = await response.json();
+        const results: SearchResult[] = data.map((item: any) => ({
+          placeId: item.place_id.toString(),
+          name: item.name || item.display_name.split(",")[0],
+          displayName: item.display_name,
+          lat: parseFloat(item.lat),
+          lng: parseFloat(item.lon),
+        }));
+        setResults(results);
+        setShowResults(results.length > 0);
+      }
+    } catch (err) {
+      console.error("Search error:", err);
+    } finally {
+      setSearching(false);
+    }
+  };
+
+  // Handle "From" field changes
+  const handleFromChange = (text: string) => {
+    setFromQuery(text);
+    setFromData(null); // Clear selected location when typing
+
+    if (fromTimeoutRef.current) {
+      clearTimeout(fromTimeoutRef.current);
+    }
+
+    if (text.length >= 3) {
+      fromTimeoutRef.current = setTimeout(() => {
+        searchLocations(text, setFromResults, setFromSearching, setShowFromResults);
+      }, 300);
+    } else {
+      setFromResults([]);
+      setShowFromResults(false);
+    }
+  };
+
+  // Handle "To" field changes
+  const handleToChange = (text: string) => {
+    setToQuery(text);
+    setToData(null); // Clear selected location when typing
+
+    if (toTimeoutRef.current) {
+      clearTimeout(toTimeoutRef.current);
+    }
+
+    if (text.length >= 3) {
+      toTimeoutRef.current = setTimeout(() => {
+        searchLocations(text, setToResults, setToSearching, setShowToResults);
+      }, 300);
+    } else {
+      setToResults([]);
+      setShowToResults(false);
+    }
+  };
+
+  // Select a "From" result
+  const selectFromResult = (result: SearchResult) => {
+    setFromData({ name: result.name, lat: result.lat, lng: result.lng });
+    setFromQuery(result.name);
+    setFromResults([]);
+    setShowFromResults(false);
+    Keyboard.dismiss();
+  };
+
+  // Select a "To" result
+  const selectToResult = (result: SearchResult) => {
+    setToData({ name: result.name, lat: result.lat, lng: result.lng });
+    setToQuery(result.name);
+    setToResults([]);
+    setShowToResults(false);
+    Keyboard.dismiss();
+  };
 
   const toggleDay = (index: number) => {
     const newDays = [...monitorDays];
@@ -167,28 +292,50 @@ export default function AddRouteScreen() {
           </View>
 
           {/* From Location */}
-          <View style={styles.section}>
+          <View style={[styles.section, { zIndex: 20 }]}>
             <Text style={styles.label}>From</Text>
-            <TouchableOpacity
-              style={styles.locationInputContainer}
-              onPress={() => setShowFromSearch(true)}
-            >
+            <View style={styles.locationInputContainer}>
               <HugeiconsIcon icon={Location01Icon} size={20} color="#10B981" />
-              <Text
-                style={[
-                  styles.locationInput,
-                  !fromLocation && styles.locationPlaceholder,
-                ]}
-                numberOfLines={1}
-              >
-                {fromLocation?.name || "Starting location"}
-              </Text>
-              <HugeiconsIcon icon={Search01Icon} size={18} color="#6B7280" />
-            </TouchableOpacity>
-            {address && location && !fromData && (
+              <TextInput
+                style={styles.locationInput}
+                placeholder="Starting location"
+                placeholderTextColor="#9CA3AF"
+                value={fromData ? fromData.name : fromQuery}
+                onChangeText={handleFromChange}
+                onFocus={() => fromQuery.length >= 3 && setShowFromResults(true)}
+              />
+              {fromSearching && <ActivityIndicator size="small" color="#10B981" />}
+              {(fromQuery.length > 0 || fromData) && !fromSearching && (
+                <TouchableOpacity onPress={() => { setFromQuery(""); setFromData(null); setFromResults([]); }}>
+                  <HugeiconsIcon icon={Cancel01Icon} size={18} color="#9CA3AF" />
+                </TouchableOpacity>
+              )}
+            </View>
+            {/* From Search Results Dropdown */}
+            {showFromResults && fromResults.length > 0 && (
+              <View style={styles.searchDropdown}>
+                {fromResults.map((result) => (
+                  <TouchableOpacity
+                    key={result.placeId}
+                    style={styles.searchResultItem}
+                    onPress={() => selectFromResult(result)}
+                  >
+                    <HugeiconsIcon icon={Location01Icon} size={16} color="#10B981" />
+                    <View style={styles.searchResultText}>
+                      <Text style={styles.searchResultName} numberOfLines={1}>{result.name}</Text>
+                      <Text style={styles.searchResultAddress} numberOfLines={1}>{result.displayName}</Text>
+                    </View>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
+            {address && location && !fromData && !showFromResults && (
               <TouchableOpacity
                 style={styles.currentLocationSuggestion}
-                onPress={() => setFromData({ name: address, lat: location.lat, lng: location.lng })}
+                onPress={() => {
+                  setFromData({ name: address, lat: location.lat, lng: location.lng });
+                  setFromQuery(address);
+                }}
               >
                 <Text style={styles.suggestionText}>Use current: {address}</Text>
               </TouchableOpacity>
@@ -196,32 +343,54 @@ export default function AddRouteScreen() {
           </View>
 
           {/* To Location */}
-          <View style={styles.section}>
+          <View style={[styles.section, { zIndex: 10 }]}>
             <Text style={styles.label}>To</Text>
-            <TouchableOpacity
-              style={styles.locationInputContainer}
-              onPress={() => setShowToSearch(true)}
-            >
+            <View style={styles.locationInputContainer}>
               <HugeiconsIcon icon={Location01Icon} size={20} color="#EF4444" />
-              <Text
-                style={[
-                  styles.locationInput,
-                  !toLocation && styles.locationPlaceholder,
-                ]}
-                numberOfLines={1}
-              >
-                {toLocation?.name || "Destination"}
-              </Text>
-              <HugeiconsIcon icon={Search01Icon} size={18} color="#6B7280" />
-            </TouchableOpacity>
+              <TextInput
+                style={styles.locationInput}
+                placeholder="Destination"
+                placeholderTextColor="#9CA3AF"
+                value={toData ? toData.name : toQuery}
+                onChangeText={handleToChange}
+                onFocus={() => toQuery.length >= 3 && setShowToResults(true)}
+              />
+              {toSearching && <ActivityIndicator size="small" color="#EF4444" />}
+              {(toQuery.length > 0 || toData) && !toSearching && (
+                <TouchableOpacity onPress={() => { setToQuery(""); setToData(null); setToResults([]); }}>
+                  <HugeiconsIcon icon={Cancel01Icon} size={18} color="#9CA3AF" />
+                </TouchableOpacity>
+              )}
+            </View>
+            {/* To Search Results Dropdown */}
+            {showToResults && toResults.length > 0 && (
+              <View style={styles.searchDropdown}>
+                {toResults.map((result) => (
+                  <TouchableOpacity
+                    key={result.placeId}
+                    style={styles.searchResultItem}
+                    onPress={() => selectToResult(result)}
+                  >
+                    <HugeiconsIcon icon={Location01Icon} size={16} color="#EF4444" />
+                    <View style={styles.searchResultText}>
+                      <Text style={styles.searchResultName} numberOfLines={1}>{result.name}</Text>
+                      <Text style={styles.searchResultAddress} numberOfLines={1}>{result.displayName}</Text>
+                    </View>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
             {/* Saved locations suggestions */}
-            {savedLocations && savedLocations.length > 0 && !toData && (
+            {savedLocations && savedLocations.length > 0 && !toData && !showToResults && (
               <View style={styles.savedLocationsList}>
                 {savedLocations.slice(0, 3).map((loc) => (
                   <TouchableOpacity
                     key={loc._id}
                     style={styles.savedLocationItem}
-                    onPress={() => setToData({ name: loc.name, lat: loc.location.lat, lng: loc.location.lng })}
+                    onPress={() => {
+                      setToData({ name: loc.name, lat: loc.location.lat, lng: loc.location.lng });
+                      setToQuery(loc.name);
+                    }}
                   >
                     <Text style={styles.savedLocationText}>{loc.name}</Text>
                   </TouchableOpacity>
@@ -351,19 +520,6 @@ export default function AddRouteScreen() {
         </View>
       </KeyboardAvoidingView>
 
-      {/* Location Search Modals */}
-      <LocationSearchModal
-        visible={showFromSearch}
-        onClose={() => setShowFromSearch(false)}
-        onSelect={(loc) => setFromData({ name: loc.name, lat: loc.lat, lng: loc.lng })}
-        placeholder="Search starting location..."
-      />
-      <LocationSearchModal
-        visible={showToSearch}
-        onClose={() => setShowToSearch(false)}
-        onSelect={(loc) => setToData({ name: loc.name, lat: loc.lat, lng: loc.lng })}
-        placeholder="Search destination..."
-      />
     </SafeAreaView>
   );
 }
@@ -474,6 +630,44 @@ const styles = StyleSheet.create({
   },
   locationPlaceholder: {
     color: "#9CA3AF",
+  },
+  searchDropdown: {
+    position: "absolute",
+    top: 78,
+    left: 0,
+    right: 0,
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
+    zIndex: 100,
+    maxHeight: 220,
+  },
+  searchResultItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: 14,
+    gap: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: "#F3F4F6",
+  },
+  searchResultText: {
+    flex: 1,
+  },
+  searchResultName: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: "#111827",
+    marginBottom: 2,
+  },
+  searchResultAddress: {
+    fontSize: 12,
+    color: "#6B7280",
   },
   currentLocationSuggestion: {
     marginTop: 8,

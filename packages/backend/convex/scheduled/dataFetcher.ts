@@ -93,6 +93,21 @@ export const fetchAllData = internalAction({
           });
         }
 
+        // Create weather events from hourly forecast (rain, storm, snow)
+        const upcomingWeather = analyzeUpcomingWeather(weatherData.hourly ?? []);
+        for (const weatherEvent of upcomingWeather) {
+          await ctx.runMutation(internal.events.upsertFromAPI, {
+            type: "weather",
+            subtype: weatherEvent.subtype,
+            location: center,
+            radius: 10000,
+            severity: weatherEvent.severity,
+            source: "openweathermap",
+            ttl: weatherEvent.ttl,
+            rawData: weatherEvent.rawData,
+          });
+        }
+
         // Create traffic events from incidents
         for (const incident of trafficData.incidents ?? []) {
           // Extract coordinates from HERE location shape if available
@@ -102,6 +117,8 @@ export const fetchAllData = internalAction({
               type: "traffic",
               subtype: incident.type ?? "incident",
               location: incidentLocation,
+              // Include route points for polyline drawing
+              routePoints: incident.routePoints,
               radius: 1000,
               severity: incident.severity,
               source: "here",
@@ -167,6 +184,123 @@ function mapAlertSeverity(alert: any): number {
   if (event.includes("storm") || event.includes("warning")) return 3;
   if (event.includes("watch") || event.includes("advisory")) return 2;
   return 1;
+}
+
+// Analyze hourly forecast for significant weather events
+type WeatherEventData = {
+  subtype: string;
+  severity: number;
+  ttl: number;
+  rawData: any;
+};
+
+function analyzeUpcomingWeather(hourly: any[]): WeatherEventData[] {
+  const events: WeatherEventData[] = [];
+  const now = Date.now();
+
+  // Group consecutive hours with similar conditions
+  let rainStart: any = null;
+  let stormStart: any = null;
+  let maxRainIntensity = 0;
+
+  for (const hour of hourly.slice(0, 6)) { // Next 6 hours
+    const weatherId = hour.weather?.id ?? 0;
+    const pop = hour.pop ?? 0; // Probability of precipitation
+    const rainAmount = hour.rain ?? 0;
+
+    // Thunderstorm (200-299)
+    if (weatherId >= 200 && weatherId < 300) {
+      if (!stormStart) {
+        stormStart = hour;
+      }
+    } else if (stormStart) {
+      // Storm ended
+      events.push({
+        subtype: "thunderstorm",
+        severity: 4,
+        ttl: (hour.dt * 1000) + 3600000, // 1 hour after storm ends
+        rawData: {
+          startTime: stormStart.dt,
+          endTime: hour.dt,
+          description: "Thunderstorm expected",
+          weather: stormStart.weather,
+        },
+      });
+      stormStart = null;
+    }
+
+    // Rain (500-599) or high probability
+    if ((weatherId >= 500 && weatherId < 600) || pop >= 0.7) {
+      if (!rainStart) {
+        rainStart = hour;
+      }
+      maxRainIntensity = Math.max(maxRainIntensity, rainAmount);
+    } else if (rainStart) {
+      // Rain ended
+      const severity = maxRainIntensity > 5 ? 3 : maxRainIntensity > 1 ? 2 : 1;
+      events.push({
+        subtype: maxRainIntensity > 5 ? "heavy_rain" : "rain",
+        severity,
+        ttl: (hour.dt * 1000) + 3600000,
+        rawData: {
+          startTime: rainStart.dt,
+          endTime: hour.dt,
+          description: maxRainIntensity > 5 ? "Heavy rain expected" : "Rain expected",
+          intensity: maxRainIntensity,
+          probability: rainStart.pop,
+          weather: rainStart.weather,
+        },
+      });
+      rainStart = null;
+      maxRainIntensity = 0;
+    }
+
+    // Snow (600-699)
+    if (weatherId >= 600 && weatherId < 700) {
+      events.push({
+        subtype: "snow",
+        severity: 3,
+        ttl: (hour.dt * 1000) + 3600000,
+        rawData: {
+          time: hour.dt,
+          description: "Snow expected",
+          weather: hour.weather,
+        },
+      });
+    }
+  }
+
+  // Handle ongoing conditions at end of forecast window
+  if (stormStart) {
+    events.push({
+      subtype: "thunderstorm",
+      severity: 4,
+      ttl: now + 6 * 3600000, // 6 hours from now
+      rawData: {
+        startTime: stormStart.dt,
+        description: "Thunderstorm expected",
+        weather: stormStart.weather,
+      },
+    });
+  }
+
+  if (rainStart) {
+    const severity = maxRainIntensity > 5 ? 3 : maxRainIntensity > 1 ? 2 : 1;
+    events.push({
+      subtype: maxRainIntensity > 5 ? "heavy_rain" : "rain",
+      severity,
+      ttl: now + 6 * 3600000,
+      rawData: {
+        startTime: rainStart.dt,
+        description: maxRainIntensity > 5 ? "Heavy rain expected" : "Rain expected",
+        intensity: maxRainIntensity,
+        probability: rainStart.pop,
+        weather: rainStart.weather,
+      },
+    });
+  }
+
+  return events;
 }
 
 // Extract lat/lng from HERE incident location structure

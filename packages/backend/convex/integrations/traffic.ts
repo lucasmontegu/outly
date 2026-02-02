@@ -54,16 +54,22 @@ export const fetchHereTraffic = internalAction({
 
     const avgJamFactor = flowCount > 0 ? totalJamFactor / flowCount : 0;
 
-    // Process incidents
-    const incidents = (incidentsData.results ?? []).map((inc: any) => ({
-      id: inc.incidentDetails?.id,
-      type: inc.incidentDetails?.type,
-      description: inc.incidentDetails?.description?.value,
-      severity: mapHereSeverity(inc.incidentDetails?.criticality),
-      startTime: inc.incidentDetails?.startTime,
-      endTime: inc.incidentDetails?.endTime,
-      location: inc.location,
-    }));
+    // Process incidents with route points extraction
+    const incidents = (incidentsData.results ?? []).map((inc: any) => {
+      // Extract route points from HERE shape data
+      const routePoints = extractRoutePoints(inc.location);
+
+      return {
+        id: inc.incidentDetails?.id,
+        type: inc.incidentDetails?.type,
+        description: inc.incidentDetails?.description?.value,
+        severity: mapHereSeverity(inc.incidentDetails?.criticality),
+        startTime: inc.incidentDetails?.startTime,
+        endTime: inc.incidentDetails?.endTime,
+        location: inc.location,
+        routePoints,
+      };
+    });
 
     const maxSeverity = incidents.length > 0
       ? Math.max(...incidents.map((i: any) => i.severity))
@@ -86,4 +92,36 @@ function mapHereSeverity(criticality: string | undefined): number {
     case "lowImpact": return 1;
     default: return 3;
   }
+}
+
+// Extract route points from HERE location shape
+function extractRoutePoints(location: any): { lat: number; lng: number }[] | undefined {
+  if (!location?.shape) return undefined;
+
+  const points: { lat: number; lng: number }[] = [];
+
+  // HERE API returns shape with links containing points
+  if (location.shape.links) {
+    for (const link of location.shape.links) {
+      if (link.points) {
+        for (const point of link.points) {
+          if (point.lat !== undefined && point.lng !== undefined) {
+            points.push({ lat: point.lat, lng: point.lng });
+          }
+        }
+      }
+    }
+  }
+
+  // Also try direct points array
+  if (location.shape.points) {
+    for (const point of location.shape.points) {
+      if (point.lat !== undefined && point.lng !== undefined) {
+        points.push({ lat: point.lat, lng: point.lng });
+      }
+    }
+  }
+
+  // Return undefined if no points found (will use circle instead)
+  return points.length > 0 ? points : undefined;
 }
