@@ -11,6 +11,14 @@ const eventDoc = v.object({
     lat: v.number(),
     lng: v.number(),
   }),
+  routePoints: v.optional(
+    v.array(
+      v.object({
+        lat: v.number(),
+        lng: v.number(),
+      })
+    )
+  ),
   radius: v.number(),
   severity: v.number(),
   source: v.union(
@@ -109,6 +117,14 @@ export const upsertFromAPI = internalMutation({
       lat: v.number(),
       lng: v.number(),
     }),
+    routePoints: v.optional(
+      v.array(
+        v.object({
+          lat: v.number(),
+          lng: v.number(),
+        })
+      )
+    ),
     radius: v.number(),
     severity: v.number(),
     source: v.union(
