@@ -204,7 +204,7 @@ export default function SavedScreen() {
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
       {/* Header */}
-      <Animated.View entering={FadeInDown.duration(300)} style={styles.header}>
+      <Animated.View entering={FadeIn.duration(300)} style={styles.header}>
         <View style={styles.headerSpacer} />
         <Text style={styles.headerTitle}>My Routes</Text>
         <AnimatedIconButton
