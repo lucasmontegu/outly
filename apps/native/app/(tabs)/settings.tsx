@@ -21,6 +21,7 @@ import {
   ScrollView,
   TouchableOpacity,
   Image,
+  Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Card } from "heroui-native";
@@ -221,7 +222,21 @@ export default function SettingsScreen() {
         </View>
 
         {/* Sign Out Button */}
-        <TouchableOpacity style={styles.signOutButton} onPress={() => signOut()}>
+        <TouchableOpacity
+          style={styles.signOutButton}
+          onPress={() => {
+            Alert.alert(
+              "Sign Out",
+              "Are you sure you want to sign out?",
+              [
+                { text: "Cancel", style: "cancel" },
+                { text: "Sign Out", style: "destructive", onPress: () => signOut() },
+              ]
+            );
+          }}
+          accessibilityLabel="Sign out of your account"
+          accessibilityRole="button"
+        >
           <HugeiconsIcon icon={Logout01Icon} size={20} color="#EF4444" />
           <Text style={styles.signOutText}>Sign Out</Text>
         </TouchableOpacity>

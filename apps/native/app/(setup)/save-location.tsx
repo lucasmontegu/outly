@@ -159,10 +159,12 @@ export default function SaveLocationScreen() {
             {selectedType === "other" && (
               <TextInput
                 style={styles.customNameInput}
-                placeholder="Name this place (e.g., Gym, School)"
+                placeholder="Name this place (e.g., Gym, School)…"
                 value={customName}
                 onChangeText={setCustomName}
                 placeholderTextColor={colors.text.tertiary}
+                autoComplete="off"
+                accessibilityLabel="Custom location name"
               />
             )}
           </View>
@@ -177,7 +179,7 @@ export default function SaveLocationScreen() {
                 <View style={styles.locationInfo}>
                   <Text style={styles.locationLabel}>Using current location</Text>
                   <Text style={styles.locationAddress} numberOfLines={2}>
-                    {address || "Detecting address..."}
+                    {address || "Detecting address…"}
                   </Text>
                 </View>
                 <View style={styles.checkIcon}>
@@ -232,7 +234,7 @@ export default function SaveLocationScreen() {
             onPress={saveLocation}
             isDisabled={isLoading || (!currentLocation && useCurrentLocation)}
           >
-            {isLoading ? "Saving..." : `Save ${getLocationName()} & Start`}
+            {isLoading ? "Saving…" : `Save ${getLocationName()} & Start`}
           </Button>
           <TouchableOpacity onPress={skipAndFinish} style={styles.skipButton}>
             <Text style={styles.skipText}>Skip for now</Text>

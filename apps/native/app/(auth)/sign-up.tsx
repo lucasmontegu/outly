@@ -143,13 +143,15 @@ export default function SignUpScreen() {
               style={styles.socialButton}
               onPress={() => onSocialSignUp("oauth_apple")}
               disabled={isSocialLoading !== null}
+              accessibilityLabel="Continue with Apple"
+              accessibilityRole="button"
             >
               <Image
                 source={{ uri: "https://cdn.jsdelivr.net/npm/simple-icons@v9/icons/apple.svg" }}
                 style={styles.socialIconApple}
               />
               <Text style={styles.socialButtonText}>
-                {isSocialLoading === "apple" ? "Signing up..." : "Continue with Apple"}
+                {isSocialLoading === "apple" ? "Signing up…" : "Continue with Apple"}
               </Text>
             </TouchableOpacity>
 
@@ -158,13 +160,15 @@ export default function SignUpScreen() {
               style={[styles.socialButton, styles.googleButton]}
               onPress={() => onSocialSignUp("oauth_google")}
               disabled={isSocialLoading !== null}
+              accessibilityLabel="Continue with Google"
+              accessibilityRole="button"
             >
               <Image
                 source={{ uri: "https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" }}
                 style={styles.socialIcon}
               />
               <Text style={[styles.socialButtonText, styles.googleButtonText]}>
-                {isSocialLoading === "google" ? "Signing up..." : "Continue with Google"}
+                {isSocialLoading === "google" ? "Signing up…" : "Continue with Google"}
               </Text>
             </TouchableOpacity>
 
@@ -185,9 +189,12 @@ export default function SignUpScreen() {
                   autoCorrect={false}
                   keyboardType="email-address"
                   value={emailAddress}
-                  placeholder="Enter your email"
+                  placeholder="Enter your email…"
                   placeholderTextColor={colors.text.tertiary}
                   onChangeText={setEmailAddress}
+                  autoComplete="email"
+                  textContentType="emailAddress"
+                  accessibilityLabel="Email address"
                 />
               </View>
             </View>
@@ -199,10 +206,13 @@ export default function SignUpScreen() {
                 <TextInput
                   style={styles.input}
                   value={password}
-                  placeholder="Create a password"
+                  placeholder="Create a password…"
                   placeholderTextColor={colors.text.tertiary}
                   secureTextEntry
                   onChangeText={setPassword}
+                  autoComplete="password-new"
+                  textContentType="newPassword"
+                  accessibilityLabel="Password"
                 />
               </View>
             </View>
@@ -213,7 +223,7 @@ export default function SignUpScreen() {
               onPress={onSignUpPress}
               isDisabled={isLoading || !emailAddress || !password || isSocialLoading !== null}
             >
-              {isLoading ? "Creating account..." : "Create Account"}
+              {isLoading ? "Creating account…" : "Create Account"}
             </Button>
           </View>
 

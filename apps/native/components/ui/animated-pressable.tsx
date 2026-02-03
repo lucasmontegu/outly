@@ -1,5 +1,5 @@
 import React, { useCallback } from "react";
-import { Pressable, PressableProps, ViewStyle, StyleProp } from "react-native";
+import { Pressable, PressableProps, ViewStyle, StyleProp, AccessibilityInfo } from "react-native";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -7,6 +7,7 @@ import Animated, {
   withTiming,
   interpolate,
   runOnJS,
+  useReducedMotion,
 } from "react-native-reanimated";
 import { lightHaptic, mediumHaptic } from "@/lib/haptics";
 
@@ -65,6 +66,8 @@ export function AnimatedPressableButton({
   ...rest
 }: AnimatedPressableButtonProps) {
   const pressed = useSharedValue(0);
+  const reducedMotion = useReducedMotion();
+  const shouldDisableAnimations = disableAnimations || reducedMotion;
 
   const triggerHaptic = useCallback(() => {
     if (haptic === "light") {
@@ -76,7 +79,7 @@ export function AnimatedPressableButton({
 
   const handlePressIn = useCallback(
     (e: any) => {
-      if (disableAnimations) {
+      if (shouldDisableAnimations) {
         onPressIn?.(e);
         return;
       }
@@ -89,12 +92,12 @@ export function AnimatedPressableButton({
       }
       onPressIn?.(e);
     },
-    [disableAnimations, springStiffness, springDamping, haptic, onPressIn, triggerHaptic]
+    [shouldDisableAnimations, springStiffness, springDamping, haptic, onPressIn, triggerHaptic]
   );
 
   const handlePressOut = useCallback(
     (e: any) => {
-      if (disableAnimations) {
+      if (shouldDisableAnimations) {
         onPressOut?.(e);
         return;
       }
@@ -104,11 +107,11 @@ export function AnimatedPressableButton({
       });
       onPressOut?.(e);
     },
-    [disableAnimations, springStiffness, springDamping, onPressOut]
+    [shouldDisableAnimations, springStiffness, springDamping, onPressOut]
   );
 
   const animatedStyle = useAnimatedStyle(() => {
-    if (disableAnimations) {
+    if (shouldDisableAnimations) {
       return {};
     }
 
@@ -121,7 +124,7 @@ export function AnimatedPressableButton({
       transform: [{ scale }],
       opacity,
     };
-  }, [disableAnimations, pressScale, animateOpacity]);
+  }, [shouldDisableAnimations, pressScale, animateOpacity]);
 
   return (
     <AnimatedPressable

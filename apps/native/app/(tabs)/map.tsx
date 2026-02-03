@@ -279,18 +279,26 @@ export default function MapScreen() {
           <HugeiconsIcon icon={Search01Icon} size={20} color="#9CA3AF" />
           <TextInput
             style={styles.searchInput}
-            placeholder="Search location..."
+            placeholder="Search location…"
             placeholderTextColor="#9CA3AF"
             value={searchQuery}
             onChangeText={handleSearchChange}
             onFocus={() => searchQuery.length >= 3 && setShowResults(true)}
             returnKeyType="search"
+            autoComplete="street-address"
+            textContentType="fullStreetAddress"
+            accessibilityLabel="Search for a location"
           />
           {isSearching && (
             <ActivityIndicator size="small" color="#3B82F6" />
           )}
           {searchQuery.length > 0 && !isSearching && (
-            <TouchableOpacity onPress={clearSearch} style={styles.clearButton}>
+            <TouchableOpacity
+              onPress={clearSearch}
+              style={styles.clearButton}
+              accessibilityLabel="Clear search"
+              accessibilityRole="button"
+            >
               <HugeiconsIcon icon={Cancel01Icon} size={18} color="#9CA3AF" />
             </TouchableOpacity>
           )}
@@ -325,7 +333,7 @@ export default function MapScreen() {
         {!location ? (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color="#3B82F6" />
-            <Text style={styles.loadingText}>Getting your location...</Text>
+            <Text style={styles.loadingText}>Getting your location…</Text>
           </View>
         ) : (
           <MapView
@@ -416,7 +424,12 @@ export default function MapScreen() {
 
         {/* My Location Button */}
         {location && (
-          <TouchableOpacity style={styles.myLocationButton} onPress={centerOnUser}>
+          <TouchableOpacity
+            style={styles.myLocationButton}
+            onPress={centerOnUser}
+            accessibilityLabel="Center on my location"
+            accessibilityRole="button"
+          >
             <HugeiconsIcon icon={Location01Icon} size={22} color="#3B82F6" />
           </TouchableOpacity>
         )}

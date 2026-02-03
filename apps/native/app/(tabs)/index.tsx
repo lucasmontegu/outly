@@ -67,7 +67,7 @@ export default function OverviewScreen() {
   const riskScore = riskData?.score ?? 0;
   const riskClassification = getRiskClassification(riskScore);
   const riskLevelLabel = getRiskLabel(riskClassification);
-  const riskDescription = riskData?.description ?? "Loading risk data...";
+  const riskDescription = riskData?.description ?? "Loading risk data…";
 
   // Calculate weather and traffic status from breakdown
   const weatherScore = riskData?.breakdown.weatherScore ?? 0;
@@ -112,6 +112,8 @@ export default function OverviewScreen() {
           <AnimatedIconButton
             style={styles.profileButton}
             onPress={() => router.push("/(tabs)/settings")}
+            accessibilityLabel="Open settings"
+            accessibilityRole="button"
           >
             <HugeiconsIcon icon={UserIcon} size={24} color={colors.text.secondary} />
           </AnimatedIconButton>
@@ -225,6 +227,8 @@ export default function OverviewScreen() {
             <AnimatedIconButton
               onPress={() => router.push("/(tabs)/map")}
               style={styles.viewMapButton}
+              accessibilityLabel="View map"
+              accessibilityRole="link"
             >
               <Text style={styles.viewMapLink}>View Map</Text>
             </AnimatedIconButton>

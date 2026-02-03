@@ -185,6 +185,8 @@ export default function PaywallScreen() {
           onPress={() => router.back()}
           disabled={isDisabled}
           activeOpacity={0.7}
+          accessibilityLabel="Close"
+          accessibilityRole="button"
         >
           <HugeiconsIcon
             icon={Cancel01Icon}
@@ -267,7 +269,7 @@ export default function PaywallScreen() {
           {isLoading ? (
             <View style={styles.loadingContainer}>
               <ActivityIndicator size="large" color={colors.state.info} />
-              <Text style={styles.loadingText}>Loading plans...</Text>
+              <Text style={styles.loadingText}>Loading plans…</Text>
             </View>
           ) : (
             <View style={styles.pricingCards}>
@@ -421,11 +423,7 @@ export default function PaywallScreen() {
             onPress={handleStartTrial}
             isDisabled={isDisabled}
           >
-            {isPurchasing ? (
-              <ActivityIndicator size="small" color={colors.text.inverse} />
-            ) : (
-              "Start 7-Day Free Trial"
-            )}
+            {isPurchasing ? "Processing…" : "Start 7-Day Free Trial"}
           </Button>
         </Animated.View>
 
@@ -459,7 +457,7 @@ export default function PaywallScreen() {
           activeOpacity={0.7}
         >
           <Text style={styles.restoreButtonText}>
-            {isRestoring ? "Restoring..." : "Already subscribed? Restore purchases"}
+            {isRestoring ? "Restoring…" : "Already subscribed? Restore purchases"}
           </Text>
         </TouchableOpacity>
       </SafeAreaView>
