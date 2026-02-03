@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { query, internalMutation } from "./_generated/server";
+import { calculateGridCell, getIntersectingGridCells } from "./events";
 
 // Weather score thresholds
 function calculateWeatherScore(data: {
@@ -148,6 +149,8 @@ export const getCurrentRisk = query({
   args: {
     lat: v.number(),
     lng: v.number(),
+    // Client provides timestamp rounded to minute for better cache hits
+    asOfTimestamp: v.optional(v.number()),
   },
   returns: v.object({
     score: v.number(),
@@ -170,12 +173,28 @@ export const getCurrentRisk = query({
     ),
   }),
   handler: async (ctx, args) => {
-    // Get nearby events
-    const now = Date.now();
-    const events = await ctx.db.query("events").collect();
+    // Round to nearest minute for cache-friendly behavior
+    const now = args.asOfTimestamp
+      ? Math.floor(args.asOfTimestamp / 60000) * 60000
+      : Date.now();
 
+    // Use grid-based query instead of full table scan (huge bandwidth savings!)
+    const gridCells = getIntersectingGridCells(args.lat, args.lng, 10);
+    const eventPromises = gridCells.map((cell) =>
+      ctx.db
+        .query("events")
+        .withIndex("by_grid_ttl", (q) => q.eq("gridCell", cell).gt("ttl", now))
+        .collect()
+    );
+    const eventArrays = await Promise.all(eventPromises);
+    const events = eventArrays.flat();
+
+    // Deduplicate and filter by exact distance
+    const seen = new Set<string>();
     const nearbyEvents = events.filter((e) => {
-      if (e.ttl <= now || e.confidenceScore <= 20) return false;
+      if (seen.has(e._id)) return false;
+      seen.add(e._id);
+      if (e.confidenceScore <= 20) return false;
 
       const distance = haversineDistance(
         args.lat,
@@ -266,6 +285,8 @@ export const getForecast = query({
   args: {
     lat: v.number(),
     lng: v.number(),
+    // Client provides timestamp rounded to minute for better cache hits
+    asOfTimestamp: v.optional(v.number()),
   },
   returns: v.object({
     slots: v.array(timeSlotSchema),
@@ -275,13 +296,29 @@ export const getForecast = query({
     currentClassification: v.union(v.literal("low"), v.literal("medium"), v.literal("high")),
   }),
   handler: async (ctx, args) => {
-    const now = Date.now();
+    // Round to nearest minute for cache-friendly behavior
+    const now = args.asOfTimestamp
+      ? Math.floor(args.asOfTimestamp / 60000) * 60000
+      : Date.now();
     const currentHour = new Date(now).getHours();
 
-    // Get nearby events for event-based scoring
-    const events = await ctx.db.query("events").collect();
-    const nearbyEvents = events.filter((e) => {
-      if (e.ttl <= now || e.confidenceScore <= 20) return false;
+    // Use grid-based query instead of full table scan
+    const gridCells = getIntersectingGridCells(args.lat, args.lng, 10);
+    const eventPromises = gridCells.map((cell) =>
+      ctx.db
+        .query("events")
+        .withIndex("by_grid_ttl", (q) => q.eq("gridCell", cell).gt("ttl", now))
+        .collect()
+    );
+    const eventArrays = await Promise.all(eventPromises);
+    const allEvents = eventArrays.flat();
+
+    // Deduplicate and filter
+    const seen = new Set<string>();
+    const nearbyEvents = allEvents.filter((e) => {
+      if (seen.has(e._id)) return false;
+      seen.add(e._id);
+      if (e.confidenceScore <= 20) return false;
       const distance = haversineDistance(args.lat, args.lng, e.location.lat, e.location.lng);
       return distance <= 10;
     });

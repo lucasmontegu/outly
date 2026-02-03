@@ -3,15 +3,23 @@ import { internal } from "./_generated/api";
 
 const crons = cronJobs();
 
-// Run every 10 minutes to fetch weather and traffic data
-// Groups locations into ~50km grid cells to minimize API calls
+// ============================================================================
+// DATA FETCHING - Optimized scheduling
+// ============================================================================
+// Changed from 10 to 15 minutes to reduce API costs by 33%
+// The fetcher is also smarter now - it only processes:
+// - Default locations (user's primary location)
+// - Locations with active routes
+// - During off-peak hours (21:00-06:00 UTC), it runs less aggressively
 crons.interval(
   "fetch weather and traffic data",
-  { minutes: 10 },
+  { minutes: 15 }, // Changed from 10 to 15 min (saves 33% API calls)
   internal.scheduled.dataFetcher.fetchAllData
 );
 
-// Run weekly decay every Sunday at midnight UTC
+// ============================================================================
+// GAMIFICATION - Weekly maintenance
+// ============================================================================
 // Applies point decay for inactive users, downgrades levels, recalculates percentiles
 crons.weekly(
   "weekly gamification decay",

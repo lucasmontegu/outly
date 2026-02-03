@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { query, mutation } from "./_generated/server";
+import { getIntersectingGridCells } from "./events";
 
 // Route document type for return validators
 const routeDoc = v.object({
@@ -176,27 +177,58 @@ const routeWithForecastDoc = v.object({
 
 // Get all routes with forecast data for the current user
 export const getRoutesWithForecast = query({
-  args: {},
+  args: {
+    // Client provides timestamp rounded to minute for better cache hits
+    asOfTimestamp: v.optional(v.number()),
+  },
   returns: v.array(routeWithForecastDoc),
-  handler: async (ctx) => {
+  handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) return [];
 
+    // Use compound index for better performance
     const routes = await ctx.db
       .query("routes")
-      .withIndex("by_user", (q) => q.eq("userId", identity.subject))
-      .filter((q) => q.eq(q.field("isActive"), true))
+      .withIndex("by_user_active", (q) =>
+        q.eq("userId", identity.subject).eq("isActive", true)
+      )
       .collect();
 
     if (routes.length === 0) return [];
 
-    const now = Date.now();
-    const events = await ctx.db.query("events").collect();
+    // Round to nearest minute for cache-friendly behavior
+    const now = args.asOfTimestamp
+      ? Math.floor(args.asOfTimestamp / 60000) * 60000
+      : Date.now();
+
+    // Collect all unique grid cells needed for all routes
+    const allGridCells = new Set<string>();
+    for (const route of routes) {
+      const cells = getIntersectingGridCells(route.fromLocation.lat, route.fromLocation.lng, 10);
+      cells.forEach((cell) => allGridCells.add(cell));
+    }
+
+    // Fetch events from all relevant grid cells ONCE (not per route!)
+    const eventPromises = Array.from(allGridCells).map((cell) =>
+      ctx.db
+        .query("events")
+        .withIndex("by_grid_ttl", (q) => q.eq("gridCell", cell).gt("ttl", now))
+        .collect()
+    );
+    const eventArrays = await Promise.all(eventPromises);
+    const allEvents = eventArrays.flat();
+
+    // Deduplicate events
+    const seen = new Set<string>();
+    const uniqueEvents = allEvents.filter((e) => {
+      if (seen.has(e._id)) return false;
+      seen.add(e._id);
+      return e.confidenceScore > 20;
+    });
 
     const results = routes.map((route) => {
-      // Calculate forecast for route's origin location
-      const nearbyEvents = events.filter((e) => {
-        if (e.ttl <= now || e.confidenceScore <= 20) return false;
+      // Filter events for this route's location
+      const nearbyEvents = uniqueEvents.filter((e) => {
         const distance = haversineDistance(
           route.fromLocation.lat,
           route.fromLocation.lng,

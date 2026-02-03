@@ -2,6 +2,8 @@ import { useAuth, useUser } from "@clerk/clerk-expo";
 import { useQuery } from "convex/react";
 import { api } from "@outia/backend/convex/_generated/api";
 import { useRouter } from "expo-router";
+import { useFocusEffect } from "@react-navigation/native";
+import { useState, useCallback } from "react";
 import {
   UserIcon,
   CrownIcon,
@@ -42,8 +44,25 @@ export default function SettingsScreen() {
   const router = useRouter();
   const { signOut } = useAuth();
   const { user } = useUser();
-  const currentUser = useQuery(api.users.getCurrentUser);
   const { isPro } = useCustomerInfo();
+
+  // ============================================================================
+  // OPTIMIZED: Conditional subscription - pauses when screen is not focused
+  // Settings data is mostly static, no need to keep subscription active
+  // ============================================================================
+  const [isScreenFocused, setIsScreenFocused] = useState(true);
+
+  useFocusEffect(
+    useCallback(() => {
+      setIsScreenFocused(true);
+      return () => setIsScreenFocused(false);
+    }, [])
+  );
+
+  const currentUser = useQuery(
+    api.users.getCurrentUser,
+    isScreenFocused ? {} : "skip"
+  );
   const { presentCustomerCenter } = useCustomerCenter();
 
   const handleSubscriptionPress = async () => {

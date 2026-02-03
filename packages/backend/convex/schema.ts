@@ -47,6 +47,9 @@ export default defineSchema({
       lat: v.number(),
       lng: v.number(),
     }),
+    // Geospatial grid cell for efficient location queries (e.g., "45.5_-73.5")
+    // ~50km cells - calculated as floor(lat/0.5)*0.5 + "_" + floor(lng/0.5)*0.5
+    gridCell: v.optional(v.string()),
     // Route points for drawing polylines (traffic events)
     routePoints: v.optional(
       v.array(
@@ -69,7 +72,8 @@ export default defineSchema({
     rawData: v.optional(v.any()),
   })
     .index("by_type", ["type"])
-    .index("by_ttl", ["ttl"]),
+    .index("by_ttl", ["ttl"])
+    .index("by_grid_ttl", ["gridCell", "ttl"]),
 
   // User saved locations (home, work, etc.)
   userLocations: defineTable({
@@ -79,11 +83,14 @@ export default defineSchema({
       lat: v.number(),
       lng: v.number(),
     }),
+    // Geospatial grid cell for efficient cron job grouping
+    gridCell: v.optional(v.string()),
     address: v.optional(v.string()),
     isDefault: v.boolean(),
     pushToken: v.optional(v.string()),
   })
-    .index("by_user", ["userId"]),
+    .index("by_user", ["userId"])
+    .index("by_grid", ["gridCell"]),
 
   // Community votes on events
   confirmations: defineTable({
@@ -119,7 +126,9 @@ export default defineSchema({
     alertThreshold: v.number(),
     alertTime: v.string(),
     isActive: v.boolean(),
-  }).index("by_user", ["userId"]),
+  })
+    .index("by_user", ["userId"])
+    .index("by_user_active", ["userId", "isActive"]),
 
   // Calculated risk scores per location
   riskSnapshots: defineTable({

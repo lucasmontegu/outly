@@ -12,6 +12,7 @@ import type * as agent from "../agent.js";
 import type * as chat from "../chat.js";
 import type * as confirmations from "../confirmations.js";
 import type * as crons from "../crons.js";
+import type * as dashboard from "../dashboard.js";
 import type * as events from "../events.js";
 import type * as gamification from "../gamification.js";
 import type * as healthCheck from "../healthCheck.js";
@@ -38,6 +39,7 @@ declare const fullApi: ApiFromModules<{
   chat: typeof chat;
   confirmations: typeof confirmations;
   crons: typeof crons;
+  dashboard: typeof dashboard;
   events: typeof events;
   gamification: typeof gamification;
   healthCheck: typeof healthCheck;

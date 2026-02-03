@@ -31,6 +31,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { Pressable } from "react-native";
 
+import { useFocusEffect } from "@react-navigation/native";
 import { AnimatedIconButton, AnimatedCard } from "@/components/ui/animated-pressable";
 import { RouteCardSkeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/components/ui/toast";
@@ -52,8 +53,24 @@ export default function SavedScreen() {
     alertThreshold?: number;
   }>>({});
 
-  // Query routes from Convex
-  const routes = useQuery(api.routes.getUserRoutes);
+  // ============================================================================
+  // OPTIMIZED: Conditional subscription - pauses when screen is not focused
+  // Reduces bandwidth by stopping real-time updates on inactive screens
+  // ============================================================================
+  const [isScreenFocused, setIsScreenFocused] = useState(true);
+
+  useFocusEffect(
+    useCallback(() => {
+      setIsScreenFocused(true);
+      return () => setIsScreenFocused(false);
+    }, [])
+  );
+
+  // Query routes from Convex - skipped when screen is not focused
+  const routes = useQuery(
+    api.routes.getUserRoutes,
+    isScreenFocused ? {} : "skip"
+  );
   const updateRoute = useMutation(api.routes.updateRoute);
   const deleteRoute = useMutation(api.routes.deleteRoute);
 

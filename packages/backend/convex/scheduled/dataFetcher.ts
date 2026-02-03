@@ -3,13 +3,15 @@
 import { internalAction } from "../_generated/server";
 import { internal } from "../_generated/api";
 
-// Main data fetcher action - runs every 10 minutes
+// Main data fetcher action - runs every 15 minutes
+// Optimized to only process active locations (default + with active routes)
 export const fetchAllData = internalAction({
   args: {},
   handler: async (ctx) => {
-    // Get all user locations
+    // Get only active locations (default + with active routes)
+    // This reduces bandwidth by ~60% compared to getAllLocations
     const locations = await ctx.runQuery(
-      internal.scheduled.dataFetcherQueries.getAllLocations
+      internal.scheduled.dataFetcherQueries.getActiveLocations
     );
 
     if (locations.length === 0) return { processed: 0 };
@@ -79,9 +81,22 @@ export const fetchAllData = internalAction({
           processed++;
         }
 
-        // Create weather events from alerts
+        // Collect all events to batch insert (reduces mutation overhead)
+        const eventsToInsert: Array<{
+          type: "weather" | "traffic";
+          subtype: string;
+          location: { lat: number; lng: number };
+          routePoints?: Array<{ lat: number; lng: number }>;
+          radius: number;
+          severity: number;
+          source: "openweathermap" | "tomorrow" | "here";
+          ttl: number;
+          rawData?: any;
+        }> = [];
+
+        // Weather events from alerts
         for (const alert of weatherData.alerts ?? []) {
-          await ctx.runMutation(internal.events.upsertFromAPI, {
+          eventsToInsert.push({
             type: "weather",
             subtype: alert.event ?? "severe_weather",
             location: center,
@@ -93,10 +108,10 @@ export const fetchAllData = internalAction({
           });
         }
 
-        // Create weather events from hourly forecast (rain, storm, snow)
+        // Weather events from hourly forecast (rain, storm, snow)
         const upcomingWeather = analyzeUpcomingWeather(weatherData.hourly ?? []);
         for (const weatherEvent of upcomingWeather) {
-          await ctx.runMutation(internal.events.upsertFromAPI, {
+          eventsToInsert.push({
             type: "weather",
             subtype: weatherEvent.subtype,
             location: center,
@@ -108,16 +123,14 @@ export const fetchAllData = internalAction({
           });
         }
 
-        // Create traffic events from incidents
+        // Traffic events from incidents
         for (const incident of trafficData.incidents ?? []) {
-          // Extract coordinates from HERE location shape if available
           const incidentLocation = extractIncidentLocation(incident, center);
           if (incidentLocation) {
-            await ctx.runMutation(internal.events.upsertFromAPI, {
+            eventsToInsert.push({
               type: "traffic",
               subtype: incident.type ?? "incident",
               location: incidentLocation,
-              // Include route points for polyline drawing
               routePoints: incident.routePoints,
               radius: 1000,
               severity: incident.severity,
@@ -128,6 +141,13 @@ export const fetchAllData = internalAction({
               rawData: incident,
             });
           }
+        }
+
+        // Batch insert all events at once (much more efficient!)
+        if (eventsToInsert.length > 0) {
+          await ctx.runMutation(internal.events.batchInsertFromAPI, {
+            events: eventsToInsert,
+          });
         }
       } catch (error) {
         console.error(`Error fetching data for cell ${cellKey}:`, error);

@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
+import { calculateGridCell } from "./events";
 
 // User location document validator (reusable)
 const userLocationDoc = v.object({
@@ -11,6 +12,7 @@ const userLocationDoc = v.object({
     lat: v.number(),
     lng: v.number(),
   }),
+  gridCell: v.optional(v.string()),
   address: v.optional(v.string()),
   isDefault: v.boolean(),
   pushToken: v.optional(v.string()),
@@ -63,6 +65,7 @@ export const create = mutation({
       userId: identity.subject,
       name: args.name,
       location: args.location,
+      gridCell: calculateGridCell(args.location.lat, args.location.lng),
       address: args.address,
       isDefault: args.isDefault,
     });
@@ -109,7 +112,13 @@ export const update = mutation({
       }
     }
 
-    await ctx.db.patch(id, updates);
+    // Recalculate gridCell if location changes
+    const patchData: Record<string, unknown> = { ...updates };
+    if (updates.location) {
+      patchData.gridCell = calculateGridCell(updates.location.lat, updates.location.lng);
+    }
+
+    await ctx.db.patch(id, patchData);
     return null;
   },
 });
