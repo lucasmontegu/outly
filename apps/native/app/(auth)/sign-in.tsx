@@ -1,6 +1,6 @@
 import { useSignIn, useSSO } from "@clerk/clerk-expo";
 import { useMutation } from "convex/react";
-import { api } from "@outly/backend/convex/_generated/api";
+import { api } from "@outia/backend/convex/_generated/api";
 import { Link, useRouter } from "expo-router";
 import { useState, useCallback } from "react";
 import {

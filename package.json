@@ -1,5 +1,5 @@
 {
-  "name": "outly",
+  "name": "outia",
   "private": true,
   "workspaces": [
     "apps/*",
@@ -12,16 +12,17 @@
     "check-types": "turbo check-types",
     "dev:native": "turbo -F native dev",
     "dev:web": "turbo -F web dev",
-    "dev:server": "turbo -F @outly/backend dev",
-    "dev:setup": "turbo -F @outly/backend dev:setup"
+    "dev:server": "turbo -F @outia/backend dev",
+    "dev:setup": "turbo -F @outia/backend dev:setup"
   },
   "dependencies": {
-    "@outly/env": "*",
+    "@outia/env": "*",
     "dotenv": "^17.2.2",
     "zod": "^4.1.13"
   },
   "devDependencies": {
-    "@outly/config": "*",
+    "@outia/config": "*",
+    "sharp": "^0.34.5",
     "turbo": "^2.6.3",
     "typescript": "^5"
   },

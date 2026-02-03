@@ -17,8 +17,8 @@
     "@gorhom/bottom-sheet": "^5.2.8",
     "@hugeicons/core-free-icons": "^3.1.1",
     "@hugeicons/react-native": "^1.0.11",
-    "@outly/backend": "*",
-    "@outly/env": "*",
+    "@outia/backend": "*",
+    "@outia/env": "*",
     "@react-navigation/bottom-tabs": "^7.2.0",
     "@react-navigation/drawer": "^7.1.1",
     "@react-navigation/native": "^7.0.14",
@@ -52,6 +52,7 @@
     "react-native-gesture-handler": "^2.30.0",
     "react-native-maps": "1.20.1",
     "react-native-purchases": "^9.7.5",
+    "react-native-purchases-ui": "^9.7.5",
     "react-native-reanimated": "~4.1.1",
     "react-native-safe-area-context": "~5.6.0",
     "react-native-screens": "~4.16.0",
@@ -66,7 +67,7 @@
   },
   "devDependencies": {
     "@babel/core": "^7.26.10",
-    "@outly/config": "*",
+    "@outia/config": "*",
     "@types/react": "~19.1.10",
     "typescript": "^5"
   },

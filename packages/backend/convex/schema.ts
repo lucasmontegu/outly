@@ -11,6 +11,18 @@ export default defineSchema({
     imageUrl: v.optional(v.string()),
     tier: v.union(v.literal("free"), v.literal("pro")),
     onboardingCompleted: v.boolean(),
+    // Subscription fields (RevenueCat)
+    subscriptionId: v.optional(v.string()),
+    subscriptionExpiresAt: v.optional(v.number()),
+    subscriptionStatus: v.optional(
+      v.union(
+        v.literal("active"),
+        v.literal("cancelled"),
+        v.literal("expired"),
+        v.literal("grace_period"),
+        v.literal("paused")
+      )
+    ),
     // User preferences from onboarding
     preferences: v.optional(
       v.object({

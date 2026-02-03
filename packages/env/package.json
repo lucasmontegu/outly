@@ -1,5 +1,5 @@
 {
-  "name": "@outly/env",
+  "name": "@outia/env",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -13,7 +13,7 @@
     "zod": "^4.1.13"
   },
   "devDependencies": {
-    "@outly/config": "*",
+    "@outia/config": "*",
     "typescript": "^5"
   }
 }

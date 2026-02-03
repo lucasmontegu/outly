@@ -1,6 +1,6 @@
 import { useQuery, useMutation } from "convex/react";
-import { api } from "@outly/backend/convex/_generated/api";
-import { Id } from "@outly/backend/convex/_generated/dataModel";
+import { api } from "@outia/backend/convex/_generated/api";
+import { Id } from "@outia/backend/convex/_generated/dataModel";
 import {
   Search01Icon,
   Alert02Icon,
@@ -205,7 +205,7 @@ export default function MapScreen() {
           }),
         {
           headers: {
-            "User-Agent": "Outly/1.0",
+            "User-Agent": "Outia/1.0",
           },
         }
       );

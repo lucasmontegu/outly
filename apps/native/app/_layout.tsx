@@ -2,7 +2,7 @@ import "@/polyfills";
 import "./globals.css";
 import { ClerkProvider, useAuth } from "@clerk/clerk-expo";
 import { tokenCache } from "@clerk/clerk-expo/token-cache";
-import { env } from "@outly/env/native";
+import { env } from "@outia/env/native";
 import { DarkTheme, DefaultTheme, type Theme, ThemeProvider } from "@react-navigation/native";
 import { ConvexProviderWithClerk } from "convex/react-clerk";
 import { ConvexReactClient } from "convex/react";
@@ -17,6 +17,7 @@ import { setAndroidNavigationBar } from "@/lib/android-navigation-bar";
 import { NAV_THEME } from "@/lib/constants";
 import { useColorScheme } from "@/lib/use-color-scheme";
 import { ToastProvider } from "@/components/ui/toast";
+import { RevenueCatProvider } from "@/providers/RevenueCatProvider";
 
 const LIGHT_THEME: Theme = {
   ...DefaultTheme,
@@ -65,23 +66,25 @@ export default function RootLayout() {
   return (
     <ClerkProvider tokenCache={tokenCache} publishableKey={env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY}>
       <ConvexProviderWithClerk client={convex} useAuth={useAuth}>
-        <ThemeProvider value={isDarkColorScheme ? DARK_THEME : LIGHT_THEME}>
-          <StatusBar style={isDarkColorScheme ? "light" : "dark"} />
-          <GestureHandlerRootView style={styles.container}>
-            <HeroUINativeProvider>
-              <ToastProvider>
-                <Stack screenOptions={{ headerShown: false }}>
-                  <Stack.Screen name="(onboarding)" />
-                  <Stack.Screen name="(auth)" />
-                  <Stack.Screen name="(setup)" />
-                  <Stack.Screen name="(tabs)" />
-                  <Stack.Screen name="paywall" options={{ presentation: "modal" }} />
-                  <Stack.Screen name="smart-departure" options={{ presentation: "card" }} />
-                </Stack>
-              </ToastProvider>
-            </HeroUINativeProvider>
-          </GestureHandlerRootView>
-        </ThemeProvider>
+        <RevenueCatProvider>
+          <ThemeProvider value={isDarkColorScheme ? DARK_THEME : LIGHT_THEME}>
+            <StatusBar style={isDarkColorScheme ? "light" : "dark"} />
+            <GestureHandlerRootView style={styles.container}>
+              <HeroUINativeProvider>
+                <ToastProvider>
+                  <Stack screenOptions={{ headerShown: false }}>
+                    <Stack.Screen name="(onboarding)" />
+                    <Stack.Screen name="(auth)" />
+                    <Stack.Screen name="(setup)" />
+                    <Stack.Screen name="(tabs)" />
+                    <Stack.Screen name="paywall" options={{ presentation: "modal" }} />
+                    <Stack.Screen name="smart-departure" options={{ presentation: "card" }} />
+                  </Stack>
+                </ToastProvider>
+              </HeroUINativeProvider>
+            </GestureHandlerRootView>
+          </ThemeProvider>
+        </RevenueCatProvider>
       </ConvexProviderWithClerk>
     </ClerkProvider>
   );

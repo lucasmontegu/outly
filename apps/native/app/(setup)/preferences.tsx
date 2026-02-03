@@ -1,6 +1,6 @@
 import { useRouter } from "expo-router";
 import { useMutation } from "convex/react";
-import { api } from "@outly/backend/convex/_generated/api";
+import { api } from "@outia/backend/convex/_generated/api";
 import {
   View,
   Text,
@@ -76,7 +76,7 @@ export default function PreferencesScreen() {
         {/* Header */}
         <View style={styles.header}>
           <Text style={styles.stepLabel}>PERSONALIZE</Text>
-          <Text style={styles.title}>Make Outly yours</Text>
+          <Text style={styles.title}>Make Outia yours</Text>
           <Text style={styles.description}>
             Help us tailor your experience. You can change these anytime.
           </Text>

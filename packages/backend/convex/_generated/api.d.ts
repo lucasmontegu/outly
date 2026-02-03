@@ -15,6 +15,7 @@ import type * as crons from "../crons.js";
 import type * as events from "../events.js";
 import type * as gamification from "../gamification.js";
 import type * as healthCheck from "../healthCheck.js";
+import type * as http from "../http.js";
 import type * as integrations_traffic from "../integrations/traffic.js";
 import type * as integrations_weather from "../integrations/weather.js";
 import type * as privateData from "../privateData.js";
@@ -22,6 +23,7 @@ import type * as riskScore from "../riskScore.js";
 import type * as routes from "../routes.js";
 import type * as scheduled_dataFetcher from "../scheduled/dataFetcher.js";
 import type * as scheduled_dataFetcherQueries from "../scheduled/dataFetcherQueries.js";
+import type * as subscriptions from "../subscriptions.js";
 import type * as userLocations from "../userLocations.js";
 import type * as users from "../users.js";
 
@@ -39,6 +41,7 @@ declare const fullApi: ApiFromModules<{
   events: typeof events;
   gamification: typeof gamification;
   healthCheck: typeof healthCheck;
+  http: typeof http;
   "integrations/traffic": typeof integrations_traffic;
   "integrations/weather": typeof integrations_weather;
   privateData: typeof privateData;
@@ -46,6 +49,7 @@ declare const fullApi: ApiFromModules<{
   routes: typeof routes;
   "scheduled/dataFetcher": typeof scheduled_dataFetcher;
   "scheduled/dataFetcherQueries": typeof scheduled_dataFetcherQueries;
+  subscriptions: typeof subscriptions;
   userLocations: typeof userLocations;
   users: typeof users;
 }>;

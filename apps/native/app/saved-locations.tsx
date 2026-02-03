@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { useRouter } from "expo-router";
 import { useQuery, useMutation } from "convex/react";
-import { api } from "@outly/backend/convex/_generated/api";
-import { Id } from "@outly/backend/convex/_generated/dataModel";
+import { api } from "@outia/backend/convex/_generated/api";
+import { Id } from "@outia/backend/convex/_generated/dataModel";
 import {
   ArrowLeft01Icon,
   Location01Icon,

@@ -1,6 +1,6 @@
 import { useAuth } from "@clerk/clerk-expo";
 import { useQuery } from "convex/react";
-import { api } from "@outly/backend/convex/_generated/api";
+import { api } from "@outia/backend/convex/_generated/api";
 import { Redirect, Stack } from "expo-router";
 import { View, ActivityIndicator, StyleSheet } from "react-native";
 

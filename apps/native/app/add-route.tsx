@@ -1,7 +1,7 @@
 import { useState, useRef } from "react";
 import { useRouter } from "expo-router";
 import { useMutation, useQuery } from "convex/react";
-import { api } from "@outly/backend/convex/_generated/api";
+import { api } from "@outia/backend/convex/_generated/api";
 import {
   ArrowLeft01Icon,
   Location01Icon,
@@ -113,7 +113,7 @@ export default function AddRouteScreen() {
           }),
         {
           headers: {
-            "User-Agent": "Outly/1.0",
+            "User-Agent": "Outia/1.0",
           },
         }
       );
