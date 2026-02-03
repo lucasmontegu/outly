@@ -1,6 +1,6 @@
 import { useSignUp, useSSO } from "@clerk/clerk-expo";
 import { useMutation } from "convex/react";
-import { api } from "@outly/backend/convex/_generated/api";
+import { api } from "@outia/backend/convex/_generated/api";
 import { Link, useRouter } from "expo-router";
 import { useState, useCallback } from "react";
 import {
@@ -125,7 +125,7 @@ export default function SignUpScreen() {
           <View style={styles.header}>
             <Text style={styles.title}>Create account</Text>
             <Text style={styles.subtitle}>
-              Sign up to get started with Outly
+              Sign up to get started with Outia
             </Text>
           </View>
 

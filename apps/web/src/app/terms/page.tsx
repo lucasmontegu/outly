@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Terms of Service | Outly",
-  description: "Outly Terms of Service - Rules and guidelines for using our service",
+  title: "Terms of Service | Outia",
+  description: "Outia Terms of Service - Rules and guidelines for using our service",
 };
 
 export default function TermsOfServicePage() {
@@ -13,14 +13,14 @@ export default function TermsOfServicePage() {
         <p className="text-muted-foreground">Last Updated: February 2, 2026</p>
 
         <p>
-          Welcome to Outly. Please read these Terms of Service (&quot;Terms&quot;) carefully before
-          using the Outly mobile application (&quot;Service&quot;) operated by Outly
+          Welcome to Outia. Please read these Terms of Service (&quot;Terms&quot;) carefully before
+          using the Outia mobile application (&quot;Service&quot;) operated by Outia
           (&quot;we&quot;, &quot;our&quot;, or &quot;us&quot;).
         </p>
         <p>By accessing or using the Service, you agree to be bound by these Terms.</p>
 
         <h2>1. Description of Service</h2>
-        <p>Outly provides risk intelligence for travel decisions by combining:</p>
+        <p>Outia provides risk intelligence for travel decisions by combining:</p>
         <ul>
           <li>Real-time weather data</li>
           <li>Traffic conditions</li>
@@ -74,7 +74,7 @@ export default function TermsOfServicePage() {
           <li>Trust decay occurs on inactive accounts to maintain data quality</li>
         </ul>
 
-        <h2>6. Subscription Services (Outly Pro)</h2>
+        <h2>6. Subscription Services (Outia Pro)</h2>
 
         <h3>Pricing</h3>
         <ul>
@@ -167,7 +167,7 @@ export default function TermsOfServicePage() {
 
         <h2>11. Intellectual Property</h2>
         <p>
-          All content, features, and functionality of the Service are owned by Outly and protected
+          All content, features, and functionality of the Service are owned by Outia and protected
           by copyright, trademark, and other intellectual property laws.
         </p>
         <p>
@@ -209,7 +209,7 @@ export default function TermsOfServicePage() {
 
         <h3>Informal Resolution</h3>
         <p>
-          Before filing a claim, you agree to contact us at legal@outly.app to attempt resolution.
+          Before filing a claim, you agree to contact us at legal@outia.app to attempt resolution.
         </p>
 
         <h3>Class Action Waiver</h3>
@@ -230,21 +230,21 @@ export default function TermsOfServicePage() {
           <a href="/privacy" className="text-primary hover:underline">
             Privacy Policy
           </a>
-          , constitute the entire agreement between you and Outly.
+          , constitute the entire agreement between you and Outia.
         </p>
 
         <h2>17. Contact</h2>
         <p>For questions about these Terms:</p>
         <ul>
           <li>
-            <strong>Email</strong>: legal@outly.app
+            <strong>Email</strong>: legal@outia.app
           </li>
         </ul>
 
         <hr />
 
         <p className="text-sm text-muted-foreground">
-          By using Outly, you acknowledge that you have read, understood, and agree to be bound by
+          By using Outia, you acknowledge that you have read, understood, and agree to be bound by
           these Terms of Service.
         </p>
       </article>

@@ -1,6 +1,6 @@
 import { useRouter } from "expo-router";
 import { useMutation } from "convex/react";
-import { api } from "@outly/backend/convex/_generated/api";
+import { api } from "@outia/backend/convex/_generated/api";
 import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Button } from "heroui-native";
@@ -81,7 +81,7 @@ export default function SetupLocationPermission() {
         <Text style={styles.description}>
           {isGranted
             ? "Great! We can now calculate accurate risk scores for your area."
-            : "To show you accurate risk scores, Outly needs to know where you are. Your location stays on your device."}
+            : "To show you accurate risk scores, Outia needs to know where you are. Your location stays on your device."}
         </Text>
 
         {/* Why we need it */}

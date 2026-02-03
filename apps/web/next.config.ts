@@ -1,4 +1,4 @@
-import "@outly/env/web";
+import "@outia/env/web";
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {

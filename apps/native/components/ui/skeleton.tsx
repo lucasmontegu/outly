@@ -147,7 +147,7 @@ export function SkeletonText({
 }
 
 // ============================================================
-// Composite Skeletons for Outly-specific components
+// Composite Skeletons for Outia-specific components
 // ============================================================
 
 /**

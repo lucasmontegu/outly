@@ -1,4 +1,4 @@
-# AGENTS.md - Outly Monorepo Guidelines
+# AGENTS.md - Outia Monorepo Guidelines
 
 ## Build / Lint / Test Commands
 
@@ -17,7 +17,7 @@ npm run check-types      # Type-check all packages
 # Turborepo filtering (run commands in specific packages)
 turbo -F web dev         # Run dev for web app only
 turbo -F native build    # Build native app only
-turbo -F @outly/backend dev
+turbo -F @outia/backend dev
 ```
 
 **Note:** This project uses npm workspaces + Turborepo. No test framework is currently configured.
@@ -25,7 +25,7 @@ turbo -F @outly/backend dev
 ## Project Structure
 
 ```
-outly/
+outia/
 ├── apps/
 │   ├── web/              # Next.js 16 web app
 │   └── native/           # Expo/React Native app
@@ -38,16 +38,16 @@ outly/
 ## Code Style Guidelines
 
 ### TypeScript Configuration
-- Base config extends `@outly/config/tsconfig.base.json`
+- Base config extends `@outia/config/tsconfig.base.json`
 - Strict mode enabled with `noUnusedLocals`, `noUnusedParameters`
 - `verbatimModuleSyntax: true` - use `import type` for type imports
 - `noUncheckedIndexedAccess: true` - handle undefined index access
 
 ### Imports
 - Use `import type` for type-only imports (enforced by verbatimModuleSyntax)
-- Group imports: external libs → internal packages (`@outly/*`) → relative (`@/`)
+- Group imports: external libs → internal packages (`@outia/*`) → relative (`@/`)
 - Use path aliases: `@/` for app-relative imports (configured in each app)
-- Internal packages use `@outly/` prefix (e.g., `@outly/backend`, `@outly/env`)
+- Internal packages use `@outia/` prefix (e.g., `@outia/backend`, `@outia/env`)
 
 ### Naming Conventions
 - **Components:** PascalCase (e.g., `RiskCircle`, `Button`)
@@ -76,7 +76,7 @@ outly/
 - Schema defined in `packages/backend/convex/schema.ts`
 - Use `v` validator from `convex/values` for type safety
 - Queries/mutations in separate files under `convex/` directory
-- Access via generated API: `import { api } from "@outly/backend/convex/_generated/api"`
+- Access via generated API: `import { api } from "@outia/backend/convex/_generated/api"`
 
 ### Styling
 
@@ -126,7 +126,7 @@ When modifying code:
 2. Use `import type` for type imports
 3. Respect strict TypeScript settings - no implicit any
 4. Match existing component patterns for each platform
-5. Use path aliases (`@/`, `@outly/*`) instead of relative paths
+5. Use path aliases (`@/`, `@outia/*`) instead of relative paths
 6. For UI changes, maintain consistency with existing design system
 7. When adding Convex tables, update schema.ts and regenerate types
 8. Test both web and native if shared code is modified

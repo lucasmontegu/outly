@@ -1,6 +1,6 @@
 import { useRouter } from "expo-router";
 import { useMutation } from "convex/react";
-import { api } from "@outly/backend/convex/_generated/api";
+import { api } from "@outia/backend/convex/_generated/api";
 import {
   View,
   Text,

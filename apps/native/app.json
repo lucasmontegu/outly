@@ -1,19 +1,19 @@
 {
   "expo": {
-    "name": "outly",
-    "slug": "outly",
+    "name": "outia",
+    "slug": "outia",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "outly",
+    "scheme": "outia",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.outly.app",
+      "bundleIdentifier": "com.outia.app",
       "infoPlist": {
-        "NSLocationWhenInUseUsageDescription": "Outly needs your location to calculate real-time risk scores for your area based on weather and traffic conditions.",
-        "NSLocationAlwaysAndWhenInUseUsageDescription": "Outly needs background location access to send you departure alerts and risk notifications for your saved routes.",
+        "NSLocationWhenInUseUsageDescription": "Outia needs your location to calculate real-time risk scores for your area based on weather and traffic conditions.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "Outia needs background location access to send you departure alerts and risk notifications for your saved routes.",
         "UIBackgroundModes": ["location", "fetch", "remote-notification"]
       }
     },
@@ -26,7 +26,7 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "package": "com.outly.app",
+      "package": "com.outia.app",
       "permissions": [
         "ACCESS_COARSE_LOCATION",
         "ACCESS_FINE_LOCATION",

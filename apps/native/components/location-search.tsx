@@ -87,7 +87,7 @@ export function LocationSearchModal({
           }),
         {
           headers: {
-            "User-Agent": "Outly/1.0 (contact@outly.app)",
+            "User-Agent": "Outia/1.0 (contact@outia.app)",
           },
         }
       );

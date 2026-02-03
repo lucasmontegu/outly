@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Outly is a mobile-first risk intelligence app that combines weather and traffic data with community voting to provide real-time risk scores (0-100) for safe departure decisions. Built with Better-T-Stack.
+Outia is a mobile-first risk intelligence app that combines weather and traffic data with community voting to provide real-time risk scores (0-100) for safe departure decisions. Built with Better-T-Stack.
 
 ## Tech Stack
 
@@ -77,7 +77,7 @@ packages/
 │   ├── integrations/           # weather.ts, traffic.ts
 │   └── scheduled/              # dataFetcher.ts (10-min cron)
 │
-├── env/                        # Type-safe env validation (@outly/env)
+├── env/                        # Type-safe env validation (@outia/env)
 │   └── src/
 │       ├── web.ts              # Next.js env (NEXT_PUBLIC_*)
 │       └── native.ts           # Expo env (EXPO_PUBLIC_*)
@@ -214,5 +214,5 @@ CLERK_JWT_ISSUER_DOMAIN=<domain>
 ## Design Documents
 
 Implementation plans in `docs/plans/`:
-- `2026-01-31-outly-mvp-design.md` - Core MVP architecture
+- `2026-01-31-outia-mvp-design.md` - Core MVP architecture
 - `2025-01-31-gamification-system-design.md` - Gamification with levels, badges, trust decay

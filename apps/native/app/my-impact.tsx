@@ -1,6 +1,6 @@
 import { useRouter } from "expo-router";
 import { useQuery } from "convex/react";
-import { api } from "@outly/backend/convex/_generated/api";
+import { api } from "@outia/backend/convex/_generated/api";
 import {
   ArrowLeft01Icon,
   HelpCircleIcon,

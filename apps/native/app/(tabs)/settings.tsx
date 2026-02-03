@@ -1,6 +1,6 @@
 import { useAuth, useUser } from "@clerk/clerk-expo";
 import { useQuery } from "convex/react";
-import { api } from "@outly/backend/convex/_generated/api";
+import { api } from "@outia/backend/convex/_generated/api";
 import { useRouter } from "expo-router";
 import {
   UserIcon,
@@ -24,6 +24,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Card } from "heroui-native";
+import { useCustomerInfo, useCustomerCenter } from "@/hooks/useSubscription";
 
 type SettingsItem = {
   icon: any;
@@ -40,8 +41,22 @@ export default function SettingsScreen() {
   const { signOut } = useAuth();
   const { user } = useUser();
   const currentUser = useQuery(api.users.getCurrentUser);
+  const { isPro } = useCustomerInfo();
+  const { presentCustomerCenter } = useCustomerCenter();
 
-  const isPro = currentUser?.tier === "pro";
+  const handleSubscriptionPress = async () => {
+    if (isPro) {
+      // Show Customer Center for subscription management
+      await presentCustomerCenter({
+        onRestoreCompleted: (customerInfo) => {
+          console.log("Purchases restored:", customerInfo);
+        },
+      });
+    } else {
+      // Show paywall for non-pro users
+      router.push("/paywall");
+    }
+  };
 
   const accountItems: SettingsItem[] = [
     {
@@ -68,7 +83,7 @@ export default function SettingsScreen() {
       iconBg: "#FEF3C7",
       label: isPro ? "Manage Subscription" : "Upgrade to Pro",
       sublabel: isPro ? "Pro Member" : "Unlock all features",
-      action: () => router.push("/paywall"),
+      action: handleSubscriptionPress,
       showArrow: true,
     },
   ];
@@ -211,7 +226,7 @@ export default function SettingsScreen() {
         </TouchableOpacity>
 
         {/* Version */}
-        <Text style={styles.versionText}>Outly v1.0.0</Text>
+        <Text style={styles.versionText}>Outia v1.0.0</Text>
       </ScrollView>
     </SafeAreaView>
   );

@@ -1,6 +1,6 @@
 import { useRouter } from "expo-router";
 import { useMutation } from "convex/react";
-import { api } from "@outly/backend/convex/_generated/api";
+import { api } from "@outia/backend/convex/_generated/api";
 import {
   View,
   Text,
@@ -187,7 +187,7 @@ export default function GamificationIntroScreen() {
           onPress={handleStart}
           isDisabled={isLoading}
         >
-          {isLoading ? "Starting..." : "Start Using Outly"}
+          {isLoading ? "Starting..." : "Start Using Outia"}
         </Button>
       </View>
     </SafeAreaView>

@@ -23,7 +23,7 @@ export default function OnboardingScreen() {
     <SafeAreaView style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.logo}>outly</Text>
+        <Text style={styles.logo}>outia</Text>
       </View>
 
       {/* Demo Risk Score - Show value immediately */}

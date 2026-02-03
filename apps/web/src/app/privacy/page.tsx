@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Privacy Policy | Outly",
-  description: "Outly Privacy Policy - How we collect, use, and protect your data",
+  title: "Privacy Policy | Outia",
+  description: "Outia Privacy Policy - How we collect, use, and protect your data",
 };
 
 export default function PrivacyPolicyPage() {
@@ -13,7 +13,7 @@ export default function PrivacyPolicyPage() {
         <p className="text-muted-foreground">Last Updated: February 2, 2026</p>
 
         <p>
-          Outly (&quot;we&quot;, &quot;our&quot;, or &quot;us&quot;) operates the Outly mobile
+          Outia (&quot;we&quot;, &quot;our&quot;, or &quot;us&quot;) operates the Outia mobile
           application (the &quot;Service&quot;). This page informs you of our policies regarding
           the collection, use, and disclosure of personal data when you use our Service.
         </p>
@@ -174,7 +174,7 @@ export default function PrivacyPolicyPage() {
             <strong>Withdraw Consent</strong>: Disable location permissions at any time
           </li>
         </ul>
-        <p>To exercise these rights, contact us at privacy@outly.app.</p>
+        <p>To exercise these rights, contact us at privacy@outia.app.</p>
 
         <h2>Data Security</h2>
         <p>We implement industry-standard security measures:</p>
@@ -201,7 +201,7 @@ export default function PrivacyPolicyPage() {
         <p>For questions about this Privacy Policy:</p>
         <ul>
           <li>
-            <strong>Email</strong>: privacy@outly.app
+            <strong>Email</strong>: privacy@outia.app
           </li>
         </ul>
 

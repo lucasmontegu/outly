@@ -1,7 +1,7 @@
 "use client";
 
 import { useUIMessages, useSmoothText, type UIMessage } from "@convex-dev/agent/react";
-import { api } from "@outly/backend/convex/_generated/api";
+import { api } from "@outia/backend/convex/_generated/api";
 import { useMutation } from "convex/react";
 import { Send, Loader2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";

@@ -3,7 +3,7 @@ import { Platform } from "react-native";
 
 /**
  * Centralized haptic feedback utilities for consistent tactile feedback
- * across the Outly app. All haptics respect platform capabilities.
+ * across the Outia app. All haptics respect platform capabilities.
  */
 
 const isHapticsSupported = Platform.OS === "ios" || Platform.OS === "android";
