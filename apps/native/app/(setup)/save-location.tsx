@@ -22,6 +22,7 @@ import {
 import { HugeiconsIcon } from "@hugeicons/react-native";
 import * as Location from "expo-location";
 import { useState, useEffect } from "react";
+import { colors, spacing, borderRadius, typography, shadows } from "@/lib/design-tokens";
 
 type LocationType = "home" | "work" | "other";
 
@@ -161,7 +162,7 @@ export default function SaveLocationScreen() {
                 placeholder="Name this place (e.g., Gym, School)"
                 value={customName}
                 onChangeText={setCustomName}
-                placeholderTextColor="#9CA3AF"
+                placeholderTextColor={colors.text.tertiary}
               />
             )}
           </View>
@@ -171,7 +172,7 @@ export default function SaveLocationScreen() {
             <View style={styles.locationCard}>
               <View style={styles.locationCardHeader}>
                 <View style={styles.locationIcon}>
-                  <HugeiconsIcon icon={Location01Icon} size={20} color="#3B82F6" />
+                  <HugeiconsIcon icon={Location01Icon} size={20} color={colors.state.info} />
                 </View>
                 <View style={styles.locationInfo}>
                   <Text style={styles.locationLabel}>Using current location</Text>
@@ -183,7 +184,7 @@ export default function SaveLocationScreen() {
                   <HugeiconsIcon
                     icon={CheckmarkCircle02Icon}
                     size={24}
-                    color="#10B981"
+                    color={colors.state.success}
                   />
                 </View>
               </View>
@@ -277,7 +278,7 @@ function LocationTypeButton({
         <HugeiconsIcon
           icon={icon}
           size={24}
-          color={isSelected ? "#3B82F6" : "#6B7280"}
+          color={isSelected ? colors.state.info : colors.text.secondary}
         />
       </View>
       <Text
@@ -292,7 +293,7 @@ function LocationTypeButton({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#fff",
+    backgroundColor: colors.background.primary,
   },
   keyboardView: {
     flex: 1,
@@ -301,109 +302,109 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingHorizontal: 24,
-    paddingTop: 24,
-    paddingBottom: 24,
+    paddingHorizontal: spacing[6],
+    paddingTop: spacing[6],
+    paddingBottom: spacing[6],
   },
   header: {
-    marginBottom: 32,
+    marginBottom: spacing[8],
   },
   stepLabel: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: "#3B82F6",
-    letterSpacing: 0.5,
+    fontSize: typography.size.sm,
+    fontWeight: typography.weight.semibold,
+    color: colors.state.info,
+    letterSpacing: typography.tracking.wide,
     textAlign: "center",
-    marginBottom: 8,
+    marginBottom: spacing[2],
   },
   title: {
-    fontSize: 28,
-    fontWeight: "700",
-    color: "#111827",
+    fontSize: typography.size['4xl'],
+    fontWeight: typography.weight.bold,
+    color: colors.text.primary,
     textAlign: "center",
   },
   description: {
-    fontSize: 15,
-    color: "#6B7280",
+    fontSize: typography.size.md,
+    color: colors.text.secondary,
     lineHeight: 22,
-    marginTop: 8,
+    marginTop: spacing[2],
     textAlign: "center",
   },
   typeSection: {
-    marginBottom: 24,
+    marginBottom: spacing[6],
   },
   sectionLabel: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#374151",
-    marginBottom: 12,
+    fontSize: typography.size.base,
+    fontWeight: typography.weight.semibold,
+    color: colors.slate[700],
+    marginBottom: spacing[3],
   },
   typeOptions: {
     flexDirection: "row",
-    gap: 12,
+    gap: spacing[3],
   },
   typeButton: {
     flex: 1,
     alignItems: "center",
-    paddingVertical: 16,
-    borderRadius: 12,
+    paddingVertical: spacing[4],
+    borderRadius: borderRadius.lg,
     borderWidth: 2,
-    borderColor: "#E5E7EB",
-    backgroundColor: "#fff",
+    borderColor: colors.border.light,
+    backgroundColor: colors.background.primary,
   },
   typeButtonSelected: {
-    borderColor: "#3B82F6",
+    borderColor: colors.state.info,
     backgroundColor: "#EFF6FF",
   },
   typeIconWrapper: {
     width: 48,
     height: 48,
-    borderRadius: 24,
-    backgroundColor: "#F3F4F6",
+    borderRadius: borderRadius['3xl'],
+    backgroundColor: colors.slate[100],
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 8,
+    marginBottom: spacing[2],
   },
   typeIconWrapperSelected: {
     backgroundColor: "#DBEAFE",
   },
   typeLabel: {
-    fontSize: 14,
-    fontWeight: "500",
-    color: "#6B7280",
+    fontSize: typography.size.base,
+    fontWeight: typography.weight.medium,
+    color: colors.text.secondary,
   },
   typeLabelSelected: {
-    color: "#3B82F6",
-    fontWeight: "600",
+    color: colors.state.info,
+    fontWeight: typography.weight.semibold,
   },
   customNameInput: {
-    marginTop: 16,
+    marginTop: spacing[4],
     height: 48,
     borderWidth: 1,
-    borderColor: "#E5E7EB",
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    fontSize: 15,
-    color: "#111827",
-    backgroundColor: "#F9FAFB",
+    borderColor: colors.border.light,
+    borderRadius: borderRadius.lg,
+    paddingHorizontal: spacing[4],
+    fontSize: typography.size.md,
+    color: colors.text.primary,
+    backgroundColor: colors.background.tertiary,
   },
   locationCard: {
-    backgroundColor: "#F0FDF4",
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 24,
+    backgroundColor: colors.risk.low.light,
+    borderRadius: borderRadius.xl,
+    padding: spacing[4],
+    marginBottom: spacing[6],
     borderWidth: 1,
     borderColor: "#BBF7D0",
   },
   locationCardHeader: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
+    gap: spacing[3],
   },
   locationIcon: {
     width: 40,
     height: 40,
-    borderRadius: 20,
+    borderRadius: borderRadius['2xl'],
     backgroundColor: "#DBEAFE",
     alignItems: "center",
     justifyContent: "center",
@@ -412,86 +413,86 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   locationLabel: {
-    fontSize: 12,
-    fontWeight: "600",
+    fontSize: typography.size.sm,
+    fontWeight: typography.weight.semibold,
     color: "#059669",
   },
   locationAddress: {
-    fontSize: 14,
-    color: "#374151",
+    fontSize: typography.size.base,
+    color: colors.slate[700],
     marginTop: 2,
   },
   checkIcon: {
-    marginLeft: 8,
+    marginLeft: spacing[2],
   },
   noLocationCard: {
-    backgroundColor: "#FEF3C7",
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 24,
+    backgroundColor: colors.risk.medium.light,
+    borderRadius: borderRadius.xl,
+    padding: spacing[5],
+    marginBottom: spacing[6],
     alignItems: "center",
   },
   noLocationText: {
-    fontSize: 14,
+    fontSize: typography.size.base,
     color: "#92400E",
     textAlign: "center",
   },
   benefitsCard: {
-    backgroundColor: "#F9FAFB",
-    borderRadius: 16,
-    padding: 20,
+    backgroundColor: colors.background.tertiary,
+    borderRadius: borderRadius.xl,
+    padding: spacing[5],
   },
   benefitsTitle: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#374151",
-    marginBottom: 16,
+    fontSize: typography.size.base,
+    fontWeight: typography.weight.semibold,
+    color: colors.slate[700],
+    marginBottom: spacing[4],
   },
   benefit: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
-    marginBottom: 12,
+    gap: spacing[3],
+    marginBottom: spacing[3],
   },
   benefitIcon: {
-    fontSize: 18,
+    fontSize: typography.size.xl,
   },
   benefitText: {
-    fontSize: 14,
-    color: "#4B5563",
+    fontSize: typography.size.base,
+    color: colors.slate[600],
     flex: 1,
   },
   footer: {
-    paddingHorizontal: 24,
-    paddingBottom: 24,
-    paddingTop: 16,
+    paddingHorizontal: spacing[6],
+    paddingBottom: spacing[6],
+    paddingTop: spacing[4],
     borderTopWidth: 1,
-    borderTopColor: "#F3F4F6",
-    backgroundColor: "#fff",
+    borderTopColor: colors.slate[100],
+    backgroundColor: colors.background.primary,
   },
   skipButton: {
     alignItems: "center",
-    paddingVertical: 12,
-    marginTop: 8,
+    paddingVertical: spacing[3],
+    marginTop: spacing[2],
   },
   skipText: {
-    fontSize: 15,
-    color: "#9CA3AF",
-    fontWeight: "500",
+    fontSize: typography.size.md,
+    color: colors.text.tertiary,
+    fontWeight: typography.weight.medium,
   },
   pagination: {
     flexDirection: "row",
     justifyContent: "center",
-    marginTop: 12,
-    gap: 8,
+    marginTop: spacing[3],
+    gap: spacing[2],
   },
   dot: {
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: "#E5E7EB",
+    backgroundColor: colors.border.light,
   },
   dotActive: {
-    backgroundColor: "#111827",
+    backgroundColor: colors.text.primary,
   },
 });

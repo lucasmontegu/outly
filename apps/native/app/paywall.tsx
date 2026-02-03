@@ -34,6 +34,7 @@ import {
   usePurchase,
   useRestorePurchases,
 } from "@/hooks/useSubscription";
+import { colors, spacing, borderRadius, typography, shadows } from "@/lib/design-tokens";
 
 type PricingPlan = "monthly" | "yearly";
 
@@ -42,19 +43,19 @@ const features = [
     icon: SparklesIcon,
     title: "Smart Departure Advisor",
     description: "Leave at the perfect time. Save 2.5 hours weekly.",
-    gradient: ["#3B82F6", "#2563EB"],
+    gradient: [colors.state.info, colors.brand.secondary],
   },
   {
     icon: Calendar02Icon,
     title: "7-Day Risk Forecast",
     description: "Plan ahead with predictive weather and traffic intel.",
-    gradient: ["#10B981", "#059669"],
+    gradient: [colors.state.success, colors.risk.low.dark],
   },
   {
     icon: ShieldKeyIcon,
     title: "Priority Safety Alerts",
     description: "Get instant notifications before conditions worsen.",
-    gradient: ["#F59E0B", "#D97706"],
+    gradient: [colors.state.warning, colors.risk.medium.dark],
   },
 ];
 
@@ -173,7 +174,7 @@ export default function PaywallScreen() {
     <View style={styles.container}>
       {/* Background Gradient */}
       <LinearGradient
-        colors={["#0F172A", "#1E293B", "#334155"]}
+        colors={[colors.slate[900], colors.background.darkSecondary, colors.background.darkTertiary]}
         style={styles.backgroundGradient}
       />
 
@@ -243,7 +244,7 @@ export default function PaywallScreen() {
                 <HugeiconsIcon
                   icon={feature.icon}
                   size={24}
-                  color="#fff"
+                  color={colors.text.inverse}
                 />
               </View>
               <View style={styles.featureContent}>
@@ -265,7 +266,7 @@ export default function PaywallScreen() {
 
           {isLoading ? (
             <View style={styles.loadingContainer}>
-              <ActivityIndicator size="large" color="#3B82F6" />
+              <ActivityIndicator size="large" color={colors.state.info} />
               <Text style={styles.loadingText}>Loading plans...</Text>
             </View>
           ) : (
@@ -317,7 +318,7 @@ export default function PaywallScreen() {
                       <HugeiconsIcon
                         icon={CheckmarkCircle02Icon}
                         size={16}
-                        color="#10B981"
+                        color={colors.state.success}
                       />
                       <Text style={styles.benefitText}>Best value</Text>
                     </View>
@@ -325,7 +326,7 @@ export default function PaywallScreen() {
                       <HugeiconsIcon
                         icon={CheckmarkCircle02Icon}
                         size={16}
-                        color="#10B981"
+                        color={colors.state.success}
                       />
                       <Text style={styles.benefitText}>
                         {savingsPercentage}% savings vs monthly
@@ -371,7 +372,7 @@ export default function PaywallScreen() {
                       <HugeiconsIcon
                         icon={CheckmarkCircle02Icon}
                         size={16}
-                        color="#10B981"
+                        color={colors.state.success}
                       />
                       <Text style={styles.benefitText}>Flexible billing</Text>
                     </View>
@@ -409,7 +410,7 @@ export default function PaywallScreen() {
       {/* Sticky Bottom CTA */}
       <SafeAreaView style={styles.bottomCta} edges={["bottom"]}>
         <LinearGradient
-          colors={["transparent", "rgba(15, 23, 42, 0.95)", "#0F172A"]}
+          colors={["transparent", "rgba(15, 23, 42, 0.95)", colors.slate[900]]}
           style={styles.bottomCtaGradient}
         />
 
@@ -421,7 +422,7 @@ export default function PaywallScreen() {
             isDisabled={isDisabled}
           >
             {isPurchasing ? (
-              <ActivityIndicator size="small" color="#fff" />
+              <ActivityIndicator size="small" color={colors.text.inverse} />
             ) : (
               "Start 7-Day Free Trial"
             )}
@@ -492,13 +493,13 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingTop: 80,
-    paddingHorizontal: 24,
-    paddingBottom: 32,
+    paddingHorizontal: spacing[6],
+    paddingBottom: spacing[8],
   },
 
   // Hero Section
   heroSection: {
-    marginBottom: 32,
+    marginBottom: spacing[8],
   },
   proBadge: {
     flexDirection: "row",
@@ -508,26 +509,26 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "rgba(59, 130, 246, 0.3)",
     paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 20,
-    gap: 8,
-    marginBottom: 24,
+    paddingVertical: spacing[2],
+    borderRadius: borderRadius["2xl"],
+    gap: spacing[2],
+    marginBottom: spacing[6],
   },
   proIcon: {
-    fontSize: 16,
+    fontSize: typography.size.lg,
   },
   proBadgeText: {
-    fontSize: 12,
-    fontWeight: "700",
-    color: "#3B82F6",
+    fontSize: typography.size.sm,
+    fontWeight: typography.weight.bold,
+    color: colors.state.info,
     letterSpacing: 1,
   },
   headline: {
     fontSize: 34,
-    fontWeight: "800",
-    color: "#fff",
+    fontWeight: typography.weight.extrabold,
+    color: colors.text.inverse,
     lineHeight: 42,
-    marginBottom: 12,
+    marginBottom: spacing[3],
   },
   subheadline: {
     fontSize: 17,
@@ -538,31 +539,31 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
-    marginTop: 20,
+    marginTop: spacing[5],
   },
   starsContainer: {
     flexDirection: "row",
   },
   stars: {
-    fontSize: 14,
+    fontSize: typography.size.base,
     letterSpacing: 2,
   },
   socialProofText: {
-    fontSize: 14,
-    fontWeight: "600",
+    fontSize: typography.size.base,
+    fontWeight: typography.weight.semibold,
     color: "rgba(255,255,255,0.7)",
   },
 
   // Features Section
   featuresSection: {
-    gap: 16,
-    marginBottom: 40,
+    gap: spacing[4],
+    marginBottom: spacing[10],
   },
   featureCard: {
     position: "relative",
     backgroundColor: "rgba(255,255,255,0.06)",
-    borderRadius: 16,
-    padding: 20,
+    borderRadius: borderRadius.xl,
+    padding: spacing[5],
     overflow: "hidden",
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.08)",
@@ -578,48 +579,48 @@ const styles = StyleSheet.create({
   featureIconContainer: {
     width: 44,
     height: 44,
-    borderRadius: 12,
+    borderRadius: borderRadius.lg,
     backgroundColor: "rgba(255,255,255,0.1)",
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 12,
+    marginBottom: spacing[3],
   },
   featureContent: {
     gap: 4,
   },
   featureTitle: {
     fontSize: 17,
-    fontWeight: "700",
-    color: "#fff",
+    fontWeight: typography.weight.bold,
+    color: colors.text.inverse,
     marginBottom: 4,
   },
   featureDescription: {
-    fontSize: 14,
+    fontSize: typography.size.base,
     color: "rgba(255,255,255,0.65)",
     lineHeight: 20,
   },
 
   // Pricing Section
   pricingSection: {
-    marginBottom: 24,
+    marginBottom: spacing[6],
   },
   pricingSectionTitle: {
-    fontSize: 20,
-    fontWeight: "700",
-    color: "#fff",
+    fontSize: typography.size["2xl"],
+    fontWeight: typography.weight.bold,
+    color: colors.text.inverse,
     textAlign: "center",
-    marginBottom: 20,
+    marginBottom: spacing[5],
   },
   pricingCards: {
-    gap: 12,
+    gap: spacing[3],
   },
   pricingCardWrapper: {
     width: "100%",
   },
   pricingCard: {
     backgroundColor: "rgba(255,255,255,0.05)",
-    borderRadius: 16,
-    padding: 20,
+    borderRadius: borderRadius.xl,
+    padding: spacing[5],
     borderWidth: 2,
     borderColor: "rgba(255,255,255,0.1)",
     position: "relative",
@@ -630,8 +631,8 @@ const styles = StyleSheet.create({
   },
   pricingCardSelected: {
     backgroundColor: "rgba(59, 130, 246, 0.15)",
-    borderColor: "#3B82F6",
-    shadowColor: "#3B82F6",
+    borderColor: colors.state.info,
+    shadowColor: colors.state.info,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 12,
@@ -640,85 +641,85 @@ const styles = StyleSheet.create({
   saveBadge: {
     position: "absolute",
     top: -8,
-    right: 16,
-    backgroundColor: "#F59E0B",
-    paddingHorizontal: 12,
+    right: spacing[4],
+    backgroundColor: colors.state.warning,
+    paddingHorizontal: spacing[3],
     paddingVertical: 6,
-    borderRadius: 8,
-    shadowColor: "#F59E0B",
+    borderRadius: borderRadius.md,
+    shadowColor: colors.state.warning,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.4,
     shadowRadius: 4,
     elevation: 4,
   },
   saveBadgeText: {
-    fontSize: 11,
-    fontWeight: "800",
-    color: "#fff",
+    fontSize: typography.size.xs,
+    fontWeight: typography.weight.extrabold,
+    color: colors.text.inverse,
     letterSpacing: 0.5,
   },
   pricingCardHeader: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
-    marginBottom: 12,
+    gap: spacing[3],
+    marginBottom: spacing[3],
   },
   radioOuter: {
     width: 24,
     height: 24,
-    borderRadius: 12,
+    borderRadius: borderRadius.lg,
     borderWidth: 2,
     borderColor: "rgba(255,255,255,0.3)",
     alignItems: "center",
     justifyContent: "center",
   },
   radioOuterSelected: {
-    borderColor: "#3B82F6",
+    borderColor: colors.state.info,
   },
   radioInner: {
     width: 12,
     height: 12,
     borderRadius: 6,
-    backgroundColor: "#3B82F6",
+    backgroundColor: colors.state.info,
   },
   pricingLabel: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#fff",
+    fontSize: typography.size.lg,
+    fontWeight: typography.weight.semibold,
+    color: colors.text.inverse,
   },
   pricingPriceSection: {
-    marginBottom: 12,
+    marginBottom: spacing[3],
   },
   pricingValue: {
     fontSize: 36,
-    fontWeight: "800",
-    color: "#fff",
+    fontWeight: typography.weight.extrabold,
+    color: colors.text.inverse,
     lineHeight: 40,
   },
   pricingSubtext: {
-    fontSize: 14,
+    fontSize: typography.size.base,
     color: "rgba(255,255,255,0.6)",
     marginTop: 2,
   },
   pricingBenefits: {
-    gap: 8,
+    gap: spacing[2],
   },
   benefit: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
+    gap: spacing[2],
   },
   benefitText: {
     fontSize: 13,
     color: "rgba(255,255,255,0.8)",
-    fontWeight: "500",
+    fontWeight: typography.weight.medium,
   },
 
   // Trial Info
   trialInfo: {
-    marginTop: 24,
+    marginTop: spacing[6],
     gap: 10,
-    paddingHorizontal: 8,
+    paddingHorizontal: spacing[2],
   },
   trialBullet: {
     flexDirection: "row",
@@ -726,12 +727,12 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   trialCheckmark: {
-    fontSize: 16,
-    color: "#10B981",
-    fontWeight: "700",
+    fontSize: typography.size.lg,
+    color: colors.state.success,
+    fontWeight: typography.weight.bold,
   },
   trialText: {
-    fontSize: 14,
+    fontSize: typography.size.base,
     color: "rgba(255,255,255,0.75)",
     lineHeight: 20,
   },
@@ -745,8 +746,8 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    paddingHorizontal: 24,
-    paddingBottom: 16,
+    paddingHorizontal: spacing[6],
+    paddingBottom: spacing[4],
   },
   bottomCtaGradient: {
     position: "absolute",
@@ -759,18 +760,18 @@ const styles = StyleSheet.create({
     width: "100%",
   },
   disclaimerText: {
-    fontSize: 12,
+    fontSize: typography.size.sm,
     color: "rgba(255,255,255,0.5)",
     textAlign: "center",
-    marginTop: 12,
+    marginTop: spacing[3],
     lineHeight: 16,
   },
   trustSignals: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    marginTop: 16,
-    paddingHorizontal: 16,
+    marginTop: spacing[4],
+    paddingHorizontal: spacing[4],
   },
   trustSignal: {
     flexDirection: "row",
@@ -778,23 +779,23 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   trustEmoji: {
-    fontSize: 12,
+    fontSize: typography.size.sm,
   },
   trustText: {
-    fontSize: 11,
-    fontWeight: "600",
+    fontSize: typography.size.xs,
+    fontWeight: typography.weight.semibold,
     color: "rgba(255,255,255,0.6)",
   },
   trustDivider: {
     width: 1,
     height: 12,
     backgroundColor: "rgba(255,255,255,0.2)",
-    marginHorizontal: 12,
+    marginHorizontal: spacing[3],
   },
   restoreButton: {
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    marginTop: 8,
+    paddingVertical: spacing[3],
+    paddingHorizontal: spacing[4],
+    marginTop: spacing[2],
     alignItems: "center",
   },
   restoreButtonText: {
@@ -808,11 +809,11 @@ const styles = StyleSheet.create({
   loadingContainer: {
     paddingVertical: 60,
     alignItems: "center",
-    gap: 16,
+    gap: spacing[4],
   },
   loadingText: {
-    fontSize: 14,
+    fontSize: typography.size.base,
     color: "rgba(255,255,255,0.6)",
-    fontWeight: "500",
+    fontWeight: typography.weight.medium,
   },
 });

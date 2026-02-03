@@ -31,6 +31,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Card, Button } from "heroui-native";
 
 import { useLocation } from "@/hooks/use-location";
+import { colors, spacing, borderRadius, typography, shadows } from "@/lib/design-tokens";
 
 type LocationIcon = "home" | "building" | "star" | "location";
 
@@ -153,16 +154,16 @@ export default function SavedLocationsScreen() {
 
   const getLocationColor = (name: string): { color: string; bg: string } => {
     const lowerName = name.toLowerCase();
-    if (lowerName.includes("home")) return { color: "#10B981", bg: "#D1FAE5" };
-    if (lowerName.includes("work") || lowerName.includes("office")) return { color: "#3B82F6", bg: "#DBEAFE" };
-    return { color: "#8B5CF6", bg: "#EDE9FE" };
+    if (lowerName.includes("home")) return { color: colors.state.success, bg: colors.risk.low.light };
+    if (lowerName.includes("work") || lowerName.includes("office")) return { color: colors.state.info, bg: colors.risk.low.light };
+    return { color: colors.gamification.xp, bg: "#EDE9FE" };
   };
 
   if (locations === undefined) {
     return (
       <SafeAreaView style={styles.container} edges={["top"]}>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#3B82F6" />
+          <ActivityIndicator size="large" color={colors.state.info} />
         </View>
       </SafeAreaView>
     );
@@ -173,11 +174,11 @@ export default function SavedLocationsScreen() {
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-          <HugeiconsIcon icon={ArrowLeft01Icon} size={24} color="#111827" />
+          <HugeiconsIcon icon={ArrowLeft01Icon} size={24} color={colors.text.primary} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Saved Locations</Text>
         <TouchableOpacity style={styles.addButton} onPress={handleOpenAdd}>
-          <HugeiconsIcon icon={Add01Icon} size={24} color="#3B82F6" />
+          <HugeiconsIcon icon={Add01Icon} size={24} color={colors.state.info} />
         </TouchableOpacity>
       </View>
 
@@ -189,7 +190,7 @@ export default function SavedLocationsScreen() {
         <Card style={styles.currentLocationCard}>
           <Card.Body style={styles.currentLocationBody}>
             <View style={styles.currentLocationIcon}>
-              <HugeiconsIcon icon={Location01Icon} size={24} color="#3B82F6" />
+              <HugeiconsIcon icon={Location01Icon} size={24} color={colors.state.info} />
             </View>
             <View style={styles.currentLocationInfo}>
               <Text style={styles.currentLocationLabel}>Current Location</Text>
@@ -232,15 +233,15 @@ export default function SavedLocationsScreen() {
             </Card>
           ) : (
             locations.map((loc) => {
-              const colors = getLocationColor(loc.name);
+              const locColors = getLocationColor(loc.name);
               return (
                 <Card key={loc._id} style={styles.locationCard}>
                   <Card.Body style={styles.locationCardBody}>
-                    <View style={[styles.locationIcon, { backgroundColor: colors.bg }]}>
+                    <View style={[styles.locationIcon, { backgroundColor: locColors.bg }]}>
                       <HugeiconsIcon
                         icon={getLocationIcon(loc.name)}
                         size={20}
-                        color={colors.color}
+                        color={locColors.color}
                       />
                     </View>
                     <View style={styles.locationInfo}>
@@ -263,13 +264,13 @@ export default function SavedLocationsScreen() {
                         style={styles.actionButton}
                         onPress={() => handleOpenEdit(loc)}
                       >
-                        <HugeiconsIcon icon={Edit02Icon} size={18} color="#6B7280" />
+                        <HugeiconsIcon icon={Edit02Icon} size={18} color={colors.text.secondary} />
                       </TouchableOpacity>
                       <TouchableOpacity
                         style={styles.actionButton}
                         onPress={() => handleDelete(loc._id, loc.name)}
                       >
-                        <HugeiconsIcon icon={Delete02Icon} size={18} color="#EF4444" />
+                        <HugeiconsIcon icon={Delete02Icon} size={18} color={colors.state.error} />
                       </TouchableOpacity>
                     </View>
                   </Card.Body>
@@ -336,7 +337,7 @@ export default function SavedLocationsScreen() {
                       <HugeiconsIcon
                         icon={item.icon}
                         size={24}
-                        color={newIcon === item.type ? "#3B82F6" : "#6B7280"}
+                        color={newIcon === item.type ? colors.state.info : colors.text.secondary}
                       />
                       <Text
                         style={[
@@ -357,7 +358,7 @@ export default function SavedLocationsScreen() {
                 <TextInput
                   style={styles.modalInput}
                   placeholder="e.g., Home, Work, Gym"
-                  placeholderTextColor="#9CA3AF"
+                  placeholderTextColor={colors.text.tertiary}
                   value={newName}
                   onChangeText={setNewName}
                 />
@@ -369,7 +370,7 @@ export default function SavedLocationsScreen() {
                 <TextInput
                   style={[styles.modalInput, styles.modalInputMultiline]}
                   placeholder="Enter address or use current location"
-                  placeholderTextColor="#9CA3AF"
+                  placeholderTextColor={colors.text.tertiary}
                   value={newAddress}
                   onChangeText={setNewAddress}
                   multiline
@@ -380,7 +381,7 @@ export default function SavedLocationsScreen() {
                     style={styles.useCurrentButton}
                     onPress={() => setNewAddress(currentAddress)}
                   >
-                    <HugeiconsIcon icon={Location01Icon} size={16} color="#3B82F6" />
+                    <HugeiconsIcon icon={Location01Icon} size={16} color={colors.state.info} />
                     <Text style={styles.useCurrentText}>Use current location</Text>
                   </TouchableOpacity>
                 )}
@@ -433,7 +434,7 @@ export default function SavedLocationsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#F9FAFB",
+    backgroundColor: colors.background.secondary,
   },
   loadingContainer: {
     flex: 1,
@@ -444,11 +445,11 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: "#fff",
+    paddingHorizontal: spacing[4],
+    paddingVertical: spacing[3],
+    backgroundColor: colors.background.primary,
     borderBottomWidth: 1,
-    borderBottomColor: "#E5E7EB",
+    borderBottomColor: colors.border.light,
   },
   backButton: {
     width: 40,
@@ -457,9 +458,9 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   headerTitle: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: "#111827",
+    fontSize: typography.size.xl,
+    fontWeight: typography.weight.bold,
+    color: colors.text.primary,
   },
   addButton: {
     width: 40,
@@ -471,25 +472,25 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    padding: 16,
-    paddingBottom: 40,
+    padding: spacing[4],
+    paddingBottom: spacing[10],
   },
   currentLocationCard: {
     backgroundColor: "#EFF6FF",
-    borderRadius: 16,
-    marginBottom: 24,
+    borderRadius: borderRadius.xl,
+    marginBottom: spacing[6],
   },
   currentLocationBody: {
     flexDirection: "row",
     alignItems: "center",
-    padding: 16,
-    gap: 12,
+    padding: spacing[4],
+    gap: spacing[3],
   },
   currentLocationIcon: {
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: "#DBEAFE",
+    backgroundColor: colors.risk.low.light,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -497,75 +498,75 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   currentLocationLabel: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: "#3B82F6",
+    fontSize: typography.size.sm,
+    fontWeight: typography.weight.semibold,
+    color: colors.state.info,
     marginBottom: 2,
   },
   currentLocationAddress: {
-    fontSize: 14,
+    fontSize: typography.size.base,
     color: "#1E40AF",
   },
   saveCurrentButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    backgroundColor: "#3B82F6",
-    borderRadius: 8,
+    paddingHorizontal: spacing[4],
+    paddingVertical: spacing[2],
+    backgroundColor: colors.state.info,
+    borderRadius: borderRadius.md,
   },
   saveCurrentText: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#fff",
+    fontSize: typography.size.base,
+    fontWeight: typography.weight.semibold,
+    color: colors.text.inverse,
   },
   section: {
-    marginBottom: 24,
+    marginBottom: spacing[6],
   },
   sectionTitle: {
     fontSize: 13,
-    fontWeight: "600",
-    color: "#6B7280",
-    marginBottom: 12,
+    fontWeight: typography.weight.semibold,
+    color: colors.text.secondary,
+    marginBottom: spacing[3],
     marginLeft: 4,
   },
   emptyCard: {
-    backgroundColor: "#fff",
-    borderRadius: 16,
+    backgroundColor: colors.background.primary,
+    borderRadius: borderRadius.xl,
   },
   emptyCardBody: {
     alignItems: "center",
-    padding: 32,
+    padding: spacing[8],
   },
   emptyIcon: {
     fontSize: 48,
-    marginBottom: 16,
+    marginBottom: spacing[4],
   },
   emptyTitle: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: "#111827",
-    marginBottom: 8,
+    fontSize: typography.size.xl,
+    fontWeight: typography.weight.bold,
+    color: colors.text.primary,
+    marginBottom: spacing[2],
   },
   emptyText: {
-    fontSize: 14,
-    color: "#6B7280",
+    fontSize: typography.size.base,
+    color: colors.text.secondary,
     textAlign: "center",
-    marginBottom: 20,
+    marginBottom: spacing[5],
   },
   locationCard: {
-    backgroundColor: "#fff",
-    borderRadius: 12,
-    marginBottom: 8,
+    backgroundColor: colors.background.primary,
+    borderRadius: borderRadius.lg,
+    marginBottom: spacing[2],
   },
   locationCardBody: {
     flexDirection: "row",
     alignItems: "center",
     padding: 14,
-    gap: 12,
+    gap: spacing[3],
   },
   locationIcon: {
     width: 40,
     height: 40,
-    borderRadius: 10,
+    borderRadius: borderRadius.md,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -575,27 +576,27 @@ const styles = StyleSheet.create({
   locationNameRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
+    gap: spacing[2],
   },
   locationName: {
-    fontSize: 15,
-    fontWeight: "600",
-    color: "#111827",
+    fontSize: typography.size.md,
+    fontWeight: typography.weight.semibold,
+    color: colors.text.primary,
   },
   defaultBadge: {
-    backgroundColor: "#D1FAE5",
-    paddingHorizontal: 8,
+    backgroundColor: colors.risk.low.light,
+    paddingHorizontal: spacing[2],
     paddingVertical: 2,
     borderRadius: 4,
   },
   defaultBadgeText: {
-    fontSize: 10,
-    fontWeight: "600",
-    color: "#059669",
+    fontSize: typography.size.xs,
+    fontWeight: typography.weight.semibold,
+    color: colors.risk.low.dark,
   },
   locationAddress: {
     fontSize: 13,
-    color: "#6B7280",
+    color: colors.text.secondary,
     marginTop: 2,
   },
   locationActions: {
@@ -607,11 +608,11 @@ const styles = StyleSheet.create({
     height: 36,
     alignItems: "center",
     justifyContent: "center",
-    borderRadius: 8,
+    borderRadius: borderRadius.md,
   },
   modalContainer: {
     flex: 1,
-    backgroundColor: "#fff",
+    backgroundColor: colors.background.primary,
   },
   modalKeyboard: {
     flex: 1,
@@ -620,22 +621,22 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingHorizontal: spacing[4],
+    paddingVertical: spacing[3],
     borderBottomWidth: 1,
-    borderBottomColor: "#E5E7EB",
+    borderBottomColor: colors.border.light,
   },
   modalCloseButton: {
-    padding: 8,
+    padding: spacing[2],
   },
   modalCloseText: {
-    fontSize: 15,
-    color: "#6B7280",
+    fontSize: typography.size.md,
+    color: colors.text.secondary,
   },
   modalTitle: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: "#111827",
+    fontSize: typography.size.xl,
+    fontWeight: typography.weight.bold,
+    color: colors.text.primary,
   },
   modalHeaderSpacer: {
     width: 60,
@@ -644,52 +645,52 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   modalContentContainer: {
-    padding: 20,
+    padding: spacing[5],
   },
   modalSection: {
-    marginBottom: 24,
+    marginBottom: spacing[6],
   },
   modalLabel: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#374151",
+    fontSize: typography.size.base,
+    fontWeight: typography.weight.semibold,
+    color: colors.slate[700],
     marginBottom: 10,
   },
   iconGrid: {
     flexDirection: "row",
-    gap: 12,
+    gap: spacing[3],
   },
   iconOption: {
     flex: 1,
     alignItems: "center",
-    padding: 16,
-    borderRadius: 12,
-    backgroundColor: "#F9FAFB",
+    padding: spacing[4],
+    borderRadius: borderRadius.lg,
+    backgroundColor: colors.background.secondary,
     borderWidth: 2,
-    borderColor: "#E5E7EB",
+    borderColor: colors.border.light,
   },
   iconOptionSelected: {
-    borderColor: "#3B82F6",
+    borderColor: colors.state.info,
     backgroundColor: "#EFF6FF",
   },
   iconOptionLabel: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: "#6B7280",
-    marginTop: 8,
+    fontSize: typography.size.sm,
+    fontWeight: typography.weight.semibold,
+    color: colors.text.secondary,
+    marginTop: spacing[2],
   },
   iconOptionLabelSelected: {
-    color: "#3B82F6",
+    color: colors.state.info,
   },
   modalInput: {
-    backgroundColor: "#F9FAFB",
+    backgroundColor: colors.background.secondary,
     borderWidth: 1,
-    borderColor: "#E5E7EB",
-    borderRadius: 12,
-    paddingHorizontal: 16,
+    borderColor: colors.border.light,
+    borderRadius: borderRadius.lg,
+    paddingHorizontal: spacing[4],
     paddingVertical: 14,
-    fontSize: 15,
-    color: "#111827",
+    fontSize: typography.size.md,
+    color: colors.text.primary,
   },
   modalInputMultiline: {
     height: 80,
@@ -702,31 +703,31 @@ const styles = StyleSheet.create({
     marginTop: 10,
     padding: 10,
     backgroundColor: "#EFF6FF",
-    borderRadius: 8,
+    borderRadius: borderRadius.md,
   },
   useCurrentText: {
-    fontSize: 14,
-    color: "#3B82F6",
-    fontWeight: "500",
+    fontSize: typography.size.base,
+    color: colors.state.info,
+    fontWeight: typography.weight.medium,
   },
   defaultToggle: {
     flexDirection: "row",
     alignItems: "center",
-    padding: 16,
-    backgroundColor: "#F9FAFB",
-    borderRadius: 12,
+    padding: spacing[4],
+    backgroundColor: colors.background.secondary,
+    borderRadius: borderRadius.lg,
   },
   defaultToggleContent: {
     flex: 1,
   },
   defaultToggleLabel: {
-    fontSize: 15,
-    fontWeight: "600",
-    color: "#111827",
+    fontSize: typography.size.md,
+    fontWeight: typography.weight.semibold,
+    color: colors.text.primary,
   },
   defaultToggleDescription: {
     fontSize: 13,
-    color: "#6B7280",
+    color: colors.text.secondary,
     marginTop: 2,
   },
   checkbox: {
@@ -734,22 +735,22 @@ const styles = StyleSheet.create({
     height: 24,
     borderRadius: 6,
     borderWidth: 2,
-    borderColor: "#D1D5DB",
+    borderColor: colors.border.medium,
     alignItems: "center",
     justifyContent: "center",
   },
   checkboxChecked: {
-    backgroundColor: "#3B82F6",
-    borderColor: "#3B82F6",
+    backgroundColor: colors.state.info,
+    borderColor: colors.state.info,
   },
   checkmark: {
-    color: "#fff",
-    fontSize: 14,
-    fontWeight: "700",
+    color: colors.text.inverse,
+    fontSize: typography.size.base,
+    fontWeight: typography.weight.bold,
   },
   modalFooter: {
-    padding: 16,
+    padding: spacing[4],
     borderTopWidth: 1,
-    borderTopColor: "#E5E7EB",
+    borderTopColor: colors.border.light,
   },
 });

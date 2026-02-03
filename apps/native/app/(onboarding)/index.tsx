@@ -1,17 +1,26 @@
 import { useRouter } from "expo-router";
-import { View, Text, StyleSheet, Dimensions, TouchableOpacity } from "react-native";
+import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Button } from "heroui-native";
 import {
   CloudIcon,
   Car01Icon,
   UserGroupIcon,
-  CheckmarkCircle02Icon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react-native";
-import Svg, { Circle } from "react-native-svg";
+import Animated, {
+  FadeIn,
+  FadeInDown,
+  FadeInUp,
+} from "react-native-reanimated";
 
-const { width } = Dimensions.get("window");
+import { RiskCircle } from "@/components/risk-circle";
+import {
+  colors,
+  spacing,
+  borderRadius,
+  typography,
+} from "@/lib/design-tokens";
 
 // Demo Risk Score to show immediate value
 const DEMO_SCORE = 42;
@@ -22,66 +31,93 @@ export default function OnboardingScreen() {
   return (
     <SafeAreaView style={styles.container}>
       {/* Header */}
-      <View style={styles.header}>
+      <Animated.View
+        entering={FadeInDown.duration(500).delay(100)}
+        style={styles.header}
+      >
         <Text style={styles.logo}>outia</Text>
-      </View>
+      </Animated.View>
 
       {/* Demo Risk Score - Show value immediately */}
-      <View style={styles.scoreSection}>
+      <Animated.View
+        entering={FadeIn.duration(600).delay(200)}
+        style={styles.scoreSection}
+      >
         <View style={styles.demoLabel}>
-          <Text style={styles.demoLabelText}>DEMO</Text>
+          <Text style={styles.demoLabelText}>LIVE DEMO</Text>
         </View>
-        <DemoRiskCircle score={DEMO_SCORE} />
-        <View style={styles.riskBadge}>
+        <RiskCircle
+          score={DEMO_SCORE}
+          classification="medium"
+          size={180}
+          animateScore={true}
+          enableHaptic={false}
+        />
+        <Animated.View
+          entering={FadeInUp.duration(400).delay(600)}
+          style={styles.riskBadge}
+        >
           <View style={styles.riskDot} />
           <Text style={styles.riskBadgeText}>MEDIUM RISK</Text>
-        </View>
-        <Text style={styles.scoreDescription}>
-          Light rain expected. Consider leaving 10 min earlier.
-        </Text>
-      </View>
+        </Animated.View>
+        <Animated.Text
+          entering={FadeIn.duration(400).delay(700)}
+          style={styles.scoreDescription}
+        >
+          Light rain expected. Leave 10 min earlier for a safer commute.
+        </Animated.Text>
+      </Animated.View>
 
       {/* Value Props - What makes this score */}
-      <View style={styles.valuePropSection}>
-        <Text style={styles.valuePropTitle}>Your Risk Score combines:</Text>
+      <Animated.View
+        entering={FadeInDown.duration(500).delay(400)}
+        style={styles.valuePropSection}
+      >
+        <Text style={styles.valuePropTitle}>One number. Three data sources.</Text>
         <View style={styles.valueProps}>
           <ValueProp
             icon={CloudIcon}
-            color="#3B82F6"
+            color={colors.brand.secondary}
             label="Weather"
-            desc="Real-time conditions"
+            desc="Precipitation & alerts"
           />
           <ValueProp
             icon={Car01Icon}
-            color="#10B981"
+            color={colors.risk.low.primary}
             label="Traffic"
-            desc="Live incidents"
+            desc="Incidents & delays"
           />
           <ValueProp
             icon={UserGroupIcon}
-            color="#F97316"
+            color={colors.risk.medium.primary}
             label="Community"
-            desc="Driver reports"
+            desc="Real-time reports"
           />
         </View>
-      </View>
+      </Animated.View>
 
-      {/* Main Value Prop */}
-      <View style={styles.mainValue}>
-        <Text style={styles.title}>Know when to leave.</Text>
+      {/* Main Value Prop - Updated with marketing copy */}
+      <Animated.View
+        entering={FadeInUp.duration(500).delay(500)}
+        style={styles.mainValue}
+      >
+        <Text style={styles.title}>Know exactly when to leave.</Text>
         <Text style={styles.subtitle}>
-          Stop guessing. Get a single score that tells you if it's safe to go.
+          Stop guessing. Get a single score that tells you the best time to depart.
         </Text>
-      </View>
+      </Animated.View>
 
-      {/* CTA */}
-      <View style={styles.footer}>
+      {/* CTA - Updated copy based on marketing analysis */}
+      <Animated.View
+        entering={FadeInUp.duration(400).delay(600)}
+        style={styles.footer}
+      >
         <Button
           size="lg"
           className="w-full h-14 rounded-xl"
           onPress={() => router.push("/(auth)/sign-up")}
         >
-          Get Started — It's Free
+          See My Risk Score
         </Button>
         <TouchableOpacity
           style={styles.secondaryButton}
@@ -89,52 +125,8 @@ export default function OnboardingScreen() {
         >
           <Text style={styles.secondaryButtonText}>I already have an account</Text>
         </TouchableOpacity>
-      </View>
+      </Animated.View>
     </SafeAreaView>
-  );
-}
-
-// Demo Risk Circle Component
-function DemoRiskCircle({ score }: { score: number }) {
-  const size = 160;
-  const strokeWidth = 10;
-  const radius = (size - strokeWidth) / 2;
-  const circumference = radius * 2 * Math.PI;
-  const progress = (score / 100) * circumference;
-  const color = "#F59E0B"; // Medium risk = amber
-
-  return (
-    <View style={styles.circleWrapper}>
-      <Svg width={size} height={size}>
-        {/* Background circle */}
-        <Circle
-          cx={size / 2}
-          cy={size / 2}
-          r={radius}
-          stroke="#E5E7EB"
-          strokeWidth={strokeWidth}
-          fill="transparent"
-        />
-        {/* Progress circle */}
-        <Circle
-          cx={size / 2}
-          cy={size / 2}
-          r={radius}
-          stroke={color}
-          strokeWidth={strokeWidth}
-          fill="transparent"
-          strokeDasharray={circumference}
-          strokeDashoffset={circumference - progress}
-          strokeLinecap="round"
-          rotation="-90"
-          origin={`${size / 2}, ${size / 2}`}
-        />
-      </Svg>
-      <View style={styles.circleContent}>
-        <Text style={styles.scoreText}>{score}</Text>
-        <Text style={styles.scoreLabel}>Risk Score</Text>
-      </View>
-    </View>
   );
 }
 
@@ -160,97 +152,80 @@ function ValueProp({
     </View>
   );
 }
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#fff",
+    backgroundColor: colors.background.primary,
   },
   header: {
-    paddingHorizontal: 24,
-    paddingTop: 8,
+    paddingHorizontal: spacing[6],
+    paddingTop: spacing[2],
   },
   logo: {
-    fontSize: 24,
-    fontWeight: "700",
-    color: "#111827",
-    letterSpacing: -0.5,
+    fontSize: typography.size["3xl"],
+    fontWeight: typography.weight.bold,
+    color: colors.brand.primary,
+    letterSpacing: typography.tracking.tight,
   },
   scoreSection: {
     alignItems: "center",
-    paddingTop: 24,
+    paddingTop: spacing[6],
   },
   demoLabel: {
-    backgroundColor: "#F3F4F6",
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-    marginBottom: 16,
+    backgroundColor: `${colors.brand.secondary}15`,
+    paddingHorizontal: spacing[3],
+    paddingVertical: spacing[1],
+    borderRadius: borderRadius.full,
+    marginBottom: spacing[4],
   },
   demoLabelText: {
-    fontSize: 11,
-    fontWeight: "600",
-    color: "#6B7280",
-    letterSpacing: 0.5,
-  },
-  circleWrapper: {
-    width: 160,
-    height: 160,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  circleContent: {
-    position: "absolute",
-    alignItems: "center",
-  },
-  scoreText: {
-    fontSize: 48,
-    fontWeight: "700",
-    color: "#111827",
-  },
-  scoreLabel: {
-    fontSize: 12,
-    color: "#6B7280",
-    marginTop: -4,
+    fontSize: typography.size.xs,
+    fontWeight: typography.weight.bold,
+    color: colors.brand.secondary,
+    letterSpacing: typography.tracking.wider,
   },
   riskBadge: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#FEF3C7",
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
-    marginTop: 12,
-    gap: 6,
+    backgroundColor: colors.risk.medium.light,
+    paddingHorizontal: spacing[4],
+    paddingVertical: spacing[2],
+    borderRadius: borderRadius.full,
+    marginTop: spacing[4],
+    gap: spacing[2],
   },
   riskDot: {
     width: 8,
     height: 8,
-    borderRadius: 4,
-    backgroundColor: "#F59E0B",
+    borderRadius: borderRadius.full,
+    backgroundColor: colors.risk.medium.primary,
   },
   riskBadgeText: {
-    fontSize: 12,
-    fontWeight: "700",
-    color: "#F59E0B",
-    letterSpacing: 0.5,
+    fontSize: typography.size.sm,
+    fontWeight: typography.weight.bold,
+    color: colors.risk.medium.dark,
+    letterSpacing: typography.tracking.wide,
   },
   scoreDescription: {
-    fontSize: 14,
-    color: "#6B7280",
+    fontSize: typography.size.base,
+    color: colors.text.secondary,
     textAlign: "center",
-    marginTop: 12,
-    paddingHorizontal: 40,
+    marginTop: spacing[3],
+    paddingHorizontal: spacing[10],
+    lineHeight: 22,
   },
   valuePropSection: {
-    paddingHorizontal: 24,
-    paddingTop: 32,
+    paddingHorizontal: spacing[6],
+    paddingTop: spacing[8],
   },
   valuePropTitle: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: "#6B7280",
+    fontSize: typography.size.sm,
+    fontWeight: typography.weight.semibold,
+    color: colors.text.secondary,
     textAlign: "center",
-    marginBottom: 16,
+    marginBottom: spacing[4],
+    letterSpacing: typography.tracking.wide,
   },
   valueProps: {
     flexDirection: "row",
@@ -261,57 +236,57 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   valuePropIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 48,
+    height: 48,
+    borderRadius: borderRadius.full,
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 8,
+    marginBottom: spacing[2],
   },
   valuePropLabel: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: "#111827",
+    fontSize: typography.size.sm,
+    fontWeight: typography.weight.semibold,
+    color: colors.text.primary,
   },
   valuePropDesc: {
-    fontSize: 11,
-    color: "#9CA3AF",
-    marginTop: 2,
+    fontSize: typography.size.xs,
+    color: colors.text.tertiary,
+    marginTop: spacing[1],
   },
   mainValue: {
     flex: 1,
     justifyContent: "center",
-    paddingHorizontal: 24,
+    paddingHorizontal: spacing[6],
   },
   title: {
-    fontSize: 28,
-    fontWeight: "700",
-    color: "#111827",
+    fontSize: typography.size["4xl"],
+    fontWeight: typography.weight.bold,
+    color: colors.text.primary,
     textAlign: "center",
+    letterSpacing: typography.tracking.tight,
   },
   subtitle: {
-    fontSize: 15,
-    color: "#6B7280",
+    fontSize: typography.size.md,
+    color: colors.text.secondary,
     textAlign: "center",
-    lineHeight: 22,
-    marginTop: 8,
+    lineHeight: 24,
+    marginTop: spacing[2],
   },
   footer: {
-    paddingHorizontal: 24,
-    paddingBottom: 24,
-    gap: 12,
+    paddingHorizontal: spacing[6],
+    paddingBottom: spacing[6],
+    gap: spacing[3],
   },
   secondaryButton: {
     width: "100%",
     height: 48,
-    borderRadius: 12,
+    borderRadius: borderRadius.lg,
     alignItems: "center",
     justifyContent: "center",
   },
   secondaryButtonText: {
-    fontSize: 15,
-    fontWeight: "600",
-    color: "#6B7280",
+    fontSize: typography.size.md,
+    fontWeight: typography.weight.semibold,
+    color: colors.text.secondary,
   },
 });
-

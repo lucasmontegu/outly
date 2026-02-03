@@ -21,14 +21,10 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Card } from "heroui-native";
 import { useState, useCallback } from "react";
-import Svg, { Circle } from "react-native-svg";
 import Animated, {
   FadeIn,
   FadeInDown,
   FadeInUp,
-  withSpring,
-  useSharedValue,
-  useAnimatedStyle,
   Layout,
 } from "react-native-reanimated";
 
@@ -42,6 +38,16 @@ import {
   Skeleton,
 } from "@/components/ui/skeleton";
 import { lightHaptic } from "@/lib/haptics";
+import { RiskCircle } from "@/components/risk-circle";
+import {
+  colors,
+  getRiskClassification,
+  getRiskLabel,
+  shadows,
+  spacing,
+  borderRadius,
+  typography,
+} from "@/lib/design-tokens";
 
 export default function OverviewScreen() {
   const router = useRouter();
@@ -59,7 +65,8 @@ export default function OverviewScreen() {
   );
 
   const riskScore = riskData?.score ?? 0;
-  const riskLevel = getRiskLevel(riskScore);
+  const riskClassification = getRiskClassification(riskScore);
+  const riskLevelLabel = getRiskLabel(riskClassification);
   const riskDescription = riskData?.description ?? "Loading risk data...";
 
   // Calculate weather and traffic status from breakdown
@@ -91,7 +98,7 @@ export default function OverviewScreen() {
         <Animated.View entering={FadeInDown.duration(400).delay(100)} style={styles.header}>
           <View style={styles.locationInfo}>
             <View style={styles.locationLabel}>
-              <HugeiconsIcon icon={Location01Icon} size={14} color="#6B7280" />
+              <HugeiconsIcon icon={Location01Icon} size={14} color={colors.text.secondary} />
               <Text style={styles.locationLabelText}>CURRENT LOCATION</Text>
             </View>
             {address ? (
@@ -106,7 +113,7 @@ export default function OverviewScreen() {
             style={styles.profileButton}
             onPress={() => router.push("/(tabs)/settings")}
           >
-            <HugeiconsIcon icon={UserIcon} size={24} color="#6B7280" />
+            <HugeiconsIcon icon={UserIcon} size={24} color={colors.text.secondary} />
           </AnimatedIconButton>
         </Animated.View>
 
@@ -119,14 +126,33 @@ export default function OverviewScreen() {
             <RiskCircleSkeleton />
           ) : (
             <>
-              <RiskCircle score={riskScore} level={riskLevel} />
+              <RiskCircle
+                score={riskScore}
+                classification={riskClassification}
+                size={220}
+                animateScore={true}
+                enableHaptic={true}
+              />
               <Animated.View
                 entering={FadeInUp.duration(300).delay(400)}
-                style={[styles.riskBadge, { backgroundColor: `${riskLevel.color}20` }]}
+                style={[
+                  styles.riskBadge,
+                  { backgroundColor: `${colors.risk[riskClassification].primary}15` },
+                ]}
               >
-                <View style={[styles.riskDot, { backgroundColor: riskLevel.color }]} />
-                <Text style={[styles.riskBadgeText, { color: riskLevel.color }]}>
-                  {riskLevel.label}
+                <View
+                  style={[
+                    styles.riskDot,
+                    { backgroundColor: colors.risk[riskClassification].primary },
+                  ]}
+                />
+                <Text
+                  style={[
+                    styles.riskBadgeText,
+                    { color: colors.risk[riskClassification].primary },
+                  ]}
+                >
+                  {riskLevelLabel.toUpperCase()}
                 </Text>
               </Animated.View>
             </>
@@ -161,7 +187,7 @@ export default function OverviewScreen() {
                 <Card style={styles.dataCardInner}>
                   <Card.Body style={styles.dataCardBody}>
                     <View style={styles.dataCardIcon}>
-                      <HugeiconsIcon icon={CloudIcon} size={24} color="#3B82F6" />
+                      <HugeiconsIcon icon={CloudIcon} size={24} color={colors.brand.secondary} />
                     </View>
                     <Text style={styles.dataCardLabel}>WEATHER</Text>
                     <Text style={styles.dataCardValue}>{weatherStatus.label}</Text>
@@ -177,7 +203,7 @@ export default function OverviewScreen() {
                 <Card style={styles.dataCardInner}>
                   <Card.Body style={styles.dataCardBody}>
                     <View style={[styles.dataCardIcon, styles.trafficIcon]}>
-                      <HugeiconsIcon icon={Car01Icon} size={24} color="#10B981" />
+                      <HugeiconsIcon icon={Car01Icon} size={24} color={colors.risk.low.primary} />
                     </View>
                     <Text style={styles.dataCardLabel}>TRAFFIC</Text>
                     <Text style={styles.dataCardValue}>{trafficStatus.label}</Text>
@@ -273,59 +299,7 @@ export default function OverviewScreen() {
   );
 }
 
-// Risk Circle Component
-function RiskCircle({ score, level }: { score: number; level: RiskLevel }) {
-  const size = 200;
-  const strokeWidth = 12;
-  const radius = (size - strokeWidth) / 2;
-  const circumference = radius * 2 * Math.PI;
-  const progress = (score / 100) * circumference;
-
-  return (
-    <View style={styles.circleWrapper}>
-      <Svg width={size} height={size} style={styles.circleSvg}>
-        {/* Background circle */}
-        <Circle
-          cx={size / 2}
-          cy={size / 2}
-          r={radius}
-          stroke="#E5E7EB"
-          strokeWidth={strokeWidth}
-          fill="transparent"
-        />
-        {/* Progress circle */}
-        <Circle
-          cx={size / 2}
-          cy={size / 2}
-          r={radius}
-          stroke={level.color}
-          strokeWidth={strokeWidth}
-          fill="transparent"
-          strokeDasharray={circumference}
-          strokeDashoffset={circumference - progress}
-          strokeLinecap="round"
-          rotation="-90"
-          origin={`${size / 2}, ${size / 2}`}
-        />
-      </Svg>
-      <View style={styles.circleContent}>
-        <Text style={styles.scoreText}>{score}</Text>
-      </View>
-    </View>
-  );
-}
-
-// Helper types and functions
-type RiskLevel = {
-  label: string;
-  color: string;
-};
-
-function getRiskLevel(score: number): RiskLevel {
-  if (score <= 33) return { label: "LOW RISK", color: "#10B981" };
-  if (score <= 66) return { label: "MEDIUM RISK", color: "#F59E0B" };
-  return { label: "HIGH RISK", color: "#EF4444" };
-}
+// Helper functions
 
 function getWeatherStatus(score: number): { label: string; subtext: string } {
   if (score <= 20) return { label: "Clear", subtext: "No rain expected" };
@@ -342,9 +316,9 @@ function getTrafficStatus(score: number): { label: string; subtext: string } {
 }
 
 function getEventColor(type: string, severity: number): string {
-  if (severity >= 4) return "#EF4444";
-  if (severity >= 3) return "#F59E0B";
-  return "#3B82F6";
+  if (severity >= 4) return colors.risk.high.primary;
+  if (severity >= 3) return colors.risk.medium.primary;
+  return colors.brand.secondary;
 }
 
 function formatEventSubtype(subtype: string): string {
@@ -366,20 +340,20 @@ function formatTimeAgo(timestamp: number): string {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#fff",
+    backgroundColor: colors.background.primary,
   },
   scrollView: {
     flex: 1,
   },
   scrollContent: {
-    paddingBottom: 24,
+    paddingBottom: spacing[6],
   },
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "flex-start",
-    paddingHorizontal: 24,
-    paddingTop: 16,
+    paddingHorizontal: spacing[6],
+    paddingTop: spacing[4],
   },
   locationInfo: {
     flex: 1,
@@ -387,205 +361,180 @@ const styles = StyleSheet.create({
   locationLabel: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 4,
+    gap: spacing[1],
   },
   locationLabelText: {
-    fontSize: 11,
-    fontWeight: "600",
-    color: "#6B7280",
-    letterSpacing: 0.5,
+    fontSize: typography.size.xs,
+    fontWeight: typography.weight.semibold,
+    color: colors.text.secondary,
+    letterSpacing: typography.tracking.wide,
   },
   locationName: {
-    fontSize: 22,
-    fontWeight: "700",
-    color: "#111827",
-    marginTop: 4,
+    fontSize: typography.size["3xl"],
+    fontWeight: typography.weight.bold,
+    color: colors.text.primary,
+    marginTop: spacing[1],
   },
   profileButton: {
     width: 44,
     height: 44,
-    borderRadius: 22,
-    backgroundColor: "#F3F4F6",
+    borderRadius: borderRadius.full,
+    backgroundColor: colors.slate[100],
     alignItems: "center",
     justifyContent: "center",
   },
   riskCircleContainer: {
     alignItems: "center",
-    marginTop: 24,
-    minHeight: 240,
+    marginTop: spacing[6],
+    minHeight: 280,
     justifyContent: "center",
-  },
-  loadingContainer: {
-    alignItems: "center",
-    gap: 12,
-  },
-  loadingText: {
-    fontSize: 14,
-    color: "#6B7280",
-  },
-  circleWrapper: {
-    position: "relative",
-    width: 200,
-    height: 200,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  circleSvg: {
-    position: "absolute",
-  },
-  circleContent: {
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  scoreText: {
-    fontSize: 64,
-    fontWeight: "700",
-    color: "#111827",
   },
   riskBadge: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
-    marginTop: 12,
-    gap: 6,
+    paddingHorizontal: spacing[4],
+    paddingVertical: spacing[2],
+    borderRadius: borderRadius.full,
+    marginTop: spacing[4],
+    gap: spacing[2],
   },
   riskDot: {
     width: 8,
     height: 8,
-    borderRadius: 4,
+    borderRadius: borderRadius.full,
   },
   riskBadgeText: {
-    fontSize: 12,
-    fontWeight: "700",
-    letterSpacing: 0.5,
+    fontSize: typography.size.sm,
+    fontWeight: typography.weight.bold,
+    letterSpacing: typography.tracking.wider,
   },
   riskDescription: {
-    fontSize: 15,
-    color: "#6B7280",
+    fontSize: typography.size.md,
+    color: colors.text.secondary,
     textAlign: "center",
     lineHeight: 22,
-    paddingHorizontal: 40,
-    marginTop: 16,
+    paddingHorizontal: spacing[10],
+    marginTop: spacing[4],
   },
   dataCards: {
     flexDirection: "row",
-    paddingHorizontal: 24,
-    marginTop: 24,
-    gap: 12,
+    paddingHorizontal: spacing[6],
+    marginTop: spacing[6],
+    gap: spacing[3],
   },
   dataCard: {
     flex: 1,
   },
   dataCardInner: {
-    backgroundColor: "#F9FAFB",
-    borderRadius: 16,
+    backgroundColor: colors.slate[50],
+    borderRadius: borderRadius.xl,
     overflow: "hidden",
+    ...shadows.sm,
   },
   dataCardBody: {
-    padding: 16,
+    padding: spacing[4],
   },
   dataCardIcon: {
     width: 40,
     height: 40,
-    borderRadius: 20,
-    backgroundColor: "#DBEAFE",
+    borderRadius: borderRadius.full,
+    backgroundColor: `${colors.brand.secondary}15`,
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 12,
+    marginBottom: spacing[3],
   },
   trafficIcon: {
-    backgroundColor: "#D1FAE5",
+    backgroundColor: `${colors.risk.low.primary}15`,
   },
   dataCardLabel: {
-    fontSize: 10,
-    fontWeight: "600",
-    color: "#6B7280",
-    letterSpacing: 0.5,
+    fontSize: typography.size.xs,
+    fontWeight: typography.weight.semibold,
+    color: colors.text.secondary,
+    letterSpacing: typography.tracking.wide,
   },
   dataCardValue: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: "#111827",
-    marginTop: 4,
+    fontSize: typography.size.xl,
+    fontWeight: typography.weight.bold,
+    color: colors.text.primary,
+    marginTop: spacing[1],
   },
   dataCardSubtext: {
-    fontSize: 12,
-    color: "#9CA3AF",
-    marginTop: 2,
+    fontSize: typography.size.sm,
+    color: colors.text.tertiary,
+    marginTop: spacing[1],
   },
   signalsSection: {
-    paddingHorizontal: 24,
-    marginTop: 32,
+    paddingHorizontal: spacing[6],
+    marginTop: spacing[8],
   },
   signalsHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 16,
+    marginBottom: spacing[4],
   },
   signalsTitle: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: "#111827",
+    fontSize: typography.size.xl,
+    fontWeight: typography.weight.bold,
+    color: colors.text.primary,
   },
   viewMapButton: {
-    paddingVertical: 4,
-    paddingHorizontal: 8,
+    paddingVertical: spacing[1],
+    paddingHorizontal: spacing[2],
   },
   viewMapLink: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#3B82F6",
+    fontSize: typography.size.base,
+    fontWeight: typography.weight.semibold,
+    color: colors.brand.secondary,
   },
   signalCard: {
-    backgroundColor: "#fff",
-    borderRadius: 12,
+    backgroundColor: colors.background.card,
+    borderRadius: borderRadius.lg,
     borderWidth: 1,
-    borderColor: "#E5E7EB",
+    borderColor: colors.border.light,
     overflow: "hidden",
-    marginBottom: 8,
+    marginBottom: spacing[2],
+    ...shadows.sm,
   },
   signalCardBody: {
     flexDirection: "row",
     alignItems: "center",
-    padding: 16,
-    gap: 12,
+    padding: spacing[4],
+    gap: spacing[3],
   },
   emptySignalBody: {
-    padding: 24,
+    padding: spacing[6],
     alignItems: "center",
   },
   emptySignalText: {
-    fontSize: 14,
-    color: "#9CA3AF",
+    fontSize: typography.size.base,
+    color: colors.text.tertiary,
   },
   signalIndicator: {
     width: 4,
     height: 40,
-    borderRadius: 2,
+    borderRadius: borderRadius.sm,
     position: "absolute",
     left: 0,
   },
   signalIcon: {
     width: 36,
     height: 36,
-    borderRadius: 18,
+    borderRadius: borderRadius.full,
     alignItems: "center",
     justifyContent: "center",
-    marginLeft: 8,
+    marginLeft: spacing[2],
   },
   signalContent: {
     flex: 1,
   },
   signalTitle: {
-    fontSize: 15,
-    fontWeight: "600",
-    color: "#111827",
+    fontSize: typography.size.md,
+    fontWeight: typography.weight.semibold,
+    color: colors.text.primary,
   },
   signalTime: {
-    fontSize: 12,
-    color: "#9CA3AF",
+    fontSize: typography.size.sm,
+    color: colors.text.tertiary,
   },
 });

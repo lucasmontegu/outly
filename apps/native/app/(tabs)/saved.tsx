@@ -37,6 +37,7 @@ import { AnimatedIconButton, AnimatedCard } from "@/components/ui/animated-press
 import { RouteCardSkeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/components/ui/toast";
 import { lightHaptic, mediumHaptic, successHaptic, errorHaptic, warningHaptic } from "@/lib/haptics";
+import { colors, spacing, borderRadius, typography, shadows } from "@/lib/design-tokens";
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
@@ -74,26 +75,26 @@ export default function SavedScreen() {
   const getIconColor = (icon: RouteIcon): string => {
     switch (icon) {
       case "building":
-        return "#3B82F6";
+        return colors.state.info;
       case "running":
-        return "#F97316";
+        return colors.risk.medium.primary;
       case "home":
-        return "#10B981";
+        return colors.state.success;
       default:
-        return "#3B82F6";
+        return colors.state.info;
     }
   };
 
   const getIconBgColor = (icon: RouteIcon): string => {
     switch (icon) {
       case "building":
-        return "#DBEAFE";
+        return colors.slate[100];
       case "running":
-        return "#FED7AA";
+        return colors.risk.medium.light;
       case "home":
-        return "#D1FAE5";
+        return colors.risk.low.light;
       default:
-        return "#DBEAFE";
+        return colors.slate[100];
     }
   };
 
@@ -454,35 +455,35 @@ function DayButton({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#F9FAFB",
+    backgroundColor: colors.background.secondary,
   },
   loadingContainer: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    gap: 12,
+    gap: spacing[3],
   },
   loadingText: {
-    fontSize: 14,
-    color: "#6B7280",
+    fontSize: typography.size.base,
+    color: colors.text.secondary,
   },
   header: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: "#fff",
+    paddingHorizontal: spacing[4],
+    paddingVertical: spacing[3],
+    backgroundColor: colors.background.primary,
     borderBottomWidth: 1,
-    borderBottomColor: "#E5E7EB",
+    borderBottomColor: colors.border.light,
   },
   headerSpacer: {
     width: 40,
   },
   headerTitle: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: "#111827",
+    fontSize: typography.size.xl,
+    fontWeight: typography.weight.bold,
+    color: colors.text.primary,
   },
   addButton: {
     width: 40,
@@ -494,8 +495,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    padding: 16,
-    gap: 16,
+    padding: spacing[4],
+    gap: spacing[4],
   },
   emptyContainer: {
     alignItems: "center",
@@ -503,41 +504,41 @@ const styles = StyleSheet.create({
     paddingHorizontal: 40,
   },
   emptyTitle: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: "#111827",
-    marginBottom: 8,
+    fontSize: typography.size.xl,
+    fontWeight: typography.weight.bold,
+    color: colors.text.primary,
+    marginBottom: spacing[2],
   },
   emptyText: {
-    fontSize: 14,
-    color: "#6B7280",
+    fontSize: typography.size.base,
+    color: colors.text.secondary,
     textAlign: "center",
-    lineHeight: 20,
-    marginBottom: 24,
+    lineHeight: spacing[5],
+    marginBottom: spacing[6],
   },
   routeCard: {
-    backgroundColor: "#fff",
-    borderRadius: 20,
+    backgroundColor: colors.background.primary,
+    borderRadius: borderRadius['2xl'],
     overflow: "hidden",
     borderWidth: 1,
-    borderColor: "#E5E7EB",
+    borderColor: colors.border.light,
   },
   routeCardExpanded: {
-    borderColor: "#3B82F6",
+    borderColor: colors.state.info,
     borderWidth: 2,
   },
   routeCardBody: {
-    padding: 16,
+    padding: spacing[4],
   },
   routeHeader: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
+    gap: spacing[3],
   },
   routeIcon: {
     width: 44,
     height: 44,
-    borderRadius: 22,
+    borderRadius: borderRadius.full,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -545,161 +546,161 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   routeName: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: "#111827",
+    fontSize: typography.size.lg,
+    fontWeight: typography.weight.bold,
+    color: colors.text.primary,
   },
   routePath: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 4,
+    gap: spacing[1],
     marginTop: 2,
   },
   routePathText: {
-    fontSize: 13,
-    color: "#6B7280",
+    fontSize: typography.size.sm + 1,
+    color: colors.text.secondary,
   },
   activeBadge: {
-    backgroundColor: "#D1FAE5",
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 6,
+    backgroundColor: colors.risk.low.light,
+    paddingHorizontal: spacing[2] + 2,
+    paddingVertical: spacing[1],
+    borderRadius: borderRadius.sm,
   },
   activeText: {
-    fontSize: 11,
-    fontWeight: "600",
-    color: "#059669",
+    fontSize: typography.size.xs,
+    fontWeight: typography.weight.semibold,
+    color: colors.risk.low.dark,
   },
   mapPreview: {
     height: 120,
-    marginTop: 16,
-    borderRadius: 12,
+    marginTop: spacing[4],
+    borderRadius: borderRadius.lg,
     overflow: "hidden",
   },
   mapGradient: {
     flex: 1,
     alignItems: "flex-end",
     justifyContent: "flex-end",
-    padding: 12,
+    padding: spacing[3],
   },
   editPathButton: {
-    backgroundColor: "#fff",
-    paddingHorizontal: 12,
+    backgroundColor: colors.background.primary,
+    paddingHorizontal: spacing[3],
     paddingVertical: 6,
-    borderRadius: 6,
+    borderRadius: borderRadius.sm,
   },
   editPathText: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: "#111827",
+    fontSize: typography.size.sm,
+    fontWeight: typography.weight.semibold,
+    color: colors.text.primary,
   },
   section: {
-    marginTop: 20,
+    marginTop: spacing[5],
   },
   sectionLabel: {
-    fontSize: 10,
-    fontWeight: "600",
-    color: "#9CA3AF",
-    letterSpacing: 0.5,
-    marginBottom: 12,
+    fontSize: typography.size.xs - 1,
+    fontWeight: typography.weight.semibold,
+    color: colors.text.tertiary,
+    letterSpacing: typography.tracking.wide,
+    marginBottom: spacing[3],
   },
   daysRow: {
     flexDirection: "row",
-    gap: 8,
+    gap: spacing[2],
   },
   dayButton: {
     width: 40,
     height: 40,
-    borderRadius: 20,
-    backgroundColor: "#F3F4F6",
+    borderRadius: borderRadius.full,
+    backgroundColor: colors.slate[100],
     alignItems: "center",
     justifyContent: "center",
   },
   dayButtonActive: {
-    backgroundColor: "#111827",
+    backgroundColor: colors.text.primary,
   },
   dayText: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#9CA3AF",
+    fontSize: typography.size.base,
+    fontWeight: typography.weight.semibold,
+    color: colors.text.tertiary,
   },
   dayTextActive: {
-    color: "#fff",
+    color: colors.text.inverse,
   },
   thresholdHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 12,
+    marginBottom: spacing[3],
   },
   thresholdValue: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: "#F59E0B",
+    fontSize: typography.size.sm + 1,
+    fontWeight: typography.weight.semibold,
+    color: colors.state.warning,
   },
   sliderContainer: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
+    gap: spacing[3],
   },
   sliderLabel: {
-    fontSize: 11,
-    color: "#9CA3AF",
+    fontSize: typography.size.xs,
+    color: colors.text.tertiary,
     width: 60,
   },
   sliderTrack: {
     flex: 1,
-    height: 8,
-    borderRadius: 4,
+    height: spacing[2],
+    borderRadius: borderRadius.sm,
     overflow: "hidden",
     position: "relative",
   },
   sliderGradient: {
     flex: 1,
-    borderRadius: 4,
+    borderRadius: borderRadius.sm,
   },
   sliderThumb: {
     position: "absolute",
     top: -4,
-    width: 16,
-    height: 16,
-    borderRadius: 8,
-    backgroundColor: "#fff",
+    width: spacing[4],
+    height: spacing[4],
+    borderRadius: borderRadius.full,
+    backgroundColor: colors.background.primary,
     borderWidth: 2,
-    borderColor: "#111827",
-    marginLeft: -8,
+    borderColor: colors.text.primary,
+    marginLeft: -spacing[2],
   },
   alertInfo: {
     flexDirection: "row",
-    backgroundColor: "#F9FAFB",
-    padding: 12,
-    borderRadius: 10,
-    marginTop: 16,
-    gap: 8,
+    backgroundColor: colors.background.secondary,
+    padding: spacing[3],
+    borderRadius: borderRadius.md,
+    marginTop: spacing[4],
+    gap: spacing[2],
   },
   alertInfoIcon: {
-    fontSize: 14,
+    fontSize: typography.size.base,
   },
   alertInfoText: {
     flex: 1,
-    fontSize: 12,
-    color: "#6B7280",
-    lineHeight: 18,
+    fontSize: typography.size.sm,
+    color: colors.text.secondary,
+    lineHeight: typography.size.xl,
   },
   alertInfoBold: {
-    fontWeight: "700",
-    color: "#111827",
+    fontWeight: typography.weight.bold,
+    color: colors.text.primary,
   },
   actions: {
     flexDirection: "row",
-    gap: 12,
-    marginTop: 20,
+    gap: spacing[3],
+    marginTop: spacing[5],
   },
   deleteButton: {
     width: 48,
     height: 48,
-    borderRadius: 12,
-    backgroundColor: "#F3F4F6",
+    borderRadius: borderRadius.lg,
+    backgroundColor: colors.slate[100],
     alignItems: "center",
     justifyContent: "center",
   },

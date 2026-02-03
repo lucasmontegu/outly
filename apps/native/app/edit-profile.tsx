@@ -22,6 +22,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Card } from "heroui-native";
+import { colors, spacing, borderRadius, typography, shadows } from "@/lib/design-tokens";
 
 export default function EditProfileScreen() {
   const router = useRouter();
@@ -66,7 +67,7 @@ export default function EditProfileScreen() {
     return (
       <SafeAreaView style={styles.container} edges={["top"]}>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#10B981" />
+          <ActivityIndicator size="large" color={colors.state.success} />
         </View>
       </SafeAreaView>
     );
@@ -81,7 +82,7 @@ export default function EditProfileScreen() {
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-          <HugeiconsIcon icon={ArrowLeft01Icon} size={24} color="#111827" />
+          <HugeiconsIcon icon={ArrowLeft01Icon} size={24} color={colors.text.primary} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Edit Profile</Text>
         <TouchableOpacity
@@ -90,7 +91,7 @@ export default function EditProfileScreen() {
           disabled={!hasChanges || isSaving}
         >
           {isSaving ? (
-            <ActivityIndicator size="small" color="#fff" />
+            <ActivityIndicator size="small" color={colors.text.inverse} />
           ) : (
             <Text
               style={[
@@ -115,14 +116,14 @@ export default function EditProfileScreen() {
               <Image source={{ uri: user.imageUrl }} style={styles.avatar} />
             ) : (
               <View style={styles.avatarPlaceholder}>
-                <HugeiconsIcon icon={UserIcon} size={48} color="#9CA3AF" />
+                <HugeiconsIcon icon={UserIcon} size={48} color={colors.text.tertiary} />
               </View>
             )}
             <TouchableOpacity
               style={styles.cameraButton}
               onPress={handleChangePhoto}
             >
-              <HugeiconsIcon icon={Camera01Icon} size={18} color="#fff" />
+              <HugeiconsIcon icon={Camera01Icon} size={18} color={colors.text.inverse} />
             </TouchableOpacity>
           </View>
           <TouchableOpacity onPress={handleChangePhoto}>
@@ -138,7 +139,7 @@ export default function EditProfileScreen() {
               {/* First Name */}
               <View style={styles.inputGroup}>
                 <View style={styles.inputIcon}>
-                  <HugeiconsIcon icon={UserIcon} size={20} color="#6B7280" />
+                  <HugeiconsIcon icon={UserIcon} size={20} color={colors.text.secondary} />
                 </View>
                 <View style={styles.inputContainer}>
                   <Text style={styles.inputLabel}>First Name</Text>
@@ -147,7 +148,7 @@ export default function EditProfileScreen() {
                     value={firstName}
                     onChangeText={setFirstName}
                     placeholder="Enter first name"
-                    placeholderTextColor="#9CA3AF"
+                    placeholderTextColor={colors.text.tertiary}
                     autoCapitalize="words"
                   />
                 </View>
@@ -158,7 +159,7 @@ export default function EditProfileScreen() {
               {/* Last Name */}
               <View style={styles.inputGroup}>
                 <View style={styles.inputIcon}>
-                  <HugeiconsIcon icon={UserIcon} size={20} color="#6B7280" />
+                  <HugeiconsIcon icon={UserIcon} size={20} color={colors.text.secondary} />
                 </View>
                 <View style={styles.inputContainer}>
                   <Text style={styles.inputLabel}>Last Name</Text>
@@ -167,7 +168,7 @@ export default function EditProfileScreen() {
                     value={lastName}
                     onChangeText={setLastName}
                     placeholder="Enter last name"
-                    placeholderTextColor="#9CA3AF"
+                    placeholderTextColor={colors.text.tertiary}
                     autoCapitalize="words"
                   />
                 </View>
@@ -184,7 +185,7 @@ export default function EditProfileScreen() {
               {/* Email */}
               <View style={styles.inputGroup}>
                 <View style={styles.inputIcon}>
-                  <HugeiconsIcon icon={Mail01Icon} size={20} color="#6B7280" />
+                  <HugeiconsIcon icon={Mail01Icon} size={20} color={colors.text.secondary} />
                 </View>
                 <View style={styles.inputContainer}>
                   <Text style={styles.inputLabel}>Email</Text>
@@ -199,7 +200,7 @@ export default function EditProfileScreen() {
               {/* Phone */}
               <View style={styles.inputGroup}>
                 <View style={styles.inputIcon}>
-                  <HugeiconsIcon icon={Phone01Icon} size={20} color="#6B7280" />
+                  <HugeiconsIcon icon={Phone01Icon} size={20} color={colors.text.secondary} />
                 </View>
                 <View style={styles.inputContainer}>
                   <Text style={styles.inputLabel}>Phone</Text>
@@ -267,7 +268,7 @@ export default function EditProfileScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#F9FAFB",
+    backgroundColor: colors.background.secondary,
   },
   loadingContainer: {
     flex: 1,
@@ -278,11 +279,11 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: "#fff",
+    paddingHorizontal: spacing[4],
+    paddingVertical: spacing[3],
+    backgroundColor: colors.background.primary,
     borderBottomWidth: 1,
-    borderBottomColor: "#E5E7EB",
+    borderBottomColor: colors.border.light,
   },
   backButton: {
     width: 40,
@@ -291,44 +292,44 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   headerTitle: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: "#111827",
+    fontSize: typography.size.xl,
+    fontWeight: typography.weight.bold,
+    color: colors.text.primary,
   },
   saveButton: {
-    backgroundColor: "#10B981",
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 8,
+    backgroundColor: colors.state.success,
+    paddingHorizontal: spacing[4],
+    paddingVertical: spacing[2],
+    borderRadius: borderRadius.md,
     minWidth: 60,
     alignItems: "center",
   },
   saveButtonDisabled: {
-    backgroundColor: "#E5E7EB",
+    backgroundColor: colors.border.light,
   },
   saveButtonText: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#fff",
+    fontSize: typography.size.base,
+    fontWeight: typography.weight.semibold,
+    color: colors.text.inverse,
   },
   saveButtonTextDisabled: {
-    color: "#9CA3AF",
+    color: colors.text.tertiary,
   },
   scrollView: {
     flex: 1,
   },
   scrollContent: {
-    padding: 16,
-    paddingBottom: 40,
+    padding: spacing[4],
+    paddingBottom: spacing[10],
   },
   photoSection: {
     alignItems: "center",
-    marginBottom: 24,
-    paddingTop: 8,
+    marginBottom: spacing[6],
+    paddingTop: spacing[2],
   },
   avatarContainer: {
     position: "relative",
-    marginBottom: 12,
+    marginBottom: spacing[3],
   },
   avatar: {
     width: 100,
@@ -339,7 +340,7 @@ const styles = StyleSheet.create({
     width: 100,
     height: 100,
     borderRadius: 50,
-    backgroundColor: "#F3F4F6",
+    backgroundColor: colors.slate[100],
     alignItems: "center",
     justifyContent: "center",
   },
@@ -349,31 +350,31 @@ const styles = StyleSheet.create({
     right: 0,
     width: 32,
     height: 32,
-    borderRadius: 16,
-    backgroundColor: "#10B981",
+    borderRadius: borderRadius.xl,
+    backgroundColor: colors.state.success,
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 2,
-    borderColor: "#fff",
+    borderColor: colors.background.primary,
   },
   changePhotoText: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#10B981",
+    fontSize: typography.size.base,
+    fontWeight: typography.weight.semibold,
+    color: colors.state.success,
   },
   section: {
-    marginBottom: 24,
+    marginBottom: spacing[6],
   },
   sectionTitle: {
     fontSize: 13,
-    fontWeight: "600",
-    color: "#6B7280",
-    marginBottom: 8,
+    fontWeight: typography.weight.semibold,
+    color: colors.text.secondary,
+    marginBottom: spacing[2],
     marginLeft: 4,
   },
   formCard: {
-    backgroundColor: "#fff",
-    borderRadius: 16,
+    backgroundColor: colors.background.primary,
+    borderRadius: borderRadius.xl,
   },
   formCardBody: {
     padding: 4,
@@ -381,14 +382,14 @@ const styles = StyleSheet.create({
   inputGroup: {
     flexDirection: "row",
     alignItems: "center",
-    padding: 12,
-    gap: 12,
+    padding: spacing[3],
+    gap: spacing[3],
   },
   inputIcon: {
     width: 40,
     height: 40,
-    borderRadius: 10,
-    backgroundColor: "#F3F4F6",
+    borderRadius: borderRadius.md,
+    backgroundColor: colors.slate[100],
     alignItems: "center",
     justifyContent: "center",
   },
@@ -396,31 +397,31 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   inputLabel: {
-    fontSize: 12,
-    fontWeight: "500",
-    color: "#6B7280",
+    fontSize: typography.size.sm,
+    fontWeight: typography.weight.medium,
+    color: colors.text.secondary,
     marginBottom: 4,
   },
   textInput: {
-    fontSize: 15,
-    fontWeight: "600",
-    color: "#111827",
+    fontSize: typography.size.md,
+    fontWeight: typography.weight.semibold,
+    color: colors.text.primary,
     padding: 0,
   },
   readOnlyText: {
-    fontSize: 15,
-    fontWeight: "600",
-    color: "#9CA3AF",
+    fontSize: typography.size.md,
+    fontWeight: typography.weight.semibold,
+    color: colors.text.tertiary,
   },
   divider: {
     height: 1,
-    backgroundColor: "#F3F4F6",
-    marginHorizontal: 12,
+    backgroundColor: colors.slate[100],
+    marginHorizontal: spacing[3],
   },
   infoText: {
-    fontSize: 12,
-    color: "#9CA3AF",
-    marginTop: 8,
+    fontSize: typography.size.sm,
+    color: colors.text.tertiary,
+    marginTop: spacing[2],
     marginLeft: 4,
     lineHeight: 18,
   },
@@ -428,27 +429,27 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    padding: 12,
+    padding: spacing[3],
   },
   infoLabel: {
-    fontSize: 15,
-    fontWeight: "600",
-    color: "#111827",
+    fontSize: typography.size.md,
+    fontWeight: typography.weight.semibold,
+    color: colors.text.primary,
   },
   infoValue: {
-    fontSize: 14,
-    color: "#6B7280",
+    fontSize: typography.size.base,
+    color: colors.text.secondary,
     maxWidth: "60%",
     textAlign: "right",
   },
   deleteButton: {
     alignItems: "center",
-    padding: 16,
-    marginTop: 8,
+    padding: spacing[4],
+    marginTop: spacing[2],
   },
   deleteButtonText: {
-    fontSize: 15,
-    fontWeight: "600",
-    color: "#EF4444",
+    fontSize: typography.size.md,
+    fontWeight: typography.weight.semibold,
+    color: colors.state.error,
   },
 });

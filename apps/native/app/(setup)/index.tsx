@@ -9,6 +9,7 @@ import { HugeiconsIcon } from "@hugeicons/react-native";
 import * as Location from "expo-location";
 import { useState, useEffect } from "react";
 import { LinearGradient } from "expo-linear-gradient";
+import { colors, spacing, borderRadius, typography, shadows } from "@/lib/design-tokens";
 
 export default function SetupLocationPermission() {
   const router = useRouter();
@@ -65,9 +66,9 @@ export default function SetupLocationPermission() {
         />
         <View style={styles.iconWrapper}>
           {isGranted ? (
-            <HugeiconsIcon icon={CheckmarkCircle02Icon} size={80} color="#10B981" />
+            <HugeiconsIcon icon={CheckmarkCircle02Icon} size={80} color={colors.state.success} />
           ) : (
-            <HugeiconsIcon icon={Location01Icon} size={80} color="#3B82F6" />
+            <HugeiconsIcon icon={Location01Icon} size={80} color={colors.state.info} />
           )}
         </View>
       </View>
@@ -150,7 +151,7 @@ export default function SetupLocationPermission() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#fff",
+    backgroundColor: colors.background.primary,
   },
   iconContainer: {
     alignItems: "center",
@@ -173,84 +174,84 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    paddingHorizontal: 24,
+    paddingHorizontal: spacing[6],
   },
   stepLabel: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: "#3B82F6",
-    letterSpacing: 0.5,
+    fontSize: typography.size.sm,
+    fontWeight: typography.weight.semibold,
+    color: colors.state.info,
+    letterSpacing: typography.tracking.wide,
     textAlign: "center",
-    marginBottom: 8,
+    marginBottom: spacing[2],
   },
   title: {
-    fontSize: 28,
-    fontWeight: "700",
-    color: "#111827",
+    fontSize: typography.size['4xl'],
+    fontWeight: typography.weight.bold,
+    color: colors.text.primary,
     textAlign: "center",
   },
   description: {
-    fontSize: 15,
-    color: "#6B7280",
+    fontSize: typography.size.md,
+    color: colors.text.secondary,
     lineHeight: 24,
-    marginTop: 12,
+    marginTop: spacing[3],
     textAlign: "center",
   },
   reasonsCard: {
-    marginTop: 32,
-    backgroundColor: "#F9FAFB",
-    borderRadius: 16,
-    padding: 20,
-    gap: 16,
+    marginTop: spacing[8],
+    backgroundColor: colors.background.tertiary,
+    borderRadius: borderRadius.xl,
+    padding: spacing[5],
+    gap: spacing[4],
   },
   reason: {
     flexDirection: "row",
     alignItems: "flex-start",
-    gap: 12,
+    gap: spacing[3],
   },
   reasonDot: {
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: "#3B82F6",
+    backgroundColor: colors.state.info,
     marginTop: 7,
   },
   reasonText: {
     flex: 1,
-    fontSize: 14,
-    color: "#374151",
+    fontSize: typography.size.base,
+    color: colors.slate[700],
     lineHeight: 20,
   },
   footer: {
-    paddingHorizontal: 24,
-    paddingBottom: 24,
+    paddingHorizontal: spacing[6],
+    paddingBottom: spacing[6],
   },
   skipButton: {
     width: "100%",
     height: 48,
-    borderRadius: 12,
-    marginTop: 12,
+    borderRadius: borderRadius.lg,
+    marginTop: spacing[3],
     alignItems: "center",
     justifyContent: "center",
   },
   skipText: {
-    fontSize: 15,
-    fontWeight: "500",
-    color: "#6B7280",
+    fontSize: typography.size.md,
+    fontWeight: typography.weight.medium,
+    color: colors.text.secondary,
   },
   pagination: {
     flexDirection: "row",
     justifyContent: "center",
-    marginTop: 20,
-    gap: 8,
+    marginTop: spacing[5],
+    gap: spacing[2],
   },
   dot: {
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: "#E5E7EB",
+    backgroundColor: colors.border.light,
   },
   dotActive: {
-    backgroundColor: "#111827",
+    backgroundColor: colors.text.primary,
   },
 });

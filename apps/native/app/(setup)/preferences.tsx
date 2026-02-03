@@ -19,6 +19,7 @@ import {
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react-native";
 import { useState } from "react";
+import { colors, spacing, borderRadius, typography, shadows } from "@/lib/design-tokens";
 
 type PrimaryConcern = "weather" | "traffic" | "both";
 type AlertAdvance = 15 | 30 | 60;
@@ -88,7 +89,7 @@ export default function PreferencesScreen() {
           <View style={styles.concernOptions}>
             <ConcernOption
               icon={CloudIcon}
-              color="#3B82F6"
+              color={colors.state.info}
               label="Weather"
               desc="Rain, storms, visibility"
               isSelected={primaryConcern === "weather"}
@@ -96,7 +97,7 @@ export default function PreferencesScreen() {
             />
             <ConcernOption
               icon={Car01Icon}
-              color="#10B981"
+              color={colors.state.success}
               label="Traffic"
               desc="Accidents, delays"
               isSelected={primaryConcern === "traffic"}
@@ -104,7 +105,7 @@ export default function PreferencesScreen() {
             />
             <ConcernOption
               icon={CheckmarkCircle02Icon}
-              color="#8B5CF6"
+              color={colors.gamification.xp}
               label="Both"
               desc="Complete picture"
               isSelected={primaryConcern === "both"}
@@ -117,7 +118,7 @@ export default function PreferencesScreen() {
         {/* Question 2: Commute Time */}
         <View style={styles.questionSection}>
           <View style={styles.questionHeader}>
-            <HugeiconsIcon icon={Time01Icon} size={18} color="#6B7280" />
+            <HugeiconsIcon icon={Time01Icon} size={18} color={colors.text.secondary} />
             <Text style={styles.questionLabel}>When do you usually leave?</Text>
           </View>
           <View style={styles.timeOptions}>
@@ -146,7 +147,7 @@ export default function PreferencesScreen() {
         {/* Question 3: Alert Timing */}
         <View style={styles.questionSection}>
           <View style={styles.questionHeader}>
-            <HugeiconsIcon icon={Notification03Icon} size={18} color="#6B7280" />
+            <HugeiconsIcon icon={Notification03Icon} size={18} color={colors.text.secondary} />
             <Text style={styles.questionLabel}>How early should we alert you?</Text>
           </View>
           <View style={styles.alertOptions}>
@@ -211,6 +212,16 @@ function ConcernOption({
   onPress: () => void;
   recommended?: boolean;
 }) {
+  const getColorFromString = (colorStr: string) => {
+    // Map color strings to design token colors
+    if (colorStr === colors.state.info) return colors.state.info;
+    if (colorStr === colors.state.success) return colors.state.success;
+    if (colorStr === colors.gamification.xp) return colors.gamification.xp;
+    return colorStr;
+  };
+
+  const actualColor = getColorFromString(color);
+
   return (
     <TouchableOpacity
       style={[styles.concernOption, isSelected && styles.concernOptionSelected]}
@@ -225,18 +236,18 @@ function ConcernOption({
       <View
         style={[
           styles.concernIconWrapper,
-          { backgroundColor: `${color}15` },
-          isSelected && { backgroundColor: `${color}25` },
+          { backgroundColor: `${actualColor}15` },
+          isSelected && { backgroundColor: `${actualColor}25` },
         ]}
       >
-        <HugeiconsIcon icon={icon} size={28} color={color} />
+        <HugeiconsIcon icon={icon} size={28} color={actualColor} />
       </View>
       <Text style={[styles.concernLabel, isSelected && styles.concernLabelSelected]}>
         {label}
       </Text>
       <Text style={styles.concernDesc}>{desc}</Text>
       {isSelected && (
-        <View style={[styles.selectedIndicator, { backgroundColor: color }]} />
+        <View style={[styles.selectedIndicator, { backgroundColor: actualColor }]} />
       )}
     </TouchableOpacity>
   );
@@ -245,190 +256,190 @@ function ConcernOption({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#fff",
+    backgroundColor: colors.background.primary,
   },
   scrollView: {
     flex: 1,
   },
   scrollContent: {
-    paddingHorizontal: 24,
-    paddingTop: 24,
-    paddingBottom: 24,
+    paddingHorizontal: spacing[6],
+    paddingTop: spacing[6],
+    paddingBottom: spacing[6],
   },
   header: {
-    marginBottom: 32,
+    marginBottom: spacing[8],
   },
   stepLabel: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: "#8B5CF6",
-    letterSpacing: 0.5,
+    fontSize: typography.size.sm,
+    fontWeight: typography.weight.semibold,
+    color: colors.gamification.xp,
+    letterSpacing: typography.tracking.wide,
     textAlign: "center",
-    marginBottom: 8,
+    marginBottom: spacing[2],
   },
   title: {
-    fontSize: 28,
-    fontWeight: "700",
-    color: "#111827",
+    fontSize: typography.size['4xl'],
+    fontWeight: typography.weight.bold,
+    color: colors.text.primary,
     textAlign: "center",
   },
   description: {
-    fontSize: 15,
-    color: "#6B7280",
+    fontSize: typography.size.md,
+    color: colors.text.secondary,
     lineHeight: 22,
-    marginTop: 8,
+    marginTop: spacing[2],
     textAlign: "center",
   },
   questionSection: {
-    marginBottom: 28,
+    marginBottom: spacing[7],
   },
   questionHeader: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
-    marginBottom: 12,
+    gap: spacing[2],
+    marginBottom: spacing[3],
   },
   questionLabel: {
-    fontSize: 15,
-    fontWeight: "600",
-    color: "#374151",
-    marginBottom: 12,
+    fontSize: typography.size.md,
+    fontWeight: typography.weight.semibold,
+    color: colors.slate[700],
+    marginBottom: spacing[3],
   },
   concernOptions: {
     flexDirection: "row",
-    gap: 12,
+    gap: spacing[3],
   },
   concernOption: {
     flex: 1,
     alignItems: "center",
-    paddingVertical: 20,
-    paddingHorizontal: 8,
-    borderRadius: 16,
+    paddingVertical: spacing[5],
+    paddingHorizontal: spacing[2],
+    borderRadius: borderRadius.xl,
     borderWidth: 2,
-    borderColor: "#E5E7EB",
-    backgroundColor: "#fff",
+    borderColor: colors.border.light,
+    backgroundColor: colors.background.primary,
     position: "relative",
   },
   concernOptionSelected: {
-    borderColor: "#8B5CF6",
+    borderColor: colors.gamification.xp,
     backgroundColor: "#FAF5FF",
   },
   recommendedBadge: {
     position: "absolute",
     top: -10,
-    backgroundColor: "#8B5CF6",
-    paddingHorizontal: 8,
+    backgroundColor: colors.gamification.xp,
+    paddingHorizontal: spacing[2],
     paddingVertical: 3,
-    borderRadius: 8,
+    borderRadius: borderRadius.md,
   },
   recommendedText: {
     fontSize: 8,
-    fontWeight: "700",
-    color: "#fff",
-    letterSpacing: 0.5,
+    fontWeight: typography.weight.bold,
+    color: colors.text.inverse,
+    letterSpacing: typography.tracking.wide,
   },
   concernIconWrapper: {
     width: 56,
     height: 56,
-    borderRadius: 28,
+    borderRadius: borderRadius['4xl'],
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 10,
+    marginBottom: spacing[2],
   },
   concernLabel: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#374151",
+    fontSize: typography.size.base,
+    fontWeight: typography.weight.semibold,
+    color: colors.slate[700],
   },
   concernLabelSelected: {
-    color: "#8B5CF6",
+    color: colors.gamification.xp,
   },
   concernDesc: {
-    fontSize: 11,
-    color: "#9CA3AF",
+    fontSize: typography.size.xs,
+    color: colors.text.tertiary,
     marginTop: 2,
     textAlign: "center",
   },
   selectedIndicator: {
     position: "absolute",
-    bottom: 8,
-    width: 24,
+    bottom: spacing[2],
+    width: spacing[6],
     height: 3,
     borderRadius: 2,
   },
   timeOptions: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: 8,
+    gap: spacing[2],
   },
   timeOption: {
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 20,
+    paddingHorizontal: spacing[4],
+    paddingVertical: spacing[2],
+    borderRadius: borderRadius['2xl'],
     borderWidth: 1,
-    borderColor: "#E5E7EB",
-    backgroundColor: "#fff",
+    borderColor: colors.border.light,
+    backgroundColor: colors.background.primary,
   },
   timeOptionSelected: {
-    borderColor: "#8B5CF6",
+    borderColor: colors.gamification.xp,
     backgroundColor: "#FAF5FF",
   },
   timeOptionText: {
-    fontSize: 13,
-    fontWeight: "500",
-    color: "#6B7280",
+    fontSize: typography.size.sm,
+    fontWeight: typography.weight.medium,
+    color: colors.text.secondary,
   },
   timeOptionTextSelected: {
-    color: "#8B5CF6",
-    fontWeight: "600",
+    color: colors.gamification.xp,
+    fontWeight: typography.weight.semibold,
   },
   alertOptions: {
     flexDirection: "row",
-    gap: 12,
+    gap: spacing[3],
   },
   alertOption: {
     flex: 1,
     alignItems: "center",
-    paddingVertical: 16,
-    paddingHorizontal: 12,
-    borderRadius: 12,
+    paddingVertical: spacing[4],
+    paddingHorizontal: spacing[3],
+    borderRadius: borderRadius.lg,
     borderWidth: 2,
-    borderColor: "#E5E7EB",
-    backgroundColor: "#fff",
+    borderColor: colors.border.light,
+    backgroundColor: colors.background.primary,
   },
   alertOptionSelected: {
-    borderColor: "#8B5CF6",
+    borderColor: colors.gamification.xp,
     backgroundColor: "#FAF5FF",
   },
   alertOptionLabel: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: "#374151",
+    fontSize: typography.size.lg,
+    fontWeight: typography.weight.bold,
+    color: colors.slate[700],
   },
   alertOptionLabelSelected: {
-    color: "#8B5CF6",
+    color: colors.gamification.xp,
   },
   alertOptionDesc: {
-    fontSize: 11,
-    color: "#9CA3AF",
+    fontSize: typography.size.xs,
+    color: colors.text.tertiary,
     marginTop: 2,
   },
   footer: {
-    paddingHorizontal: 24,
-    paddingBottom: 24,
-    paddingTop: 16,
+    paddingHorizontal: spacing[6],
+    paddingBottom: spacing[6],
+    paddingTop: spacing[4],
     borderTopWidth: 1,
-    borderTopColor: "#F3F4F6",
-    backgroundColor: "#fff",
+    borderTopColor: colors.slate[100],
+    backgroundColor: colors.background.primary,
   },
   skipButton: {
     alignItems: "center",
-    paddingVertical: 12,
-    marginTop: 8,
+    paddingVertical: spacing[3],
+    marginTop: spacing[2],
   },
   skipText: {
-    fontSize: 15,
-    color: "#9CA3AF",
-    fontWeight: "500",
+    fontSize: typography.size.md,
+    color: colors.text.tertiary,
+    fontWeight: typography.weight.medium,
   },
 });

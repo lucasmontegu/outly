@@ -13,6 +13,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { Pressable } from "react-native";
 import { lightHaptic, mediumHaptic, successHaptic } from "@/lib/haptics";
+import { colors, spacing, borderRadius, typography } from "@/lib/design-tokens";
 
 type EventType = "weather" | "traffic";
 type Vote = "still_active" | "cleared" | "not_exists";
@@ -52,11 +53,11 @@ const SUBTYPE_LABELS: Record<string, string> = {
 };
 
 const SEVERITY_COLORS = [
-  "#22c55e", // 1 - green
-  "#84cc16", // 2 - lime
-  "#eab308", // 3 - yellow
-  "#f97316", // 4 - orange
-  "#ef4444", // 5 - red
+  colors.risk.low.primary, // 1 - green (safe)
+  colors.risk.low.dark, // 2 - darker green
+  colors.risk.medium.primary, // 3 - amber (caution)
+  colors.risk.high.dark, // 4 - darker red
+  colors.risk.high.primary, // 5 - red (urgent)
 ];
 
 export function EventCard({
@@ -142,21 +143,21 @@ export function EventCard({
             icon="checkmark-circle"
             label="Sigue"
             active={myVote === "still_active"}
-            color="#22c55e"
+            color={colors.state.success}
             onPress={() => handleVote("still_active")}
           />
           <VoteButton
             icon="checkmark-done-circle"
             label="Despejado"
             active={myVote === "cleared"}
-            color="#3b82f6"
+            color={colors.state.info}
             onPress={() => handleVote("cleared")}
           />
           <VoteButton
             icon="close-circle"
             label="No existe"
             active={myVote === "not_exists"}
-            color="#ef4444"
+            color={colors.state.error}
             onPress={() => handleVote("not_exists")}
           />
         </View>
@@ -208,7 +209,7 @@ function VoteButton({
 
   const animatedBgStyle = useAnimatedStyle(() => ({
     backgroundColor: active ? color + "20" : "transparent",
-    borderColor: active ? color : "#334155",
+    borderColor: active ? color : colors.slate[700],
   }));
 
   return (
@@ -221,7 +222,7 @@ function VoteButton({
       <Ionicons
         name={icon}
         size={20}
-        color={active ? color : "#64748b"}
+        color={active ? color : colors.slate[500]}
       />
       <Text style={[styles.voteLabel, active && { color }]}>{label}</Text>
     </AnimatedPressable>
@@ -230,10 +231,10 @@ function VoteButton({
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: "#1e293b",
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
+    backgroundColor: colors.slate[800],
+    borderRadius: borderRadius.lg,
+    padding: spacing[4],
+    marginBottom: spacing[3],
   },
   header: {
     flexDirection: "row",
@@ -242,61 +243,61 @@ const styles = StyleSheet.create({
   iconContainer: {
     width: 48,
     height: 48,
-    borderRadius: 24,
+    borderRadius: borderRadius.full,
     alignItems: "center",
     justifyContent: "center",
-    marginRight: 12,
+    marginRight: spacing[3],
   },
   info: {
     flex: 1,
   },
   title: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#f8fafc",
+    fontSize: typography.size.lg,
+    fontWeight: typography.weight.semibold,
+    color: colors.slate[50],
   },
   meta: {
     flexDirection: "row",
     alignItems: "center",
-    marginTop: 4,
-    gap: 6,
+    marginTop: spacing[1],
+    gap: spacing[2] - spacing[1] / 2,
   },
   metaText: {
-    fontSize: 13,
-    color: "#94a3b8",
+    fontSize: typography.size.sm,
+    color: colors.slate[400],
   },
   severityBadge: {
     width: 32,
     height: 32,
-    borderRadius: 16,
+    borderRadius: borderRadius.full,
     alignItems: "center",
     justifyContent: "center",
   },
   severityText: {
-    fontSize: 14,
-    fontWeight: "bold",
-    color: "#fff",
+    fontSize: typography.size.base,
+    fontWeight: typography.weight.bold,
+    color: colors.text.inverse,
   },
   voteContainer: {
     flexDirection: "row",
-    marginTop: 12,
-    gap: 8,
+    marginTop: spacing[3],
+    gap: spacing[2],
   },
   voteButton: {
     flex: 1,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 8,
+    paddingVertical: spacing[2],
+    paddingHorizontal: spacing[3],
+    borderRadius: borderRadius.md,
     borderWidth: 1,
-    borderColor: "#334155",
-    gap: 4,
+    borderColor: colors.slate[700],
+    gap: spacing[1],
   },
   voteLabel: {
-    fontSize: 12,
-    fontWeight: "500",
-    color: "#64748b",
+    fontSize: typography.size.xs,
+    fontWeight: typography.weight.medium,
+    color: colors.slate[500],
   },
 });

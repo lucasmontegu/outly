@@ -10,6 +10,7 @@ import Animated, {
   Easing,
 } from "react-native-reanimated";
 import { LinearGradient } from "expo-linear-gradient";
+import { colors, spacing, borderRadius } from "@/lib/design-tokens";
 
 interface SkeletonProps {
   width?: number | `${number}%`;
@@ -27,7 +28,7 @@ interface SkeletonProps {
 export function Skeleton({
   width = "100%",
   height = 20,
-  borderRadius = 8,
+  borderRadius: borderRadiusProp = borderRadius.md,
   style,
 }: SkeletonProps) {
   const opacity = useSharedValue(0.5);
@@ -54,7 +55,7 @@ export function Skeleton({
         {
           width,
           height,
-          borderRadius,
+          borderRadius: borderRadiusProp,
         },
         animatedStyle,
         style,
@@ -72,7 +73,7 @@ export function Skeleton({
 export function ShimmerSkeleton({
   width = "100%",
   height = 20,
-  borderRadius = 8,
+  borderRadius: borderRadiusProp = borderRadius.md,
   style,
 }: SkeletonProps) {
   const translateX = useSharedValue(-1);
@@ -93,7 +94,7 @@ export function ShimmerSkeleton({
     <View
       style={[
         styles.shimmerContainer,
-        { width, height, borderRadius },
+        { width, height, borderRadius: borderRadiusProp },
         style,
       ]}
     >
@@ -122,7 +123,7 @@ export function SkeletonCircle({ size = 48, style }: { size?: number; style?: St
 export function SkeletonText({
   lines = 3,
   lineHeight = 16,
-  spacing = 8,
+  spacing: spacingValue = spacing[2],
   lastLineWidth = "60%" as const,
   style,
 }: {
@@ -139,7 +140,7 @@ export function SkeletonText({
           key={index}
           height={lineHeight}
           width={index === lines - 1 ? lastLineWidth : "100%"}
-          style={{ marginBottom: index < lines - 1 ? spacing : 0 }}
+          style={{ marginBottom: index < lines - 1 ? spacingValue : 0 }}
         />
       ))}
     </View>
@@ -190,8 +191,8 @@ export function RiskCircleSkeleton({ size = 200 }: { size?: number }) {
             },
           ]}
         >
-          <Skeleton width={80} height={48} borderRadius={8} />
-          <Skeleton width={60} height={20} borderRadius={4} style={{ marginTop: 8 }} />
+          <Skeleton width={80} height={48} borderRadius={borderRadius.md} />
+          <Skeleton width={60} height={20} borderRadius={borderRadius.sm} style={{ marginTop: spacing[2] }} />
         </View>
       </Animated.View>
     </View>
@@ -205,9 +206,9 @@ export function DataCardSkeleton() {
   return (
     <View style={styles.dataCard}>
       <SkeletonCircle size={40} />
-      <Skeleton width={60} height={10} borderRadius={4} style={{ marginTop: 12 }} />
-      <Skeleton width={80} height={18} borderRadius={4} style={{ marginTop: 4 }} />
-      <Skeleton width={100} height={12} borderRadius={4} style={{ marginTop: 2 }} />
+      <Skeleton width={60} height={10} borderRadius={borderRadius.sm} style={{ marginTop: spacing[3] }} />
+      <Skeleton width={80} height={18} borderRadius={borderRadius.sm} style={{ marginTop: spacing[1] }} />
+      <Skeleton width={100} height={12} borderRadius={borderRadius.sm} style={{ marginTop: spacing[1] / 2 }} />
     </View>
   );
 }
@@ -220,8 +221,8 @@ export function EventCardSkeleton() {
     <View style={styles.eventCard}>
       <SkeletonCircle size={48} />
       <View style={styles.eventCardContent}>
-        <Skeleton width="70%" height={16} borderRadius={4} />
-        <Skeleton width="50%" height={13} borderRadius={4} style={{ marginTop: 4 }} />
+        <Skeleton width="70%" height={16} borderRadius={borderRadius.sm} />
+        <Skeleton width="50%" height={13} borderRadius={borderRadius.sm} style={{ marginTop: spacing[1] }} />
       </View>
       <SkeletonCircle size={32} />
     </View>
@@ -236,10 +237,10 @@ export function RouteCardSkeleton() {
     <View style={styles.routeCard}>
       <SkeletonCircle size={44} />
       <View style={styles.routeCardContent}>
-        <Skeleton width="60%" height={16} borderRadius={4} />
-        <Skeleton width="80%" height={13} borderRadius={4} style={{ marginTop: 4 }} />
+        <Skeleton width="60%" height={16} borderRadius={borderRadius.sm} />
+        <Skeleton width="80%" height={13} borderRadius={borderRadius.sm} style={{ marginTop: spacing[1] }} />
       </View>
-      <Skeleton width={60} height={24} borderRadius={6} />
+      <Skeleton width={60} height={24} borderRadius={borderRadius.sm} />
     </View>
   );
 }
@@ -252,8 +253,8 @@ export function LocationCardSkeleton() {
     <View style={styles.locationCard}>
       <SkeletonCircle size={40} />
       <View style={styles.locationCardContent}>
-        <Skeleton width="50%" height={16} borderRadius={4} />
-        <Skeleton width="70%" height={14} borderRadius={4} style={{ marginTop: 2 }} />
+        <Skeleton width="50%" height={16} borderRadius={borderRadius.sm} />
+        <Skeleton width="70%" height={14} borderRadius={borderRadius.sm} style={{ marginTop: spacing[1] / 2 }} />
       </View>
       <SkeletonCircle size={44} />
     </View>
@@ -262,10 +263,10 @@ export function LocationCardSkeleton() {
 
 const styles = StyleSheet.create({
   skeleton: {
-    backgroundColor: "#E5E7EB",
+    backgroundColor: colors.border.light,
   },
   shimmerContainer: {
-    backgroundColor: "#E5E7EB",
+    backgroundColor: colors.border.light,
     overflow: "hidden",
   },
   shimmerGradient: {
@@ -281,33 +282,33 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   riskCircleOuter: {
-    backgroundColor: "#E5E7EB",
+    backgroundColor: colors.border.light,
     alignItems: "center",
     justifyContent: "center",
   },
   riskCircleInner: {
-    backgroundColor: "#F9FAFB",
+    backgroundColor: colors.background.secondary,
     alignItems: "center",
     justifyContent: "center",
   },
   // Data Card
   dataCard: {
     flex: 1,
-    backgroundColor: "#F9FAFB",
-    borderRadius: 16,
-    padding: 16,
+    backgroundColor: colors.background.secondary,
+    borderRadius: borderRadius.xl,
+    padding: spacing[4],
   },
   // Event Card
   eventCard: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#fff",
-    borderRadius: 12,
+    backgroundColor: colors.background.primary,
+    borderRadius: borderRadius.lg,
     borderWidth: 1,
-    borderColor: "#E5E7EB",
-    padding: 16,
-    marginBottom: 8,
-    gap: 12,
+    borderColor: colors.border.light,
+    padding: spacing[4],
+    marginBottom: spacing[2],
+    gap: spacing[3],
   },
   eventCardContent: {
     flex: 1,
@@ -316,12 +317,12 @@ const styles = StyleSheet.create({
   routeCard: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#fff",
-    borderRadius: 20,
+    backgroundColor: colors.background.primary,
+    borderRadius: borderRadius['2xl'],
     borderWidth: 1,
-    borderColor: "#E5E7EB",
-    padding: 16,
-    gap: 12,
+    borderColor: colors.border.light,
+    padding: spacing[4],
+    gap: spacing[3],
   },
   routeCardContent: {
     flex: 1,
@@ -330,11 +331,11 @@ const styles = StyleSheet.create({
   locationCard: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#1e293b",
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-    gap: 12,
+    backgroundColor: colors.slate[800],
+    borderRadius: borderRadius.lg,
+    padding: spacing[4],
+    marginBottom: spacing[3],
+    gap: spacing[3],
   },
   locationCardContent: {
     flex: 1,

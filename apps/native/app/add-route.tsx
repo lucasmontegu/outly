@@ -30,6 +30,7 @@ import { Card, Button } from "heroui-native";
 import { LinearGradient } from "expo-linear-gradient";
 
 import { useLocation } from "@/hooks/use-location";
+import { colors, spacing, borderRadius, typography, shadows } from "@/lib/design-tokens";
 
 type RouteIcon = "building" | "running" | "home";
 
@@ -50,9 +51,9 @@ type SearchResult = {
 const DAYS = ["M", "T", "W", "T", "F", "S", "S"];
 
 const ICONS: { type: RouteIcon; icon: any; label: string; color: string; bg: string }[] = [
-  { type: "building", icon: Building02Icon, label: "Work", color: "#3B82F6", bg: "#DBEAFE" },
-  { type: "home", icon: Home01Icon, label: "Home", color: "#10B981", bg: "#D1FAE5" },
-  { type: "running", icon: WorkoutRunIcon, label: "Activity", color: "#F97316", bg: "#FED7AA" },
+  { type: "building", icon: Building02Icon, label: "Work", color: colors.state.info, bg: colors.risk.low.light },
+  { type: "home", icon: Home01Icon, label: "Home", color: colors.state.success, bg: colors.risk.low.light },
+  { type: "running", icon: WorkoutRunIcon, label: "Activity", color: colors.risk.medium.primary, bg: colors.risk.medium.light },
 ];
 
 export default function AddRouteScreen() {
@@ -243,7 +244,7 @@ export default function AddRouteScreen() {
         {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-            <HugeiconsIcon icon={ArrowLeft01Icon} size={24} color="#111827" />
+            <HugeiconsIcon icon={ArrowLeft01Icon} size={24} color={colors.text.primary} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Add Route</Text>
           <View style={styles.headerSpacer} />
@@ -261,7 +262,7 @@ export default function AddRouteScreen() {
               <TextInput
                 style={styles.input}
                 placeholder="e.g., Daily Commute"
-                placeholderTextColor="#9CA3AF"
+                placeholderTextColor={colors.text.tertiary}
                 value={name}
                 onChangeText={setName}
               />
@@ -278,7 +279,7 @@ export default function AddRouteScreen() {
                   style={[
                     styles.iconOption,
                     selectedIcon === item.type && styles.iconOptionSelected,
-                    { borderColor: selectedIcon === item.type ? item.color : "#E5E7EB" },
+                    { borderColor: selectedIcon === item.type ? item.color : colors.border.light },
                   ]}
                   onPress={() => setSelectedIcon(item.type)}
                 >
@@ -295,19 +296,19 @@ export default function AddRouteScreen() {
           <View style={[styles.section, { zIndex: 20 }]}>
             <Text style={styles.label}>From</Text>
             <View style={styles.locationInputContainer}>
-              <HugeiconsIcon icon={Location01Icon} size={20} color="#10B981" />
+              <HugeiconsIcon icon={Location01Icon} size={20} color={colors.state.success} />
               <TextInput
                 style={styles.locationInput}
                 placeholder="Starting location"
-                placeholderTextColor="#9CA3AF"
+                placeholderTextColor={colors.text.tertiary}
                 value={fromData ? fromData.name : fromQuery}
                 onChangeText={handleFromChange}
                 onFocus={() => fromQuery.length >= 3 && setShowFromResults(true)}
               />
-              {fromSearching && <ActivityIndicator size="small" color="#10B981" />}
+              {fromSearching && <ActivityIndicator size="small" color={colors.state.success} />}
               {(fromQuery.length > 0 || fromData) && !fromSearching && (
                 <TouchableOpacity onPress={() => { setFromQuery(""); setFromData(null); setFromResults([]); }}>
-                  <HugeiconsIcon icon={Cancel01Icon} size={18} color="#9CA3AF" />
+                  <HugeiconsIcon icon={Cancel01Icon} size={18} color={colors.text.tertiary} />
                 </TouchableOpacity>
               )}
             </View>
@@ -320,7 +321,7 @@ export default function AddRouteScreen() {
                     style={styles.searchResultItem}
                     onPress={() => selectFromResult(result)}
                   >
-                    <HugeiconsIcon icon={Location01Icon} size={16} color="#10B981" />
+                    <HugeiconsIcon icon={Location01Icon} size={16} color={colors.state.success} />
                     <View style={styles.searchResultText}>
                       <Text style={styles.searchResultName} numberOfLines={1}>{result.name}</Text>
                       <Text style={styles.searchResultAddress} numberOfLines={1}>{result.displayName}</Text>
@@ -346,19 +347,19 @@ export default function AddRouteScreen() {
           <View style={[styles.section, { zIndex: 10 }]}>
             <Text style={styles.label}>To</Text>
             <View style={styles.locationInputContainer}>
-              <HugeiconsIcon icon={Location01Icon} size={20} color="#EF4444" />
+              <HugeiconsIcon icon={Location01Icon} size={20} color={colors.state.error} />
               <TextInput
                 style={styles.locationInput}
                 placeholder="Destination"
-                placeholderTextColor="#9CA3AF"
+                placeholderTextColor={colors.text.tertiary}
                 value={toData ? toData.name : toQuery}
                 onChangeText={handleToChange}
                 onFocus={() => toQuery.length >= 3 && setShowToResults(true)}
               />
-              {toSearching && <ActivityIndicator size="small" color="#EF4444" />}
+              {toSearching && <ActivityIndicator size="small" color={colors.state.error} />}
               {(toQuery.length > 0 || toData) && !toSearching && (
                 <TouchableOpacity onPress={() => { setToQuery(""); setToData(null); setToResults([]); }}>
-                  <HugeiconsIcon icon={Cancel01Icon} size={18} color="#9CA3AF" />
+                  <HugeiconsIcon icon={Cancel01Icon} size={18} color={colors.text.tertiary} />
                 </TouchableOpacity>
               )}
             </View>
@@ -371,7 +372,7 @@ export default function AddRouteScreen() {
                     style={styles.searchResultItem}
                     onPress={() => selectToResult(result)}
                   >
-                    <HugeiconsIcon icon={Location01Icon} size={16} color="#EF4444" />
+                    <HugeiconsIcon icon={Location01Icon} size={16} color={colors.state.error} />
                     <View style={styles.searchResultText}>
                       <Text style={styles.searchResultName} numberOfLines={1}>{result.name}</Text>
                       <Text style={styles.searchResultAddress} numberOfLines={1}>{result.displayName}</Text>
@@ -402,7 +403,7 @@ export default function AddRouteScreen() {
           {/* Map Preview */}
           <View style={styles.mapPreviewSection}>
             <LinearGradient
-              colors={["#E2E8F0", "#CBD5E1"]}
+              colors={[colors.slate[200], colors.slate[300]]}
               style={styles.mapPreview}
             >
               <Text style={styles.mapPreviewText}>Route Preview</Text>
@@ -447,7 +448,7 @@ export default function AddRouteScreen() {
               <Text style={styles.sliderLabel}>All</Text>
               <View style={styles.sliderTrack}>
                 <LinearGradient
-                  colors={["#10B981", "#F59E0B", "#EF4444"]}
+                  colors={[colors.state.success, colors.state.warning, colors.state.error]}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 0 }}
                   style={styles.sliderGradient}
@@ -527,7 +528,7 @@ export default function AddRouteScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#fff",
+    backgroundColor: colors.background.primary,
   },
   keyboardView: {
     flex: 1,
@@ -536,10 +537,10 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingHorizontal: spacing[4],
+    paddingVertical: spacing[3],
     borderBottomWidth: 1,
-    borderBottomColor: "#E5E7EB",
+    borderBottomColor: colors.border.light,
   },
   backButton: {
     width: 40,
@@ -548,9 +549,9 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   headerTitle: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: "#111827",
+    fontSize: typography.size.xl,
+    fontWeight: typography.weight.bold,
+    color: colors.text.primary,
   },
   headerSpacer: {
     width: 40,
@@ -559,45 +560,45 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    padding: 20,
-    paddingBottom: 40,
+    padding: spacing[5],
+    paddingBottom: spacing[10],
   },
   section: {
-    marginBottom: 24,
+    marginBottom: spacing[6],
   },
   label: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#374151",
+    fontSize: typography.size.base,
+    fontWeight: typography.weight.semibold,
+    color: colors.slate[700],
     marginBottom: 10,
   },
   inputContainer: {
-    backgroundColor: "#F9FAFB",
+    backgroundColor: colors.background.secondary,
     borderWidth: 1,
-    borderColor: "#E5E7EB",
-    borderRadius: 12,
-    paddingHorizontal: 16,
+    borderColor: colors.border.light,
+    borderRadius: borderRadius.lg,
+    paddingHorizontal: spacing[4],
     height: 52,
     justifyContent: "center",
   },
   input: {
-    fontSize: 15,
-    color: "#111827",
+    fontSize: typography.size.md,
+    color: colors.text.primary,
   },
   iconRow: {
     flexDirection: "row",
-    gap: 12,
+    gap: spacing[3],
   },
   iconOption: {
     flex: 1,
     alignItems: "center",
-    padding: 16,
-    borderRadius: 12,
+    padding: spacing[4],
+    borderRadius: borderRadius.lg,
     borderWidth: 2,
-    backgroundColor: "#F9FAFB",
+    backgroundColor: colors.background.secondary,
   },
   iconOptionSelected: {
-    backgroundColor: "#fff",
+    backgroundColor: colors.background.primary,
   },
   iconCircle: {
     width: 48,
@@ -605,46 +606,42 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 8,
+    marginBottom: spacing[2],
   },
   iconLabel: {
     fontSize: 13,
-    fontWeight: "600",
-    color: "#374151",
+    fontWeight: typography.weight.semibold,
+    color: colors.slate[700],
   },
   locationInputContainer: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#F9FAFB",
+    backgroundColor: colors.background.secondary,
     borderWidth: 1,
-    borderColor: "#E5E7EB",
-    borderRadius: 12,
-    paddingHorizontal: 16,
+    borderColor: colors.border.light,
+    borderRadius: borderRadius.lg,
+    paddingHorizontal: spacing[4],
     height: 52,
-    gap: 12,
+    gap: spacing[3],
   },
   locationInput: {
     flex: 1,
-    fontSize: 15,
-    color: "#111827",
+    fontSize: typography.size.md,
+    color: colors.text.primary,
   },
   locationPlaceholder: {
-    color: "#9CA3AF",
+    color: colors.text.tertiary,
   },
   searchDropdown: {
     position: "absolute",
     top: 78,
     left: 0,
     right: 0,
-    backgroundColor: "#fff",
-    borderRadius: 12,
+    backgroundColor: colors.background.primary,
+    borderRadius: borderRadius.lg,
     borderWidth: 1,
-    borderColor: "#E5E7EB",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
+    borderColor: colors.border.light,
+    ...shadows.md,
     zIndex: 100,
     maxHeight: 220,
   },
@@ -652,52 +649,52 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     padding: 14,
-    gap: 12,
+    gap: spacing[3],
     borderBottomWidth: 1,
-    borderBottomColor: "#F3F4F6",
+    borderBottomColor: colors.slate[100],
   },
   searchResultText: {
     flex: 1,
   },
   searchResultName: {
-    fontSize: 15,
-    fontWeight: "600",
-    color: "#111827",
+    fontSize: typography.size.md,
+    fontWeight: typography.weight.semibold,
+    color: colors.text.primary,
     marginBottom: 2,
   },
   searchResultAddress: {
-    fontSize: 12,
-    color: "#6B7280",
+    fontSize: typography.size.sm,
+    color: colors.text.secondary,
   },
   currentLocationSuggestion: {
-    marginTop: 8,
+    marginTop: spacing[2],
     padding: 10,
-    backgroundColor: "#D1FAE5",
-    borderRadius: 8,
+    backgroundColor: colors.risk.low.light,
+    borderRadius: borderRadius.md,
   },
   suggestionText: {
     fontSize: 13,
-    color: "#059669",
+    color: colors.risk.low.dark,
   },
   savedLocationsList: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: 8,
-    marginTop: 8,
+    gap: spacing[2],
+    marginTop: spacing[2],
   },
   savedLocationItem: {
-    paddingHorizontal: 12,
+    paddingHorizontal: spacing[3],
     paddingVertical: 6,
-    backgroundColor: "#F3F4F6",
-    borderRadius: 16,
+    backgroundColor: colors.slate[100],
+    borderRadius: borderRadius.xl,
   },
   savedLocationText: {
     fontSize: 13,
-    color: "#374151",
+    color: colors.slate[700],
   },
   mapPreviewSection: {
-    marginBottom: 24,
-    borderRadius: 16,
+    marginBottom: spacing[6],
+    borderRadius: borderRadius.xl,
     overflow: "hidden",
   },
   mapPreview: {
@@ -706,51 +703,51 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   mapPreviewText: {
-    fontSize: 14,
-    color: "#6B7280",
+    fontSize: typography.size.base,
+    color: colors.text.secondary,
   },
   daysRow: {
     flexDirection: "row",
-    gap: 8,
+    gap: spacing[2],
   },
   dayButton: {
     flex: 1,
     height: 44,
     borderRadius: 22,
-    backgroundColor: "#F3F4F6",
+    backgroundColor: colors.slate[100],
     alignItems: "center",
     justifyContent: "center",
   },
   dayButtonActive: {
-    backgroundColor: "#111827",
+    backgroundColor: colors.text.primary,
   },
   dayText: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#9CA3AF",
+    fontSize: typography.size.base,
+    fontWeight: typography.weight.semibold,
+    color: colors.text.tertiary,
   },
   dayTextActive: {
-    color: "#fff",
+    color: colors.text.inverse,
   },
   thresholdHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 12,
+    marginBottom: spacing[3],
   },
   thresholdValue: {
     fontSize: 13,
-    fontWeight: "600",
-    color: "#F59E0B",
+    fontWeight: typography.weight.semibold,
+    color: colors.state.warning,
   },
   sliderContainer: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
+    gap: spacing[3],
   },
   sliderLabel: {
-    fontSize: 11,
-    color: "#9CA3AF",
+    fontSize: typography.size.xs,
+    color: colors.text.tertiary,
     width: 45,
   },
   sliderTrack: {
@@ -769,61 +766,61 @@ const styles = StyleSheet.create({
     top: -4,
     width: 16,
     height: 16,
-    borderRadius: 8,
-    backgroundColor: "#fff",
+    borderRadius: borderRadius.md,
+    backgroundColor: colors.background.primary,
     borderWidth: 2,
-    borderColor: "#111827",
+    borderColor: colors.text.primary,
     marginLeft: -8,
   },
   thresholdButtons: {
     flexDirection: "row",
-    gap: 8,
-    marginTop: 12,
+    gap: spacing[2],
+    marginTop: spacing[3],
   },
   thresholdButton: {
     flex: 1,
     height: 36,
-    borderRadius: 8,
-    backgroundColor: "#F3F4F6",
+    borderRadius: borderRadius.md,
+    backgroundColor: colors.slate[100],
     alignItems: "center",
     justifyContent: "center",
   },
   thresholdButtonActive: {
-    backgroundColor: "#111827",
+    backgroundColor: colors.text.primary,
   },
   thresholdButtonText: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#6B7280",
+    fontSize: typography.size.base,
+    fontWeight: typography.weight.semibold,
+    color: colors.text.secondary,
   },
   thresholdButtonTextActive: {
-    color: "#fff",
+    color: colors.text.inverse,
   },
   timeRow: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: 8,
+    gap: spacing[2],
   },
   timeButton: {
     paddingHorizontal: 14,
     paddingVertical: 10,
-    borderRadius: 8,
-    backgroundColor: "#F3F4F6",
+    borderRadius: borderRadius.md,
+    backgroundColor: colors.slate[100],
   },
   timeButtonActive: {
-    backgroundColor: "#111827",
+    backgroundColor: colors.text.primary,
   },
   timeButtonText: {
     fontSize: 13,
-    fontWeight: "600",
-    color: "#6B7280",
+    fontWeight: typography.weight.semibold,
+    color: colors.text.secondary,
   },
   timeButtonTextActive: {
-    color: "#fff",
+    color: colors.text.inverse,
   },
   footer: {
-    padding: 16,
+    padding: spacing[4],
     borderTopWidth: 1,
-    borderTopColor: "#E5E7EB",
+    borderTopColor: colors.border.light,
   },
 });

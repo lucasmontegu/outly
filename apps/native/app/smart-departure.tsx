@@ -17,6 +17,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Button } from "heroui-native";
+import { colors, spacing, borderRadius, typography, shadows } from "@/lib/design-tokens";
 
 type ForecastItem = {
   time: string;
@@ -63,13 +64,13 @@ export default function SmartDepartureScreen() {
   const getRiskColor = (level: string) => {
     switch (level) {
       case "low":
-        return "#10B981";
+        return colors.state.success;
       case "medium":
-        return "#F59E0B";
+        return colors.state.warning;
       case "high":
-        return "#EF4444";
+        return colors.state.error;
       default:
-        return "#6B7280";
+        return colors.text.secondary;
     }
   };
 
@@ -81,14 +82,14 @@ export default function SmartDepartureScreen() {
           style={styles.headerButton}
           onPress={() => router.back()}
         >
-          <HugeiconsIcon icon={ArrowLeft01Icon} size={24} color="#111827" />
+          <HugeiconsIcon icon={ArrowLeft01Icon} size={24} color={colors.text.primary} />
         </TouchableOpacity>
         <View style={styles.headerCenter}>
           <Text style={styles.headerTitle}>Smart Departure</Text>
           <Text style={styles.headerSubtitle}>TO DOWNTOWN OFFICE</Text>
         </View>
         <TouchableOpacity style={styles.headerButton}>
-          <HugeiconsIcon icon={MoreHorizontalIcon} size={24} color="#111827" />
+          <HugeiconsIcon icon={MoreHorizontalIcon} size={24} color={colors.text.primary} />
         </TouchableOpacity>
       </View>
 
@@ -97,7 +98,7 @@ export default function SmartDepartureScreen() {
         <View style={styles.bestWindowCard}>
           <View style={styles.bestWindowHeader}>
             <View style={styles.bestWindowBadge}>
-              <HugeiconsIcon icon={SparklesIcon} size={14} color="#059669" />
+              <HugeiconsIcon icon={SparklesIcon} size={14} color={colors.risk.low.dark} />
               <Text style={styles.bestWindowBadgeText}>BEST WINDOW</Text>
             </View>
             <View style={styles.durationContainer}>
@@ -183,7 +184,7 @@ export default function SmartDepartureScreen() {
                       <HugeiconsIcon
                         icon={CloudIcon}
                         size={14}
-                        color={item.riskLevel === "high" ? "#9CA3AF" : "#6B7280"}
+                        color={item.riskLevel === "high" ? colors.text.tertiary : colors.text.secondary}
                       />
                       <Text
                         style={[
@@ -204,10 +205,10 @@ export default function SmartDepartureScreen() {
                         size={14}
                         color={
                           item.riskLevel === "low"
-                            ? "#10B981"
+                            ? colors.state.success
                             : item.riskLevel === "high"
-                            ? "#9CA3AF"
-                            : "#F59E0B"
+                            ? colors.text.tertiary
+                            : colors.state.warning
                         }
                       />
                       <Text
@@ -255,15 +256,15 @@ export default function SmartDepartureScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#fff",
+    backgroundColor: colors.background.primary,
   },
   header: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingHorizontal: spacing[4],
+    paddingVertical: spacing[3],
     borderBottomWidth: 1,
-    borderBottomColor: "#E5E7EB",
+    borderBottomColor: colors.border.light,
   },
   headerButton: {
     width: 40,
@@ -276,14 +277,14 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   headerTitle: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: "#111827",
+    fontSize: typography.size.xl,
+    fontWeight: typography.weight.bold,
+    color: colors.text.primary,
   },
   headerSubtitle: {
-    fontSize: 10,
-    fontWeight: "500",
-    color: "#9CA3AF",
+    fontSize: typography.size.xs,
+    fontWeight: typography.weight.medium,
+    color: colors.text.tertiary,
     letterSpacing: 0.5,
     marginTop: 2,
   },
@@ -291,133 +292,129 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    padding: 16,
+    padding: spacing[4],
   },
   bestWindowCard: {
-    backgroundColor: "#fff",
-    borderRadius: 20,
-    padding: 24,
+    backgroundColor: colors.background.primary,
+    borderRadius: borderRadius["2xl"],
+    padding: spacing[6],
     borderWidth: 1,
-    borderColor: "#E5E7EB",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
+    borderColor: colors.border.light,
+    ...shadows.sm,
   },
   bestWindowHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "flex-start",
-    marginBottom: 16,
+    marginBottom: spacing[4],
   },
   bestWindowBadge: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#D1FAE5",
+    backgroundColor: colors.risk.low.light,
     paddingHorizontal: 10,
     paddingVertical: 6,
-    borderRadius: 8,
+    borderRadius: borderRadius.md,
     gap: 6,
   },
   bestWindowBadgeText: {
-    fontSize: 10,
-    fontWeight: "700",
-    color: "#059669",
+    fontSize: typography.size.xs,
+    fontWeight: typography.weight.bold,
+    color: colors.risk.low.dark,
     letterSpacing: 0.5,
   },
   durationContainer: {
     alignItems: "flex-end",
   },
   durationLabel: {
-    fontSize: 11,
-    color: "#9CA3AF",
+    fontSize: typography.size.xs,
+    color: colors.text.tertiary,
   },
   durationValue: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: "#111827",
+    fontSize: typography.size.xl,
+    fontWeight: typography.weight.bold,
+    color: colors.text.primary,
   },
   recommendedTime: {
     fontSize: 72,
-    fontWeight: "700",
-    color: "#111827",
+    fontWeight: typography.weight.bold,
+    color: colors.text.primary,
     lineHeight: 80,
   },
   recommendedPeriod: {
-    fontSize: 24,
-    fontWeight: "500",
-    color: "#9CA3AF",
+    fontSize: typography.size["3xl"],
+    fontWeight: typography.weight.medium,
+    color: colors.text.tertiary,
     marginTop: -8,
     marginLeft: 4,
   },
   savingsText: {
-    fontSize: 14,
-    color: "#6B7280",
+    fontSize: typography.size.base,
+    color: colors.text.secondary,
     lineHeight: 22,
-    marginTop: 16,
+    marginTop: spacing[4],
   },
   savingsHighlight: {
-    fontWeight: "700",
-    color: "#111827",
+    fontWeight: typography.weight.bold,
+    color: colors.text.primary,
   },
   forecastSection: {
-    marginTop: 32,
+    marginTop: spacing[8],
   },
   forecastTitle: {
-    fontSize: 10,
-    fontWeight: "600",
-    color: "#9CA3AF",
+    fontSize: typography.size.xs,
+    fontWeight: typography.weight.semibold,
+    color: colors.text.tertiary,
     letterSpacing: 0.5,
-    marginBottom: 16,
+    marginBottom: spacing[4],
   },
   timeline: {
     gap: 0,
   },
   timelineItem: {
     flexDirection: "row",
-    gap: 16,
+    gap: spacing[4],
   },
   timelineDotContainer: {
     width: 24,
     alignItems: "center",
   },
   timelineDot: {
-    borderRadius: 8,
-    marginTop: 20,
+    borderRadius: borderRadius.md,
+    marginTop: spacing[5],
   },
   timelineLine: {
     width: 2,
     flex: 1,
-    backgroundColor: "#E5E7EB",
-    marginTop: 8,
+    backgroundColor: colors.border.light,
+    marginTop: spacing[2],
     marginBottom: -16,
   },
   forecastCard: {
     flex: 1,
-    backgroundColor: "#F9FAFB",
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 12,
+    backgroundColor: colors.background.secondary,
+    borderRadius: borderRadius.xl,
+    padding: spacing[4],
+    marginBottom: spacing[3],
   },
   forecastCardRecommended: {
-    backgroundColor: "#F0FDF4",
+    backgroundColor: colors.risk.low.light,
     borderWidth: 2,
-    borderColor: "#10B981",
+    borderColor: colors.state.success,
   },
   forecastHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 12,
+    marginBottom: spacing[3],
   },
   forecastTime: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: "#111827",
+    fontSize: typography.size.lg,
+    fontWeight: typography.weight.bold,
+    color: colors.text.primary,
   },
   forecastTimeGray: {
-    color: "#9CA3AF",
+    color: colors.text.tertiary,
   },
   riskBadge: {
     paddingHorizontal: 10,
@@ -425,12 +422,12 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   riskLabel: {
-    fontSize: 11,
-    fontWeight: "600",
+    fontSize: typography.size.xs,
+    fontWeight: typography.weight.semibold,
   },
   forecastDetails: {
     flexDirection: "row",
-    gap: 16,
+    gap: spacing[4],
   },
   detailItem: {
     flexDirection: "row",
@@ -439,44 +436,44 @@ const styles = StyleSheet.create({
   },
   detailText: {
     fontSize: 13,
-    color: "#6B7280",
+    color: colors.text.secondary,
   },
   detailTextGray: {
-    color: "#9CA3AF",
+    color: colors.text.tertiary,
   },
   insightBox: {
     flexDirection: "row",
     backgroundColor: "#FEF9C3",
-    padding: 12,
-    borderRadius: 10,
-    marginTop: 12,
-    gap: 8,
+    padding: spacing[3],
+    borderRadius: borderRadius.md,
+    marginTop: spacing[3],
+    gap: spacing[2],
   },
   insightIcon: {
-    fontSize: 14,
+    fontSize: typography.size.base,
   },
   insightText: {
     flex: 1,
-    fontSize: 12,
+    fontSize: typography.size.sm,
     color: "#92400E",
     lineHeight: 18,
   },
   bottomCta: {
-    padding: 16,
+    padding: spacing[4],
     borderTopWidth: 1,
-    borderTopColor: "#E5E7EB",
+    borderTopColor: colors.border.light,
   },
   ctaContent: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
+    gap: spacing[2],
   },
   ctaIcon: {
-    fontSize: 18,
+    fontSize: typography.size.xl,
   },
   ctaText: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#fff",
+    fontSize: typography.size.lg,
+    fontWeight: typography.weight.semibold,
+    color: colors.text.inverse,
   },
 });

@@ -15,6 +15,7 @@ import Animated, {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { successHaptic, errorHaptic, warningHaptic } from "@/lib/haptics";
+import { colors, spacing, borderRadius, typography, shadows } from "@/lib/design-tokens";
 
 // ============================================================
 // Types
@@ -60,10 +61,10 @@ export function useToast(): ToastContextValue {
 // ============================================================
 
 const TOAST_COLORS: Record<ToastType, { bg: string; text: string; icon: string }> = {
-  success: { bg: "#10B981", text: "#fff", icon: "checkmark-circle" },
-  error: { bg: "#EF4444", text: "#fff", icon: "close-circle" },
-  warning: { bg: "#F59E0B", text: "#fff", icon: "warning" },
-  info: { bg: "#3B82F6", text: "#fff", icon: "information-circle" },
+  success: { bg: colors.state.success, text: colors.text.inverse, icon: "checkmark-circle" },
+  error: { bg: colors.state.error, text: colors.text.inverse, icon: "close-circle" },
+  warning: { bg: colors.state.warning, text: colors.text.inverse, icon: "warning" },
+  info: { bg: colors.state.info, text: colors.text.inverse, icon: "information-circle" },
 };
 
 interface ToastItemProps {
@@ -117,7 +118,7 @@ function ToastItem({ config, onHide }: ToastItemProps) {
       exiting={SlideOutUp.springify().damping(20)}
       style={[
         styles.toast,
-        { backgroundColor: colors.bg, marginTop: insets.top + 8 },
+        { backgroundColor: colors.bg, marginTop: insets.top + spacing[2] },
         animatedStyle,
       ]}
     >
@@ -234,31 +235,27 @@ const styles = StyleSheet.create({
   toast: {
     flexDirection: "row",
     alignItems: "center",
-    marginHorizontal: 16,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 12,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 6,
+    marginHorizontal: spacing[4],
+    paddingHorizontal: spacing[4],
+    paddingVertical: spacing[3],
+    borderRadius: borderRadius.lg,
+    ...shadows.lg,
     maxWidth: 400,
     width: "100%",
   },
   toastIcon: {
-    marginRight: 10,
+    marginRight: spacing[2] + spacing[1] / 2,
   },
   toastMessage: {
     flex: 1,
-    fontSize: 14,
-    fontWeight: "500",
-    lineHeight: 20,
+    fontSize: typography.size.base,
+    fontWeight: typography.weight.medium,
+    lineHeight: typography.size.base * typography.leading.normal,
   },
   toastAction: {
-    fontSize: 14,
-    fontWeight: "700",
-    marginLeft: 12,
+    fontSize: typography.size.base,
+    fontWeight: typography.weight.bold,
+    marginLeft: spacing[3],
     textDecorationLine: "underline",
   },
 });
