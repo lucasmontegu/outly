@@ -1,13 +1,7 @@
 import { useUser } from "@clerk/clerk-expo";
 import { useQuery } from "convex/react";
 import { api } from "@outia/backend/convex/_generated/api";
-import {
-  Location01Icon,
-  UserIcon,
-  CloudIcon,
-  Car01Icon,
-  Alert02Icon,
-} from "@hugeicons/core-free-icons";
+import { Location01Icon, UserIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react-native";
 import { useRouter } from "expo-router";
 import {
@@ -16,38 +10,33 @@ import {
   StyleSheet,
   ScrollView,
   RefreshControl,
-  TouchableOpacity,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Card } from "heroui-native";
-import { useState, useCallback } from "react";
-import Animated, {
-  FadeIn,
-  FadeInDown,
-  FadeInUp,
-  Layout,
-} from "react-native-reanimated";
+import { useState, useCallback, useMemo } from "react";
+import Animated, { FadeIn, FadeInDown } from "react-native-reanimated";
 
 import { useLocation } from "@/hooks/use-location";
 import { NotificationPrompt } from "@/components/NotificationPrompt";
 import { AnimatedIconButton } from "@/components/ui/animated-pressable";
+import { DepartureHero } from "@/components/departure-hero";
+import { RiskTimeline } from "@/components/risk-timeline";
+import { ConditionCards } from "@/components/condition-cards";
+import { AlertsSection } from "@/components/alerts-section";
 import {
+  Skeleton,
   RiskCircleSkeleton,
   DataCardSkeleton,
-  EventCardSkeleton,
-  Skeleton,
 } from "@/components/ui/skeleton";
 import { lightHaptic } from "@/lib/haptics";
-import { RiskCircle } from "@/components/risk-circle";
 import {
   colors,
   getRiskClassification,
-  getRiskLabel,
-  shadows,
   spacing,
   borderRadius,
   typography,
 } from "@/lib/design-tokens";
+
+type Classification = "low" | "medium" | "high";
 
 export default function OverviewScreen() {
   const router = useRouter();
@@ -64,26 +53,96 @@ export default function OverviewScreen() {
     location ? { lat: location.lat, lng: location.lng } : "skip"
   );
 
-  const riskScore = riskData?.score ?? 0;
-  const riskClassification = getRiskClassification(riskScore);
-  const riskLevelLabel = getRiskLabel(riskClassification);
-  const riskDescription = riskData?.description ?? "Loading risk data…";
-
-  // Calculate weather and traffic status from breakdown
-  const weatherScore = riskData?.breakdown.weatherScore ?? 0;
-  const trafficScore = riskData?.breakdown.trafficScore ?? 0;
-
-  const weatherStatus = getWeatherStatus(weatherScore);
-  const trafficStatus = getTrafficStatus(trafficScore);
-
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     lightHaptic();
-    // The query will automatically refetch when we reset
     setTimeout(() => setRefreshing(false), 1000);
   }, []);
 
   const isLoading = locationLoading || riskData === undefined;
+
+  // Calculate derived data
+  const derivedData = useMemo(() => {
+    if (!riskData) {
+      return {
+        currentScore: 0,
+        classification: "low" as Classification,
+        weatherScore: 0,
+        trafficScore: 0,
+        optimalDepartureMinutes: 0,
+        optimalTime: "",
+        isOptimalNow: true,
+        reason: "Loading…",
+        timelineSlots: [],
+        alerts: [],
+        weatherStatus: { status: "Clear", detail: "Loading…" },
+        trafficStatus: { status: "Flowing", detail: "Loading…" },
+      };
+    }
+
+    const currentScore = riskData.score;
+    const classification = getRiskClassification(currentScore);
+    const weatherScore = riskData.breakdown.weatherScore;
+    const trafficScore = riskData.breakdown.trafficScore;
+
+    // Generate timeline slots (simulated forecast for next 2 hours)
+    // In production, this would come from a backend forecast endpoint
+    const timelineSlots = generateTimelineSlots(currentScore, weatherScore, trafficScore);
+
+    // Find optimal departure time
+    const optimalSlot = timelineSlots.reduce((best, slot) =>
+      slot.score < best.score ? slot : best
+    , timelineSlots[0]);
+
+    const optimalIndex = timelineSlots.findIndex(s => s === optimalSlot);
+    const optimalDepartureMinutes = optimalIndex * 15; // Each slot is 15 min
+    const isOptimalNow = optimalIndex === 0;
+
+    // Generate reason based on conditions
+    const reason = generateReason(weatherScore, trafficScore, isOptimalNow, optimalDepartureMinutes);
+
+    // Weather and traffic details
+    const weatherStatus = getWeatherDetails(weatherScore);
+    const trafficStatus = getTrafficDetails(trafficScore);
+
+    // Format alerts
+    const alerts = (riskData.nearbyEvents || []).map((event) => ({
+      id: event._id,
+      type: event.type,
+      subtype: event.subtype,
+      severity: event.severity,
+      title: formatEventSubtype(event.subtype),
+      timeAgo: formatTimeAgo(event._creationTime),
+    }));
+
+    return {
+      currentScore,
+      classification,
+      weatherScore,
+      trafficScore,
+      optimalDepartureMinutes,
+      optimalTime: optimalSlot.label,
+      isOptimalNow,
+      reason,
+      timelineSlots,
+      alerts,
+      weatherStatus,
+      trafficStatus,
+    };
+  }, [riskData]);
+
+  const handleAlertPress = (alert: { id: string }) => {
+    lightHaptic();
+    router.push({
+      pathname: "/(tabs)/map",
+      params: { eventId: alert.id },
+    });
+  };
+
+  const handleViewMapPress = () => {
+    lightHaptic();
+    router.push("/(tabs)/map");
+  };
 
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
@@ -93,20 +152,37 @@ export default function OverviewScreen() {
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
+        showsVerticalScrollIndicator={false}
       >
         {/* Header */}
-        <Animated.View entering={FadeInDown.duration(400).delay(100)} style={styles.header}>
+        <Animated.View
+          entering={FadeInDown.duration(400).delay(100)}
+          style={styles.header}
+        >
           <View style={styles.locationInfo}>
             <View style={styles.locationLabel}>
-              <HugeiconsIcon icon={Location01Icon} size={14} color={colors.text.secondary} />
+              <HugeiconsIcon
+                icon={Location01Icon}
+                size={14}
+                color={colors.text.secondary}
+              />
               <Text style={styles.locationLabelText}>CURRENT LOCATION</Text>
             </View>
             {address ? (
-              <Animated.Text entering={FadeIn.duration(300)} style={styles.locationName}>
+              <Animated.Text
+                entering={FadeIn.duration(300)}
+                style={styles.locationName}
+                numberOfLines={1}
+              >
                 {address}
               </Animated.Text>
             ) : (
-              <Skeleton width={180} height={24} borderRadius={6} style={{ marginTop: 4 }} />
+              <Skeleton
+                width={180}
+                height={24}
+                borderRadius={6}
+                style={{ marginTop: 4 }}
+              />
             )}
           </View>
           <AnimatedIconButton
@@ -115,189 +191,100 @@ export default function OverviewScreen() {
             accessibilityLabel="Open settings"
             accessibilityRole="button"
           >
-            <HugeiconsIcon icon={UserIcon} size={24} color={colors.text.secondary} />
+            <HugeiconsIcon
+              icon={UserIcon}
+              size={24}
+              color={colors.text.secondary}
+            />
           </AnimatedIconButton>
         </Animated.View>
 
-        {/* Risk Score Circle */}
-        <Animated.View
-          entering={FadeIn.duration(500).delay(200)}
-          style={styles.riskCircleContainer}
-        >
+        {/* Departure Hero - Main CTA */}
+        <Animated.View entering={FadeIn.duration(500).delay(200)}>
           {isLoading ? (
-            <RiskCircleSkeleton />
+            <View style={styles.heroSkeleton}>
+              <RiskCircleSkeleton />
+            </View>
           ) : (
-            <>
-              <RiskCircle
-                score={riskScore}
-                classification={riskClassification}
-                size={220}
-                animateScore={true}
-                enableHaptic={true}
-              />
-              <Animated.View
-                entering={FadeInUp.duration(300).delay(400)}
-                style={[
-                  styles.riskBadge,
-                  { backgroundColor: `${colors.risk[riskClassification].primary}15` },
-                ]}
-              >
-                <View
-                  style={[
-                    styles.riskDot,
-                    { backgroundColor: colors.risk[riskClassification].primary },
-                  ]}
-                />
-                <Text
-                  style={[
-                    styles.riskBadgeText,
-                    { color: colors.risk[riskClassification].primary },
-                  ]}
-                >
-                  {riskLevelLabel.toUpperCase()}
-                </Text>
-              </Animated.View>
-            </>
+            <DepartureHero
+              optimalDepartureMinutes={derivedData.optimalDepartureMinutes}
+              optimalTime={derivedData.optimalTime}
+              classification={derivedData.classification}
+              currentScore={derivedData.currentScore}
+              reason={derivedData.reason}
+              isOptimalNow={derivedData.isOptimalNow}
+            />
           )}
         </Animated.View>
 
-        {/* Risk Description */}
-        <Animated.Text
-          entering={FadeIn.duration(400).delay(300)}
-          style={styles.riskDescription}
-        >
-          {riskDescription}
-        </Animated.Text>
-
-        {/* Weather & Traffic Cards */}
-        <Animated.View
-          entering={FadeInDown.duration(400).delay(400)}
-          style={styles.dataCards}
-        >
+        {/* Risk Timeline - Next 2 Hours */}
+        <Animated.View entering={FadeInDown.duration(400).delay(300)}>
           {isLoading ? (
-            <>
+            <View style={styles.timelineSkeleton}>
+              <View style={styles.timelineHeader}>
+                <Skeleton width={100} height={20} borderRadius={4} />
+              </View>
+              <View style={styles.timelineSlotsSkeleton}>
+                {[1, 2, 3, 4, 5, 6].map((i) => (
+                  <Skeleton
+                    key={i}
+                    width={64}
+                    height={100}
+                    borderRadius={12}
+                  />
+                ))}
+              </View>
+            </View>
+          ) : (
+            <RiskTimeline
+              slots={derivedData.timelineSlots}
+              onSlotPress={(slot) => {
+                lightHaptic();
+                // Could show more details about that time slot
+              }}
+            />
+          )}
+        </Animated.View>
+
+        {/* Condition Cards - Weather & Traffic Details */}
+        <Animated.View entering={FadeInDown.duration(400).delay(400)}>
+          {isLoading ? (
+            <View style={styles.conditionsSkeleton}>
               <DataCardSkeleton />
-              <View style={{ width: 12 }} />
               <DataCardSkeleton />
-            </>
+            </View>
           ) : (
-            <>
-              <Animated.View
-                entering={FadeInDown.duration(300).delay(450)}
-                style={styles.dataCard}
-              >
-                <Card style={styles.dataCardInner}>
-                  <Card.Body style={styles.dataCardBody}>
-                    <View style={styles.dataCardIcon}>
-                      <HugeiconsIcon icon={CloudIcon} size={24} color={colors.brand.secondary} />
-                    </View>
-                    <Text style={styles.dataCardLabel}>WEATHER</Text>
-                    <Text style={styles.dataCardValue}>{weatherStatus.label}</Text>
-                    <Text style={styles.dataCardSubtext}>{weatherStatus.subtext}</Text>
-                  </Card.Body>
-                </Card>
-              </Animated.View>
-
-              <Animated.View
-                entering={FadeInDown.duration(300).delay(500)}
-                style={styles.dataCard}
-              >
-                <Card style={styles.dataCardInner}>
-                  <Card.Body style={styles.dataCardBody}>
-                    <View style={[styles.dataCardIcon, styles.trafficIcon]}>
-                      <HugeiconsIcon icon={Car01Icon} size={24} color={colors.risk.low.primary} />
-                    </View>
-                    <Text style={styles.dataCardLabel}>TRAFFIC</Text>
-                    <Text style={styles.dataCardValue}>{trafficStatus.label}</Text>
-                    <Text style={styles.dataCardSubtext}>{trafficStatus.subtext}</Text>
-                  </Card.Body>
-                </Card>
-              </Animated.View>
-            </>
+            <ConditionCards
+              weather={{
+                status: derivedData.weatherStatus.status,
+                detail: derivedData.weatherStatus.detail,
+                score: derivedData.weatherScore,
+              }}
+              traffic={{
+                status: derivedData.trafficStatus.status,
+                detail: derivedData.trafficStatus.detail,
+                score: derivedData.trafficScore,
+              }}
+            />
           )}
         </Animated.View>
 
-        {/* Nearby Signals Section */}
-        <Animated.View
-          entering={FadeInDown.duration(400).delay(500)}
-          style={styles.signalsSection}
-        >
-          <View style={styles.signalsHeader}>
-            <Text style={styles.signalsTitle}>Nearby Signals</Text>
-            <AnimatedIconButton
-              onPress={() => router.push("/(tabs)/map")}
-              style={styles.viewMapButton}
-              accessibilityLabel="View map"
-              accessibilityRole="link"
-            >
-              <Text style={styles.viewMapLink}>View Map</Text>
-            </AnimatedIconButton>
-          </View>
-
-          {isLoading ? (
-            <>
-              <EventCardSkeleton />
-              <EventCardSkeleton />
-            </>
-          ) : riskData?.nearbyEvents && riskData.nearbyEvents.length > 0 ? (
-            riskData.nearbyEvents.slice(0, 3).map((event, index) => (
-              <Animated.View
-                key={event._id}
-                entering={FadeInDown.duration(300).delay(550 + index * 50)}
-                layout={Layout.springify().damping(20)}
-              >
-                <TouchableOpacity
-                  activeOpacity={0.7}
-                  onPress={() => {
-                    lightHaptic();
-                    router.push({
-                      pathname: "/(tabs)/map",
-                      params: { eventId: event._id },
-                    });
-                  }}
-                >
-                  <Card style={styles.signalCard}>
-                    <Card.Body style={styles.signalCardBody}>
-                      <View
-                        style={[
-                          styles.signalIndicator,
-                          { backgroundColor: getEventColor(event.type, event.severity) },
-                        ]}
-                      />
-                      <View
-                        style={[
-                          styles.signalIcon,
-                          { backgroundColor: `${getEventColor(event.type, event.severity)}20` },
-                        ]}
-                      >
-                        <HugeiconsIcon
-                          icon={Alert02Icon}
-                          size={20}
-                          color={getEventColor(event.type, event.severity)}
-                        />
-                      </View>
-                      <View style={styles.signalContent}>
-                        <Text style={styles.signalTitle}>{formatEventSubtype(event.subtype)}</Text>
-                      </View>
-                      <Text style={styles.signalTime}>{formatTimeAgo(event._creationTime)}</Text>
-                    </Card.Body>
-                  </Card>
-                </TouchableOpacity>
-              </Animated.View>
-            ))
-          ) : (
-            <Animated.View entering={FadeIn.duration(300).delay(550)}>
-              <Card style={styles.signalCard}>
-                <Card.Body style={styles.emptySignalBody}>
-                  <Text style={styles.emptySignalText}>No nearby signals reported</Text>
-                </Card.Body>
-              </Card>
-            </Animated.View>
+        {/* Alerts Section */}
+        <Animated.View entering={FadeInDown.duration(400).delay(500)}>
+          {!isLoading && (
+            <AlertsSection
+              alerts={derivedData.alerts}
+              onAlertPress={handleAlertPress}
+              onViewAllPress={handleViewMapPress}
+            />
           )}
         </Animated.View>
+
+        {/* Bottom padding */}
+        <View style={styles.bottomPadding} />
       </ScrollView>
 
-      {/* Notification permission prompt - shown after user sees value */}
+      {/* Notification permission prompt */}
       <NotificationPrompt />
     </SafeAreaView>
   );
@@ -305,24 +292,132 @@ export default function OverviewScreen() {
 
 // Helper functions
 
-function getWeatherStatus(score: number): { label: string; subtext: string } {
-  if (score <= 20) return { label: "Clear", subtext: "No rain expected" };
-  if (score <= 50) return { label: "Cloudy", subtext: "Light precipitation possible" };
-  if (score <= 75) return { label: "Rain", subtext: "Moderate precipitation" };
-  return { label: "Storm", subtext: "Severe weather alert" };
+function generateTimelineSlots(
+  currentScore: number,
+  weatherScore: number,
+  trafficScore: number
+) {
+  const now = new Date();
+  const slots = [];
+
+  // Generate 8 slots (2 hours, 15-min intervals)
+  for (let i = 0; i < 8; i++) {
+    const slotTime = new Date(now.getTime() + i * 15 * 60 * 1000);
+    const hours = slotTime.getHours();
+    const minutes = slotTime.getMinutes();
+    const ampm = hours >= 12 ? "PM" : "AM";
+    const displayHours = hours % 12 || 12;
+    const timeLabel = `${displayHours}:${minutes.toString().padStart(2, "0")}`;
+
+    // Simulate score changes based on time patterns
+    // In production, this would come from a real forecast API
+    let scoreModifier = 0;
+
+    // Rush hour patterns (worse at 5-7 PM, better after)
+    if (hours >= 17 && hours < 19) {
+      scoreModifier += 15; // Worse during rush hour
+    } else if (hours >= 19) {
+      scoreModifier -= 20; // Better after rush hour
+    }
+
+    // Weather typically improves over time (simplification)
+    if (weatherScore > 30) {
+      scoreModifier -= i * 3; // Weather clearing gradually
+    }
+
+    // Add some variance
+    scoreModifier += Math.sin(i * 0.5) * 5;
+
+    const slotScore = Math.max(0, Math.min(100, currentScore + scoreModifier));
+    const classification = slotScore < 34 ? "low" : slotScore < 67 ? "medium" : "high";
+
+    slots.push({
+      time: slotTime.toISOString(),
+      label: timeLabel,
+      score: Math.round(slotScore),
+      classification: classification as Classification,
+      isNow: i === 0,
+      isOptimal: false,
+    });
+  }
+
+  // Mark optimal slot
+  const minScore = Math.min(...slots.map((s) => s.score));
+  const optimalIndex = slots.findIndex((s) => s.score === minScore);
+  if (optimalIndex >= 0) {
+    slots[optimalIndex].isOptimal = true;
+  }
+
+  return slots;
 }
 
-function getTrafficStatus(score: number): { label: string; subtext: string } {
-  if (score <= 20) return { label: "Flowing", subtext: "No delays expected" };
-  if (score <= 50) return { label: "Moderate", subtext: "+5-10 min delay" };
-  if (score <= 75) return { label: "Congested", subtext: "+15-30 min delay" };
-  return { label: "Gridlock", subtext: "Major delays expected" };
+function generateReason(
+  weatherScore: number,
+  trafficScore: number,
+  isOptimalNow: boolean,
+  optimalMinutes: number
+): string {
+  const weatherIssue = weatherScore > 30;
+  const trafficIssue = trafficScore > 30;
+
+  if (isOptimalNow) {
+    if (!weatherIssue && !trafficIssue) {
+      return "Perfect conditions right now. Clear skies and light traffic.";
+    }
+    return "Current conditions are the best for the next 2 hours.";
+  }
+
+  const parts: string[] = [];
+
+  if (weatherIssue && weatherScore > 50) {
+    parts.push("Rain expected to clear");
+  } else if (weatherIssue) {
+    parts.push("Weather improving");
+  }
+
+  if (trafficIssue && trafficScore > 50) {
+    parts.push("rush hour traffic easing");
+  } else if (trafficIssue) {
+    parts.push("traffic lightening");
+  }
+
+  if (parts.length === 0) {
+    return `Conditions improve in ${optimalMinutes} minutes.`;
+  }
+
+  return `${parts.join(" and ")} soon.`;
 }
 
-function getEventColor(type: string, severity: number): string {
-  if (severity >= 4) return colors.risk.high.primary;
-  if (severity >= 3) return colors.risk.medium.primary;
-  return colors.brand.secondary;
+function getWeatherDetails(score: number): { status: string; detail: string } {
+  if (score <= 15) {
+    return { status: "Clear", detail: "Perfect conditions" };
+  }
+  if (score <= 30) {
+    return { status: "Good", detail: "Mostly clear skies" };
+  }
+  if (score <= 50) {
+    return { status: "Cloudy", detail: "Light rain possible" };
+  }
+  if (score <= 70) {
+    return { status: "Rain", detail: "Moderate precipitation" };
+  }
+  return { status: "Storm", detail: "Severe weather alert" };
+}
+
+function getTrafficDetails(score: number): { status: string; detail: string } {
+  if (score <= 15) {
+    return { status: "Clear", detail: "Roads are empty" };
+  }
+  if (score <= 30) {
+    return { status: "Flowing", detail: "No delays expected" };
+  }
+  if (score <= 50) {
+    return { status: "Moderate", detail: "+5-10 min delays" };
+  }
+  if (score <= 70) {
+    return { status: "Congested", detail: "+15-25 min delays" };
+  }
+  return { status: "Gridlock", detail: "Major delays expected" };
 }
 
 function formatEventSubtype(subtype: string): string {
@@ -374,7 +469,7 @@ const styles = StyleSheet.create({
     letterSpacing: typography.tracking.wide,
   },
   locationName: {
-    fontSize: typography.size["3xl"],
+    fontSize: typography.size["2xl"],
     fontWeight: typography.weight.bold,
     color: colors.text.primary,
     marginTop: spacing[1],
@@ -387,158 +482,29 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  riskCircleContainer: {
+  heroSkeleton: {
     alignItems: "center",
+    paddingVertical: spacing[6],
+  },
+  timelineSkeleton: {
     marginTop: spacing[6],
-    minHeight: 280,
-    justifyContent: "center",
   },
-  riskBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: spacing[4],
-    paddingVertical: spacing[2],
-    borderRadius: borderRadius.full,
-    marginTop: spacing[4],
-    gap: spacing[2],
-  },
-  riskDot: {
-    width: 8,
-    height: 8,
-    borderRadius: borderRadius.full,
-  },
-  riskBadgeText: {
-    fontSize: typography.size.sm,
-    fontWeight: typography.weight.bold,
-    letterSpacing: typography.tracking.wider,
-  },
-  riskDescription: {
-    fontSize: typography.size.md,
-    color: colors.text.secondary,
-    textAlign: "center",
-    lineHeight: 22,
-    paddingHorizontal: spacing[10],
-    marginTop: spacing[4],
-  },
-  dataCards: {
-    flexDirection: "row",
+  timelineHeader: {
     paddingHorizontal: spacing[6],
-    marginTop: spacing[6],
-    gap: spacing[3],
-  },
-  dataCard: {
-    flex: 1,
-  },
-  dataCardInner: {
-    backgroundColor: colors.slate[50],
-    borderRadius: borderRadius.xl,
-    overflow: "hidden",
-    ...shadows.sm,
-  },
-  dataCardBody: {
-    padding: spacing[4],
-  },
-  dataCardIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: borderRadius.full,
-    backgroundColor: `${colors.brand.secondary}15`,
-    alignItems: "center",
-    justifyContent: "center",
     marginBottom: spacing[3],
   },
-  trafficIcon: {
-    backgroundColor: `${colors.risk.low.primary}15`,
-  },
-  dataCardLabel: {
-    fontSize: typography.size.xs,
-    fontWeight: typography.weight.semibold,
-    color: colors.text.secondary,
-    letterSpacing: typography.tracking.wide,
-  },
-  dataCardValue: {
-    fontSize: typography.size.xl,
-    fontWeight: typography.weight.bold,
-    color: colors.text.primary,
-    marginTop: spacing[1],
-  },
-  dataCardSubtext: {
-    fontSize: typography.size.sm,
-    color: colors.text.tertiary,
-    marginTop: spacing[1],
-  },
-  signalsSection: {
+  timelineSlotsSkeleton: {
+    flexDirection: "row",
     paddingHorizontal: spacing[6],
-    marginTop: spacing[8],
+    gap: spacing[2],
   },
-  signalsHeader: {
+  conditionsSkeleton: {
     flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: spacing[4],
-  },
-  signalsTitle: {
-    fontSize: typography.size.xl,
-    fontWeight: typography.weight.bold,
-    color: colors.text.primary,
-  },
-  viewMapButton: {
-    paddingVertical: spacing[1],
-    paddingHorizontal: spacing[2],
-  },
-  viewMapLink: {
-    fontSize: typography.size.base,
-    fontWeight: typography.weight.semibold,
-    color: colors.brand.secondary,
-  },
-  signalCard: {
-    backgroundColor: colors.background.card,
-    borderRadius: borderRadius.lg,
-    borderWidth: 1,
-    borderColor: colors.border.light,
-    overflow: "hidden",
-    marginBottom: spacing[2],
-    ...shadows.sm,
-  },
-  signalCardBody: {
-    flexDirection: "row",
-    alignItems: "center",
-    padding: spacing[4],
+    paddingHorizontal: spacing[6],
+    marginTop: spacing[6],
     gap: spacing[3],
   },
-  emptySignalBody: {
-    padding: spacing[6],
-    alignItems: "center",
-  },
-  emptySignalText: {
-    fontSize: typography.size.base,
-    color: colors.text.tertiary,
-  },
-  signalIndicator: {
-    width: 4,
-    height: 40,
-    borderRadius: borderRadius.sm,
-    position: "absolute",
-    left: 0,
-  },
-  signalIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: borderRadius.full,
-    alignItems: "center",
-    justifyContent: "center",
-    marginLeft: spacing[2],
-  },
-  signalContent: {
-    flex: 1,
-  },
-  signalTitle: {
-    fontSize: typography.size.md,
-    fontWeight: typography.weight.semibold,
-    color: colors.text.primary,
-  },
-  signalTime: {
-    fontSize: typography.size.sm,
-    color: colors.text.tertiary,
+  bottomPadding: {
+    height: spacing[8],
   },
 });
