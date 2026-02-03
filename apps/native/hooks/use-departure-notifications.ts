@@ -112,13 +112,18 @@ export function useDepartureNotifications() {
       const key = `${route._id}_optimal_now`;
       if (scheduledNotifications.current.has(key)) return;
 
-      await Notifications.presentNotificationAsync({
-        title: `${route.name}: Perfect time to leave!`,
-        body: `Conditions are optimal right now for ${route.fromName} to ${route.toName}.`,
-        data: { routeId: route._id },
-        ...(Platform.OS === "ios" && {
-          interruptionLevel: "timeSensitive",
-        }),
+      // Use scheduleNotificationAsync with trigger: null for immediate notification
+      await Notifications.scheduleNotificationAsync({
+        content: {
+          title: `${route.name}: Perfect time to leave!`,
+          body: `Conditions are optimal right now for ${route.fromName} to ${route.toName}.`,
+          data: { routeId: route._id },
+          sound: true,
+          ...(Platform.OS === "ios" && {
+            interruptionLevel: "timeSensitive",
+          }),
+        },
+        trigger: null, // null trigger = immediate notification
       });
 
       scheduledNotifications.current.set(key, "sent");
@@ -129,10 +134,15 @@ export function useDepartureNotifications() {
 
   const sendImmediateNotification = async (route: RouteWithForecast) => {
     try {
-      await Notifications.presentNotificationAsync({
-        title: `Heads up: ${route.name}`,
-        body: `Best departure time at ${route.optimalTime}. ${getConditionSummary(route)}`,
-        data: { routeId: route._id },
+      // Use scheduleNotificationAsync with trigger: null for immediate notification
+      await Notifications.scheduleNotificationAsync({
+        content: {
+          title: `Heads up: ${route.name}`,
+          body: `Best departure time at ${route.optimalTime}. ${getConditionSummary(route)}`,
+          data: { routeId: route._id },
+          sound: true,
+        },
+        trigger: null, // null trigger = immediate notification
       });
     } catch (error) {
       console.error("Error sending immediate notification:", error);

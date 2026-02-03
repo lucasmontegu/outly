@@ -641,9 +641,11 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.lg,
     borderWidth: 1,
     borderColor: colors.border.light,
-    ...shadows.md,
-    zIndex: 100,
+    ...shadows.lg,
+    zIndex: 1000,
+    elevation: 10, // Android elevation
     maxHeight: 220,
+    overflow: "hidden", // Clip content
   },
   searchResultItem: {
     flexDirection: "row",
@@ -652,9 +654,11 @@ const styles = StyleSheet.create({
     gap: spacing[3],
     borderBottomWidth: 1,
     borderBottomColor: colors.slate[100],
+    backgroundColor: colors.background.primary, // Ensure solid background
   },
   searchResultText: {
     flex: 1,
+    overflow: "hidden", // Clip text overflow
   },
   searchResultName: {
     fontSize: typography.size.md,

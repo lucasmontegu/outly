@@ -24,9 +24,7 @@ import { useState, useCallback } from "react";
 import { LinearGradient } from "expo-linear-gradient";
 import Animated, {
   FadeIn,
-  FadeInDown,
   FadeOut,
-  Layout,
   useSharedValue,
   useAnimatedStyle,
   withSpring,
@@ -241,9 +239,8 @@ export default function SavedScreen() {
           routes.map((route, index) => (
             <Animated.View
               key={route._id}
-              entering={FadeInDown.delay(index * 80).duration(350).springify().damping(20)}
-              exiting={FadeOut.duration(200)}
-              layout={Layout.springify().damping(20)}
+              entering={FadeIn.delay(index * 50).duration(200)}
+              exiting={FadeOut.duration(150)}
             >
               <AnimatedCard
                 style={[
@@ -291,12 +288,9 @@ export default function SavedScreen() {
 
                   {/* Expanded Content */}
                   {expandedRoute === route._id && (
-                    <Animated.View entering={FadeIn.duration(250)}>
+                    <Animated.View entering={FadeIn.duration(200)}>
                       {/* Map Preview */}
-                      <Animated.View
-                        entering={FadeInDown.duration(300).delay(50)}
-                        style={styles.mapPreview}
-                      >
+                      <View style={styles.mapPreview}>
                         <LinearGradient
                           colors={["#E2E8F0", "#CBD5E1"]}
                           style={styles.mapGradient}
@@ -308,13 +302,10 @@ export default function SavedScreen() {
                             <Text style={styles.editPathText}>Edit Path</Text>
                           </AnimatedPressable>
                         </LinearGradient>
-                      </Animated.View>
+                      </View>
 
                       {/* Monitor Days */}
-                      <Animated.View
-                        entering={FadeInDown.duration(300).delay(100)}
-                        style={styles.section}
-                      >
+                      <View style={styles.section}>
                         <Text style={styles.sectionLabel}>MONITOR DAYS</Text>
                         <View style={styles.daysRow}>
                           {DAYS.map((day, dayIndex) => {
@@ -329,13 +320,10 @@ export default function SavedScreen() {
                             );
                           })}
                         </View>
-                      </Animated.View>
+                      </View>
 
                       {/* Alert Threshold */}
-                      <Animated.View
-                        entering={FadeInDown.duration(300).delay(150)}
-                        style={styles.section}
-                      >
+                      <View style={styles.section}>
                         <View style={styles.thresholdHeader}>
                           <Text style={styles.sectionLabel}>ALERT THRESHOLD</Text>
                           <Text style={styles.thresholdValue}>
@@ -360,13 +348,10 @@ export default function SavedScreen() {
                           </View>
                           <Text style={styles.sliderLabel}>Critical Only</Text>
                         </View>
-                      </Animated.View>
+                      </View>
 
                       {/* Alert Info */}
-                      <Animated.View
-                        entering={FadeInDown.duration(300).delay(200)}
-                        style={styles.alertInfo}
-                      >
+                      <View style={styles.alertInfo}>
                         <Text style={styles.alertInfoIcon}>ℹ️</Text>
                         <Text style={styles.alertInfoText}>
                           You will be notified at{" "}
@@ -377,13 +362,10 @@ export default function SavedScreen() {
                           </Text>{" "}
                           (Rain, Congestion, or Accidents).
                         </Text>
-                      </Animated.View>
+                      </View>
 
                       {/* Actions */}
-                      <Animated.View
-                        entering={FadeInDown.duration(300).delay(250)}
-                        style={styles.actions}
-                      >
+                      <View style={styles.actions}>
                         <Button
                           className="flex-1 h-12 rounded-xl"
                           onPress={() => handleSaveChanges(route._id)}
@@ -397,7 +379,7 @@ export default function SavedScreen() {
                         >
                           <HugeiconsIcon icon={Delete02Icon} size={20} color="#9CA3AF" />
                         </AnimatedIconButton>
-                      </Animated.View>
+                      </View>
                     </Animated.View>
                   )}
                 </Card.Body>
