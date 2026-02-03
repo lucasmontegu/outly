@@ -247,6 +247,148 @@ export const getCurrentRisk = query({
   },
 });
 
+// Time slot for forecast
+const timeSlotSchema = v.object({
+  time: v.string(), // ISO timestamp
+  label: v.string(), // e.g., "6:30"
+  score: v.number(),
+  classification: v.union(v.literal("low"), v.literal("medium"), v.literal("high")),
+  isNow: v.boolean(),
+  isOptimal: v.boolean(),
+  breakdown: v.object({
+    weatherScore: v.number(),
+    trafficScore: v.number(),
+  }),
+});
+
+// Get 2-hour forecast with 15-minute intervals
+export const getForecast = query({
+  args: {
+    lat: v.number(),
+    lng: v.number(),
+  },
+  returns: v.object({
+    slots: v.array(timeSlotSchema),
+    optimalSlotIndex: v.number(),
+    optimalDepartureMinutes: v.number(),
+    currentScore: v.number(),
+    currentClassification: v.union(v.literal("low"), v.literal("medium"), v.literal("high")),
+  }),
+  handler: async (ctx, args) => {
+    const now = Date.now();
+    const currentHour = new Date(now).getHours();
+
+    // Get nearby events for event-based scoring
+    const events = await ctx.db.query("events").collect();
+    const nearbyEvents = events.filter((e) => {
+      if (e.ttl <= now || e.confidenceScore <= 20) return false;
+      const distance = haversineDistance(args.lat, args.lng, e.location.lat, e.location.lng);
+      return distance <= 10;
+    });
+
+    // Calculate current event impact
+    let baseWeatherScore = 0;
+    let baseTrafficScore = 0;
+    for (const event of nearbyEvents) {
+      const distance = haversineDistance(args.lat, args.lng, event.location.lat, event.location.lng);
+      const impactFactor = Math.max(0, 1 - distance / 10);
+      const impact = event.severity * impactFactor * (event.confidenceScore / 100) * 10;
+      if (event.type === "weather") {
+        baseWeatherScore += impact;
+      } else {
+        baseTrafficScore += impact;
+      }
+    }
+    baseWeatherScore = Math.min(100, Math.round(baseWeatherScore));
+    baseTrafficScore = Math.min(100, Math.round(baseTrafficScore));
+
+    // Generate 8 slots (2 hours, 15-min intervals)
+    const slots: {
+      time: string;
+      label: string;
+      score: number;
+      classification: "low" | "medium" | "high";
+      isNow: boolean;
+      isOptimal: boolean;
+      breakdown: { weatherScore: number; trafficScore: number };
+    }[] = [];
+
+    for (let i = 0; i < 8; i++) {
+      const slotTime = new Date(now + i * 15 * 60 * 1000);
+      const slotHour = slotTime.getHours();
+      const hours = slotHour % 12 || 12;
+      const minutes = slotTime.getMinutes();
+      const label = `${hours}:${minutes.toString().padStart(2, "0")}`;
+
+      // Predict weather score (gradual improvement assumption)
+      // Events decay over time as they get resolved
+      const weatherDecay = Math.max(0, 1 - (i * 0.08)); // ~8% improvement per 15 min
+      const predictedWeatherScore = Math.round(baseWeatherScore * weatherDecay);
+
+      // Predict traffic score based on time of day patterns
+      const trafficModifier = getTrafficModifier(slotHour);
+      const predictedTrafficScore = Math.round(
+        Math.min(100, Math.max(0, baseTrafficScore * trafficModifier))
+      );
+
+      // Calculate combined score
+      const score = Math.round(predictedWeatherScore * 0.4 + predictedTrafficScore * 0.6);
+      const classification: "low" | "medium" | "high" =
+        score < 34 ? "low" : score < 67 ? "medium" : "high";
+
+      slots.push({
+        time: slotTime.toISOString(),
+        label,
+        score,
+        classification,
+        isNow: i === 0,
+        isOptimal: false,
+        breakdown: {
+          weatherScore: predictedWeatherScore,
+          trafficScore: predictedTrafficScore,
+        },
+      });
+    }
+
+    // Find optimal slot (lowest score)
+    let optimalIndex = 0;
+    let minScore = slots[0].score;
+    for (let i = 1; i < slots.length; i++) {
+      if (slots[i].score < minScore) {
+        minScore = slots[i].score;
+        optimalIndex = i;
+      }
+    }
+    slots[optimalIndex].isOptimal = true;
+
+    return {
+      slots,
+      optimalSlotIndex: optimalIndex,
+      optimalDepartureMinutes: optimalIndex * 15,
+      currentScore: slots[0].score,
+      currentClassification: slots[0].classification,
+    };
+  },
+});
+
+// Traffic modifier based on time of day (rush hour patterns)
+function getTrafficModifier(hour: number): number {
+  // Morning rush: 7-9 AM
+  if (hour >= 7 && hour < 9) return 1.4;
+  // Late morning: moderate
+  if (hour >= 9 && hour < 12) return 1.0;
+  // Lunch: slight increase
+  if (hour >= 12 && hour < 14) return 1.1;
+  // Afternoon
+  if (hour >= 14 && hour < 17) return 1.0;
+  // Evening rush: 5-7 PM (worst)
+  if (hour >= 17 && hour < 19) return 1.5;
+  // After rush: improving
+  if (hour >= 19 && hour < 21) return 0.8;
+  // Night: low traffic
+  return 0.5;
+}
+
 // Haversine formula for distance
 function haversineDistance(lat1: number, lng1: number, lat2: number, lng2: number): number {
   const R = 6371;

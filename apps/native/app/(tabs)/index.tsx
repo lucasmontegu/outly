@@ -22,6 +22,7 @@ import { DepartureHero } from "@/components/departure-hero";
 import { RiskTimeline } from "@/components/risk-timeline";
 import { ConditionCards } from "@/components/condition-cards";
 import { AlertsSection } from "@/components/alerts-section";
+import { RoutesPreview } from "@/components/routes-preview";
 import {
   Skeleton,
   RiskCircleSkeleton,
@@ -53,17 +54,26 @@ export default function OverviewScreen() {
     location ? { lat: location.lat, lng: location.lng } : "skip"
   );
 
+  // Query forecast data for timeline
+  const forecastData = useQuery(
+    api.riskScore.getForecast,
+    location ? { lat: location.lat, lng: location.lng } : "skip"
+  );
+
+  // Query saved routes with forecasts
+  const routesWithForecast = useQuery(api.routes.getRoutesWithForecast);
+
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     lightHaptic();
     setTimeout(() => setRefreshing(false), 1000);
   }, []);
 
-  const isLoading = locationLoading || riskData === undefined;
+  const isLoading = locationLoading || riskData === undefined || forecastData === undefined;
 
   // Calculate derived data
   const derivedData = useMemo(() => {
-    if (!riskData) {
+    if (!riskData || !forecastData) {
       return {
         currentScore: 0,
         classification: "low" as Classification,
@@ -85,18 +95,11 @@ export default function OverviewScreen() {
     const weatherScore = riskData.breakdown.weatherScore;
     const trafficScore = riskData.breakdown.trafficScore;
 
-    // Generate timeline slots (simulated forecast for next 2 hours)
-    // In production, this would come from a backend forecast endpoint
-    const timelineSlots = generateTimelineSlots(currentScore, weatherScore, trafficScore);
-
-    // Find optimal departure time
-    const optimalSlot = timelineSlots.reduce((best, slot) =>
-      slot.score < best.score ? slot : best
-    , timelineSlots[0]);
-
-    const optimalIndex = timelineSlots.findIndex(s => s === optimalSlot);
-    const optimalDepartureMinutes = optimalIndex * 15; // Each slot is 15 min
-    const isOptimalNow = optimalIndex === 0;
+    // Use real forecast data from backend
+    const timelineSlots = forecastData.slots;
+    const optimalDepartureMinutes = forecastData.optimalDepartureMinutes;
+    const optimalSlot = timelineSlots[forecastData.optimalSlotIndex];
+    const isOptimalNow = forecastData.optimalSlotIndex === 0;
 
     // Generate reason based on conditions
     const reason = generateReason(weatherScore, trafficScore, isOptimalNow, optimalDepartureMinutes);
@@ -129,7 +132,7 @@ export default function OverviewScreen() {
       weatherStatus,
       trafficStatus,
     };
-  }, [riskData]);
+  }, [riskData, forecastData]);
 
   const handleAlertPress = (alert: { id: string }) => {
     lightHaptic();
@@ -142,6 +145,16 @@ export default function OverviewScreen() {
   const handleViewMapPress = () => {
     lightHaptic();
     router.push("/(tabs)/map");
+  };
+
+  const handleRoutePress = (route: { _id: string }) => {
+    lightHaptic();
+    router.push("/(tabs)/saved");
+  };
+
+  const handleViewAllRoutes = () => {
+    lightHaptic();
+    router.push("/(tabs)/saved");
   };
 
   return (
@@ -269,6 +282,17 @@ export default function OverviewScreen() {
           )}
         </Animated.View>
 
+        {/* Saved Routes Preview */}
+        <Animated.View entering={FadeInDown.duration(400).delay(450)}>
+          {routesWithForecast && routesWithForecast.length > 0 && (
+            <RoutesPreview
+              routes={routesWithForecast}
+              onRoutePress={handleRoutePress}
+              onViewAllPress={handleViewAllRoutes}
+            />
+          )}
+        </Animated.View>
+
         {/* Alerts Section */}
         <Animated.View entering={FadeInDown.duration(400).delay(500)}>
           {!isLoading && (
@@ -291,65 +315,6 @@ export default function OverviewScreen() {
 }
 
 // Helper functions
-
-function generateTimelineSlots(
-  currentScore: number,
-  weatherScore: number,
-  trafficScore: number
-) {
-  const now = new Date();
-  const slots = [];
-
-  // Generate 8 slots (2 hours, 15-min intervals)
-  for (let i = 0; i < 8; i++) {
-    const slotTime = new Date(now.getTime() + i * 15 * 60 * 1000);
-    const hours = slotTime.getHours();
-    const minutes = slotTime.getMinutes();
-    const ampm = hours >= 12 ? "PM" : "AM";
-    const displayHours = hours % 12 || 12;
-    const timeLabel = `${displayHours}:${minutes.toString().padStart(2, "0")}`;
-
-    // Simulate score changes based on time patterns
-    // In production, this would come from a real forecast API
-    let scoreModifier = 0;
-
-    // Rush hour patterns (worse at 5-7 PM, better after)
-    if (hours >= 17 && hours < 19) {
-      scoreModifier += 15; // Worse during rush hour
-    } else if (hours >= 19) {
-      scoreModifier -= 20; // Better after rush hour
-    }
-
-    // Weather typically improves over time (simplification)
-    if (weatherScore > 30) {
-      scoreModifier -= i * 3; // Weather clearing gradually
-    }
-
-    // Add some variance
-    scoreModifier += Math.sin(i * 0.5) * 5;
-
-    const slotScore = Math.max(0, Math.min(100, currentScore + scoreModifier));
-    const classification = slotScore < 34 ? "low" : slotScore < 67 ? "medium" : "high";
-
-    slots.push({
-      time: slotTime.toISOString(),
-      label: timeLabel,
-      score: Math.round(slotScore),
-      classification: classification as Classification,
-      isNow: i === 0,
-      isOptimal: false,
-    });
-  }
-
-  // Mark optimal slot
-  const minScore = Math.min(...slots.map((s) => s.score));
-  const optimalIndex = slots.findIndex((s) => s.score === minScore);
-  if (optimalIndex >= 0) {
-    slots[optimalIndex].isOptimal = true;
-  }
-
-  return slots;
-}
 
 function generateReason(
   weatherScore: number,

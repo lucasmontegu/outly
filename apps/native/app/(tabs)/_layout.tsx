@@ -11,11 +11,15 @@ import { View } from "react-native";
 
 import { NAV_THEME } from "@/lib/constants";
 import { useColorScheme } from "@/lib/use-color-scheme";
+import { useDepartureNotifications } from "@/hooks/use-departure-notifications";
 
 export default function TabsLayout() {
   const { isSignedIn, isLoaded } = useAuth();
   const { isDarkColorScheme } = useColorScheme();
   const theme = isDarkColorScheme ? NAV_THEME.dark : NAV_THEME.light;
+
+  // Schedule departure notifications for saved routes
+  useDepartureNotifications();
 
   if (!isLoaded) {
     return null;
