@@ -157,9 +157,88 @@ export const fetchAllData = internalAction({
     // Clean expired events
     await ctx.runMutation(internal.events.cleanExpired, {});
 
+    // Update route caches for all active routes
+    await updateRouteCaches(ctx);
+
     return { processed };
   },
 });
+
+// Update cached scores for all active routes
+async function updateRouteCaches(ctx: any) {
+  const routes = await ctx.runQuery(
+    internal.scheduled.dataFetcherQueries.getActiveRoutes
+  );
+
+  if (routes.length === 0) return;
+
+  const now = Date.now();
+
+  for (const route of routes) {
+    try {
+      // Get nearby events for this route's departure location
+      const nearbyEvents = await ctx.runQuery(
+        internal.scheduled.dataFetcherQueries.getNearbyEvents,
+        { lat: route.fromLocation.lat, lng: route.fromLocation.lng, radiusKm: 10 }
+      );
+
+      // Calculate score using same algorithm as getRoutesWithForecast
+      let baseWeatherScore = 0;
+      let baseTrafficScore = 0;
+
+      for (const event of nearbyEvents) {
+        const distance = haversineDistance(
+          route.fromLocation.lat,
+          route.fromLocation.lng,
+          event.location.lat,
+          event.location.lng
+        );
+        const impactFactor = Math.max(0, 1 - distance / 10);
+        const impact = event.severity * impactFactor * (event.confidenceScore / 100) * 10;
+        if (event.type === "weather") {
+          baseWeatherScore += impact;
+        } else {
+          baseTrafficScore += impact;
+        }
+      }
+      baseWeatherScore = Math.min(100, Math.round(baseWeatherScore));
+      baseTrafficScore = Math.min(100, Math.round(baseTrafficScore));
+
+      const currentScore = Math.round(baseWeatherScore * 0.4 + baseTrafficScore * 0.6);
+      const classification: "low" | "medium" | "high" =
+        currentScore < 34 ? "low" : currentScore < 67 ? "medium" : "high";
+
+      // Update route cache
+      await ctx.runMutation(internal.routes.updateRouteCache, {
+        routeId: route._id,
+        score: currentScore,
+        classification,
+      });
+    } catch (error) {
+      console.error(`Error updating cache for route ${route._id}:`, error);
+    }
+  }
+}
+
+// Haversine distance for route cache calculation
+function haversineDistance(
+  lat1: number,
+  lng1: number,
+  lat2: number,
+  lng2: number
+): number {
+  const R = 6371;
+  const dLat = toRad(lat2 - lat1);
+  const dLng = toRad(lng2 - lng1);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function toRad(deg: number): number {
+  return deg * (Math.PI / 180);
+}
 
 // Group locations into ~50km grid cells to minimize API calls
 function groupByGridCell(

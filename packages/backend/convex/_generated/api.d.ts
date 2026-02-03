@@ -19,6 +19,7 @@ import type * as healthCheck from "../healthCheck.js";
 import type * as http from "../http.js";
 import type * as integrations_traffic from "../integrations/traffic.js";
 import type * as integrations_weather from "../integrations/weather.js";
+import type * as monitoring from "../monitoring.js";
 import type * as privateData from "../privateData.js";
 import type * as riskScore from "../riskScore.js";
 import type * as routes from "../routes.js";
@@ -46,6 +47,7 @@ declare const fullApi: ApiFromModules<{
   http: typeof http;
   "integrations/traffic": typeof integrations_traffic;
   "integrations/weather": typeof integrations_weather;
+  monitoring: typeof monitoring;
   privateData: typeof privateData;
   riskScore: typeof riskScore;
   routes: typeof routes;

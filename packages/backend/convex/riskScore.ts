@@ -94,7 +94,7 @@ function calculateEventScore(
   return Math.min(100, score);
 }
 
-// Risk snapshot validator (reusable)
+// Risk snapshot validator for client responses (excludes large rawData fields)
 const riskSnapshotDoc = v.object({
   _id: v.id("riskSnapshots"),
   _creationTime: v.number(),
@@ -112,9 +112,28 @@ const riskSnapshotDoc = v.object({
     trafficScore: v.number(),
     eventScore: v.number(),
   }),
-  weatherData: v.optional(v.any()),
-  trafficData: v.optional(v.any()),
+  // NOTE: weatherData and trafficData are stored in DB but NOT returned to clients
+  // to reduce bandwidth. Use internal queries if raw data is needed server-side.
 });
+
+// Helper to strip raw data from snapshot before returning to client
+function stripRawData(snapshot: any): {
+  _id: any;
+  _creationTime: number;
+  locationId: any;
+  userId: string;
+  score: number;
+  previousScore?: number;
+  classification: "low" | "medium" | "high";
+  breakdown: {
+    weatherScore: number;
+    trafficScore: number;
+    eventScore: number;
+  };
+} {
+  const { weatherData, trafficData, ...clientData } = snapshot;
+  return clientData;
+}
 
 export const getForLocation = query({
   args: { locationId: v.id("userLocations") },
@@ -126,7 +145,8 @@ export const getForLocation = query({
       .order("desc")
       .take(1);
 
-    return snapshots[0] ?? null;
+    // Strip raw data to reduce bandwidth
+    return snapshots[0] ? stripRawData(snapshots[0]) : null;
   },
 });
 
@@ -137,10 +157,13 @@ export const listForUser = query({
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Not authenticated");
 
-    return await ctx.db
+    const snapshots = await ctx.db
       .query("riskSnapshots")
       .withIndex("by_user", (q) => q.eq("userId", identity.subject))
       .collect();
+
+    // Strip raw data to reduce bandwidth
+    return snapshots.map(stripRawData);
   },
 });
 

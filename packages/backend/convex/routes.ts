@@ -1,6 +1,9 @@
 import { v } from "convex/values";
-import { query, mutation } from "./_generated/server";
+import { query, mutation, internalMutation } from "./_generated/server";
 import { getIntersectingGridCells } from "./events";
+
+// Cache TTL: 15 minutes in milliseconds
+const ROUTE_CACHE_TTL_MS = 15 * 60 * 1000;
 
 // Route document type for return validators
 const routeDoc = v.object({
@@ -201,6 +204,44 @@ export const getRoutesWithForecast = query({
       ? Math.floor(args.asOfTimestamp / 60000) * 60000
       : Date.now();
 
+    // Check if ALL routes have fresh cached data (< 15 min old)
+    const allCachesFresh = routes.every(
+      (route) =>
+        route.cachedScore !== undefined &&
+        route.cachedClassification !== undefined &&
+        route.cachedAt !== undefined &&
+        now - route.cachedAt < ROUTE_CACHE_TTL_MS
+    );
+
+    // If all caches are fresh, return cached data without computing forecasts
+    if (allCachesFresh) {
+      return routes.map((route) => {
+        // Compute optimal time from cached score (simplified: assume now is optimal if score is low)
+        const optimalIndex = route.cachedScore! < 34 ? 0 : 1;
+        const optimalTime = new Date(now + optimalIndex * 15 * 60 * 1000);
+        const hours = optimalTime.getHours() % 12 || 12;
+        const minutes = optimalTime.getMinutes();
+        const ampm = optimalTime.getHours() >= 12 ? "PM" : "AM";
+        const optimalTimeLabel = `${hours}:${minutes.toString().padStart(2, "0")} ${ampm}`;
+
+        return {
+          _id: route._id,
+          _creationTime: route._creationTime,
+          userId: route.userId,
+          name: route.name,
+          fromName: route.fromName,
+          toName: route.toName,
+          icon: route.icon,
+          currentScore: route.cachedScore!,
+          classification: route.cachedClassification!,
+          optimalDepartureMinutes: optimalIndex * 15,
+          optimalTime: optimalTimeLabel,
+          isOptimalNow: optimalIndex === 0,
+        };
+      });
+    }
+
+    // Fallback: compute forecasts for routes without fresh cache
     // Collect all unique grid cells needed for all routes
     const allGridCells = new Set<string>();
     for (const route of routes) {
@@ -227,6 +268,36 @@ export const getRoutesWithForecast = query({
     });
 
     const results = routes.map((route) => {
+      // Use cached data if fresh for this specific route
+      if (
+        route.cachedScore !== undefined &&
+        route.cachedClassification !== undefined &&
+        route.cachedAt !== undefined &&
+        now - route.cachedAt < ROUTE_CACHE_TTL_MS
+      ) {
+        const optimalIndex = route.cachedScore < 34 ? 0 : 1;
+        const optimalTime = new Date(now + optimalIndex * 15 * 60 * 1000);
+        const hours = optimalTime.getHours() % 12 || 12;
+        const minutes = optimalTime.getMinutes();
+        const ampm = optimalTime.getHours() >= 12 ? "PM" : "AM";
+        const optimalTimeLabel = `${hours}:${minutes.toString().padStart(2, "0")} ${ampm}`;
+
+        return {
+          _id: route._id,
+          _creationTime: route._creationTime,
+          userId: route.userId,
+          name: route.name,
+          fromName: route.fromName,
+          toName: route.toName,
+          icon: route.icon,
+          currentScore: route.cachedScore,
+          classification: route.cachedClassification,
+          optimalDepartureMinutes: optimalIndex * 15,
+          optimalTime: optimalTimeLabel,
+          isOptimalNow: optimalIndex === 0,
+        };
+      }
+
       // Filter events for this route's location
       const nearbyEvents = uniqueEvents.filter((e) => {
         const distance = haversineDistance(
@@ -308,6 +379,24 @@ export const getRoutesWithForecast = query({
     });
 
     return results;
+  },
+});
+
+// Internal mutation to update route cache (called by cron job)
+export const updateRouteCache = internalMutation({
+  args: {
+    routeId: v.id("routes"),
+    score: v.number(),
+    classification: v.union(v.literal("low"), v.literal("medium"), v.literal("high")),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.routeId, {
+      cachedScore: args.score,
+      cachedClassification: args.classification,
+      cachedAt: Date.now(),
+    });
+    return null;
   },
 });
 

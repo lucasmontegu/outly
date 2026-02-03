@@ -27,4 +27,14 @@ crons.weekly(
   internal.gamification.weeklyDecay
 );
 
+// ============================================================================
+// MONITORING - Weekly cleanup
+// ============================================================================
+// Cleans up bandwidth metrics older than 30 days to prevent unbounded storage growth
+crons.weekly(
+  "cleanup old bandwidth metrics",
+  { dayOfWeek: "sunday", hourUTC: 1, minuteUTC: 0 },
+  internal.monitoring.cleanOldMetrics
+);
+
 export default crons;

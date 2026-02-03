@@ -126,6 +126,12 @@ export default defineSchema({
     alertThreshold: v.number(),
     alertTime: v.string(),
     isActive: v.boolean(),
+    // Pre-computed route scores (updated by cron job, 15-min TTL)
+    cachedScore: v.optional(v.number()),
+    cachedClassification: v.optional(
+      v.union(v.literal("low"), v.literal("medium"), v.literal("high"))
+    ),
+    cachedAt: v.optional(v.number()),
   })
     .index("by_user", ["userId"])
     .index("by_user_active", ["userId", "isActive"]),
@@ -193,4 +199,16 @@ export default defineSchema({
     .index("by_user", ["userId"])
     .index("by_badge", ["badgeId"])
     .index("by_user_badge", ["userId", "badgeId"]),
+
+  // Bandwidth monitoring metrics
+  // Tracks query execution statistics for performance optimization
+  bandwidthMetrics: defineTable({
+    queryName: v.string(),
+    date: v.string(), // ISO date string (YYYY-MM-DD)
+    totalBytes: v.number(),
+    callCount: v.number(),
+    totalDocuments: v.number(),
+  })
+    .index("by_query_date", ["queryName", "date"])
+    .index("by_date", ["date"]),
 });

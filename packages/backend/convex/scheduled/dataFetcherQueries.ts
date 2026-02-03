@@ -108,6 +108,18 @@ export const getNearbyEvents = internalQuery({
   },
 });
 
+/**
+ * Get all active routes for cache update
+ * Returns routes with their from/to locations for score calculation
+ */
+export const getActiveRoutes = internalQuery({
+  args: {},
+  handler: async (ctx) => {
+    const routes = await ctx.db.query("routes").collect();
+    return routes.filter((r) => r.isActive);
+  },
+});
+
 // Haversine formula for distance calculation
 function haversineDistance(
   lat1: number,
