@@ -8,6 +8,7 @@ import {
   Cancel01Icon,
   CloudIcon,
   Location01Icon,
+  Tick02Icon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react-native";
 import {
@@ -24,6 +25,15 @@ import { Card } from "heroui-native";
 import { useState, useRef, useEffect } from "react";
 import MapView, { Marker, Callout, Circle, Polyline, PROVIDER_DEFAULT } from "react-native-maps";
 import { useLocalSearchParams } from "expo-router";
+import Animated, {
+  FadeIn,
+  FadeOut,
+  SlideInDown,
+  SlideOutDown,
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+} from "react-native-reanimated";
 
 import { useLocation } from "@/hooks/use-location";
 import { colors, spacing, borderRadius, typography, shadows } from "@/lib/design-tokens";
@@ -62,8 +72,11 @@ export default function MapScreen() {
   const [isSearching, setIsSearching] = useState(false);
   const [showResults, setShowResults] = useState(false);
   const [selectedEventId, setSelectedEventId] = useState<Id<"events"> | null>(null);
+  const [justVoted, setJustVoted] = useState(false);
+  const [isVoting, setIsVoting] = useState(false);
   const mapRef = useRef<MapView>(null);
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const dismissTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Query nearby events
   const events = useQuery(
@@ -118,9 +131,36 @@ export default function MapScreen() {
   }, [selectedEvent]);
 
   const handleVote = async (voteType: "still_active" | "cleared" | "not_exists") => {
-    if (!selectedEventId) return;
-    await vote({ eventId: selectedEventId, vote: voteType });
+    if (!selectedEventId || isVoting) return;
+
+    setIsVoting(true);
+    try {
+      await vote({ eventId: selectedEventId, vote: voteType });
+      setJustVoted(true);
+
+      // Auto-dismiss card after showing confirmation
+      dismissTimeoutRef.current = setTimeout(() => {
+        setSelectedEventId(null);
+        setJustVoted(false);
+      }, 2000);
+    } finally {
+      setIsVoting(false);
+    }
   };
+
+  // Clear dismiss timeout when event changes
+  useEffect(() => {
+    return () => {
+      if (dismissTimeoutRef.current) {
+        clearTimeout(dismissTimeoutRef.current);
+      }
+    };
+  }, [selectedEventId]);
+
+  // Reset justVoted when selecting a new event
+  useEffect(() => {
+    setJustVoted(false);
+  }, [selectedEventId]);
 
   const handleMarkerPress = (eventId: Id<"events">) => {
     setSelectedEventId(eventId);
@@ -173,6 +213,15 @@ export default function MapScreen() {
       .split("_")
       .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
       .join(" ");
+  };
+
+  const getVoteLabel = (voteType: string): string => {
+    switch (voteType) {
+      case "still_active": return "Still happening";
+      case "cleared": return "Cleared";
+      case "not_exists": return "Not here";
+      default: return voteType;
+    }
   };
 
   const centerOnUser = () => {
@@ -446,91 +495,126 @@ export default function MapScreen() {
 
       {/* Event Detail Card */}
       {selectedEvent && (
-        <View style={styles.eventCardContainer}>
+        <Animated.View
+          style={styles.eventCardContainer}
+          entering={SlideInDown.springify().damping(20)}
+          exiting={SlideOutDown.duration(200)}
+        >
           <Card style={styles.eventCard}>
             <Card.Body style={styles.eventCardBody}>
-              {/* Header */}
-              <View style={styles.eventHeader}>
-                <View
-                  style={[
-                    styles.eventIconContainer,
-                    { backgroundColor: `${getEventColor(selectedEvent.severity)}20` },
-                  ]}
+              {/* Show confirmation state after voting */}
+              {justVoted ? (
+                <Animated.View
+                  entering={FadeIn.duration(200)}
+                  style={styles.confirmationState}
                 >
-                  <HugeiconsIcon
-                    icon={getEventIcon(selectedEvent.type)}
-                    size={24}
-                    color={getEventColor(selectedEvent.severity)}
-                  />
-                </View>
-                <View style={styles.eventInfo}>
-                  <Text style={styles.eventTitle}>
-                    {formatSubtype(selectedEvent.subtype)}
+                  <View style={styles.confirmationIcon}>
+                    <HugeiconsIcon icon={Tick02Icon} size={28} color={colors.risk.low.primary} />
+                  </View>
+                  <Text style={styles.confirmationTitle}>Thanks for voting!</Text>
+                  <Text style={styles.confirmationSubtitle}>
+                    Your feedback helps keep the community safe
                   </Text>
-                  <Text style={styles.eventMeta}>
-                    Reported {getTimeAgo(selectedEvent._creationTime)}
-                  </Text>
-                </View>
-                <View style={styles.confidenceBadge}>
-                  <Text style={styles.confidenceLabel}>
-                    {getConfidenceLabel(selectedEvent.confidenceScore)}
-                  </Text>
-                  <Text style={styles.confidenceValue}>
-                    {selectedEvent.confidenceScore}%
-                  </Text>
-                </View>
-              </View>
+                </Animated.View>
+              ) : (
+                <>
+                  {/* Header */}
+                  <View style={styles.eventHeader}>
+                    <View
+                      style={[
+                        styles.eventIconContainer,
+                        { backgroundColor: `${getEventColor(selectedEvent.severity)}20` },
+                      ]}
+                    >
+                      <HugeiconsIcon
+                        icon={getEventIcon(selectedEvent.type)}
+                        size={24}
+                        color={getEventColor(selectedEvent.severity)}
+                      />
+                    </View>
+                    <View style={styles.eventInfo}>
+                      <Text style={styles.eventTitle}>
+                        {formatSubtype(selectedEvent.subtype)}
+                      </Text>
+                      <Text style={styles.eventMeta}>
+                        Reported {getTimeAgo(selectedEvent._creationTime)}
+                      </Text>
+                    </View>
+                    {/* Close button */}
+                    <TouchableOpacity
+                      style={styles.closeCardButton}
+                      onPress={() => setSelectedEventId(null)}
+                      accessibilityLabel="Close event details"
+                      accessibilityRole="button"
+                    >
+                      <HugeiconsIcon icon={Cancel01Icon} size={20} color={colors.text.tertiary} />
+                    </TouchableOpacity>
+                  </View>
 
-              {/* Expiry info */}
-              <View style={styles.expiryRow}>
-                <Text style={styles.expiryText}>
-                  Expires in {getTimeRemaining(selectedEvent.ttl)}
-                </Text>
-              </View>
+                  {/* Compact info row */}
+                  <View style={styles.compactInfoRow}>
+                    <View style={styles.confidencePill}>
+                      <Text style={styles.confidencePillText}>
+                        {selectedEvent.confidenceScore}% confidence
+                      </Text>
+                    </View>
+                    <Text style={styles.expiryPill}>
+                      Expires {getTimeRemaining(selectedEvent.ttl)}
+                    </Text>
+                  </View>
 
-              {/* Voting section */}
-              <View style={styles.votingSection}>
-                <Text style={styles.votingLabel}>IS THIS STILL HAPPENING?</Text>
-                <View style={styles.votingButtons}>
-                  <TouchableOpacity
-                    style={[
-                      styles.voteButton,
-                      styles.voteYes,
-                      myVote?.vote === "still_active" && styles.voteSelected,
-                    ]}
-                    onPress={() => handleVote("still_active")}
-                  >
-                    <HugeiconsIcon icon={CheckmarkCircle02Icon} size={18} color="#10B981" />
-                    <Text style={[styles.voteText, styles.voteYesText]}>Yes</Text>
-                  </TouchableOpacity>
+                  {/* Voting section - only show if user hasn't voted yet */}
+                  {myVote === null ? (
+                    <View style={styles.votingSection}>
+                      <Text style={styles.votingLabel}>IS THIS STILL HAPPENING?</Text>
+                      <View style={styles.votingButtons}>
+                        <TouchableOpacity
+                          style={[styles.voteButton, styles.voteYes]}
+                          onPress={() => handleVote("still_active")}
+                          disabled={isVoting}
+                        >
+                          <HugeiconsIcon icon={CheckmarkCircle02Icon} size={18} color="#10B981" />
+                          <Text style={[styles.voteText, styles.voteYesText]}>Yes</Text>
+                        </TouchableOpacity>
 
-                  <TouchableOpacity
-                    style={[
-                      styles.voteButton,
-                      styles.voteCleared,
-                      myVote?.vote === "cleared" && styles.voteSelected,
-                    ]}
-                    onPress={() => handleVote("cleared")}
-                  >
-                    <Text style={[styles.voteText, styles.voteClearedText]}>Cleared</Text>
-                  </TouchableOpacity>
+                        <TouchableOpacity
+                          style={[styles.voteButton, styles.voteCleared]}
+                          onPress={() => handleVote("cleared")}
+                          disabled={isVoting}
+                        >
+                          <Text style={[styles.voteText, styles.voteClearedText]}>Cleared</Text>
+                        </TouchableOpacity>
 
-                  <TouchableOpacity
-                    style={[
-                      styles.voteButton,
-                      styles.voteNo,
-                      myVote?.vote === "not_exists" && styles.voteSelected,
-                    ]}
-                    onPress={() => handleVote("not_exists")}
-                  >
-                    <HugeiconsIcon icon={Cancel01Icon} size={18} color="#EF4444" />
-                    <Text style={[styles.voteText, styles.voteNoText]}>Not Here</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
+                        <TouchableOpacity
+                          style={[styles.voteButton, styles.voteNo]}
+                          onPress={() => handleVote("not_exists")}
+                          disabled={isVoting}
+                        >
+                          <HugeiconsIcon icon={Cancel01Icon} size={18} color="#EF4444" />
+                          <Text style={[styles.voteText, styles.voteNoText]}>Not Here</Text>
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  ) : (
+                    /* Already voted - show compact status */
+                    <View style={styles.votedStatus}>
+                      <HugeiconsIcon icon={Tick02Icon} size={16} color={colors.risk.low.primary} />
+                      <Text style={styles.votedStatusText}>
+                        You voted: {getVoteLabel(myVote.vote)}
+                      </Text>
+                      <TouchableOpacity
+                        style={styles.changeVoteButton}
+                        onPress={() => {/* Could implement vote change */}}
+                      >
+                        <Text style={styles.changeVoteText}>Change</Text>
+                      </TouchableOpacity>
+                    </View>
+                  )}
+                </>
+              )}
             </Card.Body>
           </Card>
-        </View>
+        </Animated.View>
       )}
     </SafeAreaView>
   );
@@ -750,14 +834,36 @@ const styles = StyleSheet.create({
     fontWeight: typography.weight.bold,
     color: colors.risk.low.dark,
   },
-  expiryRow: {
+  closeCardButton: {
+    width: 36,
+    height: 36,
+    borderRadius: borderRadius.full,
+    backgroundColor: colors.slate[100],
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  compactInfoRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing[2],
     marginTop: spacing[3],
     paddingTop: spacing[3],
     borderTopWidth: 1,
     borderTopColor: colors.slate[100],
   },
-  expiryText: {
-    fontSize: typography.size.sm + 1,
+  confidencePill: {
+    backgroundColor: colors.risk.low.light,
+    paddingHorizontal: spacing[2] + 2,
+    paddingVertical: spacing[1],
+    borderRadius: borderRadius.full,
+  },
+  confidencePillText: {
+    fontSize: typography.size.xs,
+    fontWeight: typography.weight.semibold,
+    color: colors.risk.low.dark,
+  },
+  expiryPill: {
+    fontSize: typography.size.xs,
     color: colors.state.warning,
     fontWeight: typography.weight.medium,
   },
@@ -809,5 +915,52 @@ const styles = StyleSheet.create({
   },
   voteNoText: {
     color: colors.risk.high.dark,
+  },
+  confirmationState: {
+    alignItems: "center",
+    paddingVertical: spacing[4],
+  },
+  confirmationIcon: {
+    width: 56,
+    height: 56,
+    borderRadius: borderRadius.full,
+    backgroundColor: colors.risk.low.light,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: spacing[3],
+  },
+  confirmationTitle: {
+    fontSize: typography.size.lg,
+    fontWeight: typography.weight.bold,
+    color: colors.text.primary,
+  },
+  confirmationSubtitle: {
+    fontSize: typography.size.sm,
+    color: colors.text.secondary,
+    marginTop: spacing[1],
+    textAlign: "center",
+  },
+  votedStatus: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: spacing[3],
+    paddingVertical: spacing[3],
+    backgroundColor: colors.slate[50],
+    borderRadius: borderRadius.lg,
+    gap: spacing[2],
+  },
+  votedStatusText: {
+    fontSize: typography.size.sm,
+    fontWeight: typography.weight.medium,
+    color: colors.text.secondary,
+  },
+  changeVoteButton: {
+    marginLeft: spacing[2],
+  },
+  changeVoteText: {
+    fontSize: typography.size.sm,
+    fontWeight: typography.weight.semibold,
+    color: colors.brand.secondary,
   },
 });
