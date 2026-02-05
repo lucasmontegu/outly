@@ -62,6 +62,24 @@ function formatLocationName(name: string): string {
   return name;
 }
 
+function calculateETA(baseMinutes: number, score: number): { text: string; hasDelay: boolean } {
+  const delayMinutes = Math.round(score * 0.3);
+  const totalMinutes = baseMinutes + delayMinutes;
+  const hasDelay = delayMinutes > 3;
+
+  if (hasDelay) {
+    return {
+      text: `~${totalMinutes} min (+${delayMinutes})`,
+      hasDelay: true,
+    };
+  }
+
+  return {
+    text: `~${totalMinutes} min`,
+    hasDelay: false,
+  };
+}
+
 export function RoutesPreview({
   routes,
   onRoutePress,
@@ -94,7 +112,7 @@ export function RoutesPreview({
           const formattedFrom = formatLocationName(route.fromName);
           const formattedTo = formatLocationName(route.toName);
           const displayRouteName = `${formattedFrom} → ${formattedTo}`;
-          const showSubtitle = route.name && route.name !== displayRouteName;
+          const eta = calculateETA(25, route.currentScore); // Base 25 min as default
 
           return (
             <Animated.View
@@ -108,8 +126,9 @@ export function RoutesPreview({
                   onRoutePress(route);
                 }}
                 activeOpacity={0.7}
-                accessibilityLabel={`${displayRouteName}: ${route.isOptimalNow ? "Leave now" : `Best time ${route.optimalTime}`}`}
+                accessibilityLabel={`${displayRouteName}: Risk score ${route.currentScore}. ${route.isOptimalNow ? "Leave now" : `Best time ${route.optimalTime}`}. ${eta.text}`}
               >
+                {/* Icon */}
                 <View
                   style={[
                     styles.iconContainer,
@@ -123,44 +142,68 @@ export function RoutesPreview({
                   />
                 </View>
 
+                {/* Route info */}
                 <View style={styles.routeContent}>
-                  <Text style={styles.routeName} numberOfLines={1}>
-                    {displayRouteName}
-                  </Text>
-                  {showSubtitle && (
-                    <Text style={styles.routeSubtitle} numberOfLines={1}>
-                      {route.name}
-                    </Text>
-                  )}
-                </View>
-
-                <View style={styles.departureInfo}>
-                  {route.isOptimalNow ? (
-                    <View
-                      style={[
-                        styles.departureBadge,
-                        { backgroundColor: CLASSIFICATION_BG[route.classification] },
-                      ]}
-                    >
-                      <Text
-                        style={[
-                          styles.departureText,
-                          { color: CLASSIFICATION_COLORS[route.classification] },
-                        ]}
-                      >
-                        {route.classification === "low" ? "Go Now" : "Best Now"}
+                  {/* Top row: Route name + risk dot + score + departure */}
+                  <View style={styles.topRow}>
+                    <View style={styles.routeNameRow}>
+                      <Text style={styles.routeName} numberOfLines={1}>
+                        {displayRouteName}
                       </Text>
+                      <View style={styles.riskIndicator}>
+                        <View
+                          style={[
+                            styles.riskDot,
+                            { backgroundColor: CLASSIFICATION_COLORS[route.classification] },
+                          ]}
+                        />
+                        <Text style={styles.riskScore}>{route.currentScore}</Text>
+                      </View>
                     </View>
-                  ) : (
-                    <View style={styles.departureTime}>
-                      <HugeiconsIcon
-                        icon={Clock01Icon}
-                        size={14}
-                        color={colors.text.tertiary}
-                      />
-                      <Text style={styles.timeText}>{route.optimalTime}</Text>
+
+                    {/* Departure info */}
+                    <View style={styles.departureInfo}>
+                      {route.isOptimalNow ? (
+                        <View
+                          style={[
+                            styles.departureBadge,
+                            {
+                              backgroundColor: route.classification === "low"
+                                ? CLASSIFICATION_BG.low
+                                : CLASSIFICATION_BG.medium
+                            },
+                          ]}
+                        >
+                          <Text
+                            style={[
+                              styles.departureText,
+                              {
+                                color: route.classification === "low"
+                                  ? CLASSIFICATION_COLORS.low
+                                  : CLASSIFICATION_COLORS.medium
+                              },
+                            ]}
+                          >
+                            {route.classification === "low" ? "Go Now" : "Best Now"}
+                          </Text>
+                        </View>
+                      ) : (
+                        <View style={styles.departureTime}>
+                          <HugeiconsIcon
+                            icon={Clock01Icon}
+                            size={14}
+                            color={colors.text.tertiary}
+                          />
+                          <Text style={styles.timeText}>{route.optimalTime}</Text>
+                        </View>
+                      )}
                     </View>
-                  )}
+                  </View>
+
+                  {/* Bottom row: ETA */}
+                  <Text style={[styles.etaText, eta.hasDelay && styles.etaTextDelayed]}>
+                    {eta.text}
+                  </Text>
                 </View>
               </TouchableOpacity>
             </Animated.View>
@@ -202,7 +245,7 @@ const styles = StyleSheet.create({
   },
   routeCard: {
     flexDirection: "row",
-    alignItems: "center",
+    alignItems: "flex-start",
     backgroundColor: colors.background.card,
     borderRadius: borderRadius.lg,
     borderWidth: 1,
@@ -220,27 +263,51 @@ const styles = StyleSheet.create({
   },
   routeContent: {
     flex: 1,
+    gap: spacing[1],
+  },
+  topRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: spacing[2],
+  },
+  routeNameRow: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing[2],
   },
   routeName: {
     fontSize: typography.size.base,
     fontWeight: typography.weight.semibold,
     color: colors.text.primary,
+    flexShrink: 1,
   },
-  routeSubtitle: {
+  riskIndicator: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing[1],
+  },
+  riskDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  riskScore: {
     fontSize: typography.size.sm,
-    color: colors.text.tertiary,
-    marginTop: 2,
+    fontWeight: typography.weight.semibold,
+    color: colors.text.secondary,
   },
   departureInfo: {
     alignItems: "flex-end",
   },
   departureBadge: {
-    paddingHorizontal: spacing[3],
+    paddingHorizontal: spacing[2],
     paddingVertical: spacing[1],
     borderRadius: borderRadius.full,
   },
   departureText: {
-    fontSize: typography.size.sm,
+    fontSize: typography.size.xs,
     fontWeight: typography.weight.bold,
   },
   departureTime: {
@@ -249,8 +316,16 @@ const styles = StyleSheet.create({
     gap: spacing[1],
   },
   timeText: {
-    fontSize: typography.size.sm,
+    fontSize: typography.size.xs,
     fontWeight: typography.weight.semibold,
     color: colors.text.secondary,
+  },
+  etaText: {
+    fontSize: typography.size.sm,
+    color: colors.text.tertiary,
+  },
+  etaTextDelayed: {
+    color: colors.risk.medium.primary,
+    fontWeight: typography.weight.medium,
   },
 });

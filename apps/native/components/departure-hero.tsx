@@ -1,20 +1,19 @@
 import React, { useEffect } from "react";
-import { View, Text, StyleSheet } from "react-native";
-import Svg, { Path, Circle } from "react-native-svg";
+import { View, Text, StyleSheet, Pressable } from "react-native";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
-  useAnimatedProps,
   withTiming,
   withSpring,
+  withRepeat,
   withSequence,
   Easing,
+  FadeIn,
 } from "react-native-reanimated";
-import { riskLevelHaptic } from "@/lib/haptics";
-import { colors, spacing, typography } from "@/lib/design-tokens";
-
-const AnimatedPath = Animated.createAnimatedComponent(Path);
-const AnimatedCircle = Animated.createAnimatedComponent(Circle);
+import { lightHaptic, riskLevelHaptic } from "@/lib/haptics";
+import { colors, spacing, typography, borderRadius, shadows } from "@/lib/design-tokens";
+import { HugeiconsIcon } from "@hugeicons/react-native";
+import { AlarmClockIcon, Navigation03Icon } from "@hugeicons/core-free-icons";
 
 type Classification = "low" | "medium" | "high";
 
@@ -25,7 +24,7 @@ type DepartureHeroProps = {
   currentScore: number;
   reason: string;
   isOptimalNow: boolean;
-  currentDelayMinutes?: number; // Estimated extra time if leaving now instead of waiting
+  currentDelayMinutes?: number;
 };
 
 const COLORS = {
@@ -34,103 +33,7 @@ const COLORS = {
   high: colors.risk.high.primary,
 };
 
-// Gauge dimensions
-const GAUGE_SIZE = 200;
-const STROKE_WIDTH = 10;
-const RADIUS = (GAUGE_SIZE - STROKE_WIDTH) / 2;
-const CENTER = GAUGE_SIZE / 2;
-
-// Semi-ring gauge with indicator dot
-type GaugeProps = {
-  score: number;
-  classification: Classification;
-};
-
-function AnimatedGauge({ score, classification }: GaugeProps) {
-  const progress = useSharedValue(0);
-
-  useEffect(() => {
-    progress.value = withTiming(score / 100, {
-      duration: 900,
-      easing: Easing.out(Easing.cubic),
-    });
-  }, [score]);
-
-  // Arc from 135° to 405° (225° sweep = 62.5% of circle, leaving bottom open)
-  // This creates a gauge that opens at the bottom
-  const startAngle = 135;
-  const endAngle = 405;
-  const sweepAngle = endAngle - startAngle; // 270 degrees
-
-  const polarToCartesian = (angle: number) => {
-    const rad = (angle * Math.PI) / 180;
-    return {
-      x: CENTER + RADIUS * Math.cos(rad),
-      y: CENTER + RADIUS * Math.sin(rad),
-    };
-  };
-
-  const start = polarToCartesian(startAngle);
-  const end = polarToCartesian(endAngle);
-
-  // Track path (full arc)
-  const trackPath = `M ${start.x} ${start.y} A ${RADIUS} ${RADIUS} 0 1 1 ${end.x} ${end.y}`;
-
-  // Animated progress arc
-  const animatedPathProps = useAnimatedProps(() => {
-    const currentAngle = startAngle + sweepAngle * progress.value;
-    const rad = (currentAngle * Math.PI) / 180;
-    const endX = CENTER + RADIUS * Math.cos(rad);
-    const endY = CENTER + RADIUS * Math.sin(rad);
-
-    const largeArc = progress.value > 0.5 ? 1 : 0;
-
-    return {
-      d: progress.value > 0.01
-        ? `M ${start.x} ${start.y} A ${RADIUS} ${RADIUS} 0 ${largeArc} 1 ${endX} ${endY}`
-        : "",
-    };
-  });
-
-  // Animated indicator dot position
-  const animatedDotProps = useAnimatedProps(() => {
-    const currentAngle = startAngle + sweepAngle * progress.value;
-    const rad = (currentAngle * Math.PI) / 180;
-    return {
-      cx: CENTER + RADIUS * Math.cos(rad),
-      cy: CENTER + RADIUS * Math.sin(rad),
-    };
-  });
-
-  return (
-    <Svg width={GAUGE_SIZE} height={GAUGE_SIZE * 0.65} viewBox={`0 0 ${GAUGE_SIZE} ${GAUGE_SIZE * 0.75}`}>
-      {/* Track */}
-      <Path
-        d={trackPath}
-        stroke={colors.slate[200]}
-        strokeWidth={STROKE_WIDTH}
-        strokeLinecap="round"
-        fill="none"
-      />
-      {/* Progress */}
-      <AnimatedPath
-        animatedProps={animatedPathProps}
-        stroke={COLORS[classification]}
-        strokeWidth={STROKE_WIDTH}
-        strokeLinecap="round"
-        fill="none"
-      />
-      {/* Indicator dot */}
-      <AnimatedCircle
-        animatedProps={animatedDotProps}
-        r={7}
-        fill={COLORS[classification]}
-        stroke="#FFFFFF"
-        strokeWidth={3}
-      />
-    </Svg>
-  );
-}
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 export function DepartureHero({
   optimalDepartureMinutes,
@@ -142,148 +45,272 @@ export function DepartureHero({
   currentDelayMinutes,
 }: DepartureHeroProps) {
   const pulseScale = useSharedValue(1);
+  const scoreOpacity = useSharedValue(0);
 
-  // Pulse animation for "Leave Now"
+  // Pulse animation for CTA button
   useEffect(() => {
     if (isOptimalNow) {
-      pulseScale.value = withSequence(
-        withSpring(1.02, { damping: 10 }),
-        withSpring(1, { damping: 15 })
+      pulseScale.value = withRepeat(
+        withSequence(
+          withSpring(1.03, { damping: 10 }),
+          withSpring(1, { damping: 15 })
+        ),
+        -1,
+        false
       );
+    } else {
+      pulseScale.value = withSpring(1);
     }
-    riskLevelHaptic(classification);
-  }, [isOptimalNow, classification]);
+  }, [isOptimalNow]);
 
-  const containerStyle = useAnimatedStyle(() => ({
+  // Fade in score pill
+  useEffect(() => {
+    scoreOpacity.value = withTiming(1, {
+      duration: 600,
+      easing: Easing.out(Easing.cubic),
+    });
+    riskLevelHaptic(classification);
+  }, [currentScore, classification]);
+
+  const ctaStyle = useAnimatedStyle(() => ({
     transform: [{ scale: pulseScale.value }],
   }));
 
-  const getMainMessage = () => {
+  const scoreStyle = useAnimatedStyle(() => ({
+    opacity: scoreOpacity.value,
+  }));
+
+  const getHeaderText = () => {
     if (isOptimalNow) {
-      return { top: "LEAVE NOW", bottom: null };
+      return "Perfect time to go";
     }
-    if (optimalDepartureMinutes <= 30) {
-      return { top: "BEST WINDOW", bottom: optimalTime };
-    }
-    // Later than 30 minutes
-    return { top: "WAIT UNTIL", bottom: optimalTime };
+    return "Best time to leave";
   };
 
-  const getTopTextColor = () => {
+  const getMainTime = () => {
     if (isOptimalNow) {
-      // Use risk color for "LEAVE NOW"
-      return COLORS[classification];
+      return "NOW";
     }
-    // Use amber/red for "WAIT UNTIL"
-    return optimalDepartureMinutes > 30 ? colors.risk.medium.primary : colors.text.tertiary;
+    return optimalTime;
   };
 
-  const getTimeDescription = () => {
+  const getCtaText = () => {
     if (isOptimalNow) {
-      return "Clear skies and light traffic right now";
+      return "Navigate Now";
     }
-    return reason;
+    return "Set Smart Alarm";
   };
 
-  const getTradeOffMessage = () => {
-    if (isOptimalNow || !currentDelayMinutes || currentDelayMinutes <= 0) {
-      return null;
+  const getCtaIcon = () => {
+    if (isOptimalNow) {
+      return Navigation03Icon;
     }
-    return `If you leave now: +${currentDelayMinutes} min delay`;
+    return AlarmClockIcon;
   };
 
-  const message = getMainMessage();
-  const topTextColor = getTopTextColor();
-  const timeDescription = getTimeDescription();
-  const tradeOffMessage = getTradeOffMessage();
+  const handleCtaPress = () => {
+    lightHaptic();
+    // TODO: Wire up navigation or alarm setting
+  };
+
+  const estimatedTravelTime = 25; // TODO: Replace with actual calculation
+  const estimatedTravelTimeIfNow = currentDelayMinutes
+    ? estimatedTravelTime + currentDelayMinutes
+    : estimatedTravelTime;
 
   return (
-    <View style={styles.container}>
-      <Animated.View style={[styles.heroContainer, containerStyle]}>
-        {/* Gauge arc behind content */}
-        <View style={styles.gaugeWrapper}>
-          <AnimatedGauge score={currentScore} classification={classification} />
-        </View>
+    <Animated.View
+      entering={FadeIn.duration(500)}
+      style={styles.container}
+    >
+      {/* Header with label and score pill */}
+      <View style={styles.header}>
+        <Text style={styles.headerLabel}>{getHeaderText()}</Text>
+        <Animated.View
+          style={[
+            styles.scorePill,
+            { backgroundColor: COLORS[classification] },
+            scoreStyle,
+          ]}
+        >
+          <Text style={styles.scorePillText}>{currentScore}</Text>
+        </Animated.View>
+      </View>
 
-        {/* Content centered inside gauge */}
-        <View style={styles.contentArea}>
-          <Text style={[styles.topText, { color: topTextColor }]}>
-            {message.top}
-          </Text>
-          {message.bottom && (
-            <Text style={[styles.mainText, { color: COLORS[classification] }]}>
-              {message.bottom}
+      {/* Main time display */}
+      <Text
+        style={[
+          styles.mainTime,
+          { color: isOptimalNow ? COLORS[classification] : colors.text.primary }
+        ]}
+      >
+        {getMainTime()}
+      </Text>
+
+      {/* Reason text */}
+      <Text style={styles.reasonText}>{reason}</Text>
+
+      {/* Comparison rows */}
+      {!isOptimalNow && (
+        <View style={styles.comparisonContainer}>
+          <View style={styles.comparisonRow}>
+            <Text style={styles.comparisonLabel}>Now</Text>
+            <Text style={styles.comparisonArrow}>→</Text>
+            <Text style={styles.comparisonValue}>
+              {estimatedTravelTimeIfNow} min
             </Text>
-          )}
-          {!message.bottom && (
-            <Text style={styles.scoreNumber}>{currentScore}</Text>
-          )}
-          <Text style={styles.timeText}>
-            {timeDescription}
-          </Text>
+            {currentDelayMinutes && currentDelayMinutes > 0 && (
+              <Text style={styles.delayBadge}>
+                +{currentDelayMinutes} delay
+              </Text>
+            )}
+          </View>
+          <View style={styles.comparisonRow}>
+            <Text style={styles.comparisonLabel}>{optimalTime}</Text>
+            <Text style={styles.comparisonArrow}>→</Text>
+            <Text style={[styles.comparisonValue, styles.comparisonValueOptimal]}>
+              {estimatedTravelTime} min
+            </Text>
+            <Text style={styles.optimalBadge}>optimal</Text>
+          </View>
         </View>
-      </Animated.View>
-
-      {/* Trade-off context (decision aid) */}
-      {tradeOffMessage && (
-        <Text style={styles.tradeOffText}>{tradeOffMessage}</Text>
       )}
-    </View>
+
+      {/* CTA Button */}
+      <AnimatedPressable
+        onPress={handleCtaPress}
+        style={[
+          styles.ctaButton,
+          ctaStyle,
+          {
+            backgroundColor: isOptimalNow
+              ? COLORS.low
+              : colors.brand.secondary
+          },
+          isOptimalNow ? shadows.glow.low : shadows.md,
+        ]}
+      >
+        <HugeiconsIcon
+          icon={getCtaIcon()}
+          size={20}
+          color={colors.text.inverse}
+        />
+        <Text style={styles.ctaText}>{getCtaText()}</Text>
+      </AnimatedPressable>
+    </Animated.View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     alignItems: "center",
-    paddingVertical: spacing[2],
+    paddingVertical: spacing[6],
+    paddingHorizontal: spacing[4],
   },
-  heroContainer: {
-    width: GAUGE_SIZE,
-    height: GAUGE_SIZE * 0.65,
+  header: {
+    flexDirection: "row",
     alignItems: "center",
-    justifyContent: "flex-start",
+    gap: spacing[3],
+    marginBottom: spacing[2],
   },
-  gaugeWrapper: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-  },
-  contentArea: {
-    alignItems: "center",
-    justifyContent: "center",
-    paddingTop: spacing[6],
-  },
-  topText: {
-    fontSize: typography.size.sm,
-    fontWeight: typography.weight.bold,
-    letterSpacing: typography.tracking.wider,
-  },
-  mainText: {
-    fontSize: 36,
-    fontWeight: typography.weight.extrabold,
-    letterSpacing: typography.tracking.tight,
-    marginTop: spacing[1],
-  },
-  scoreNumber: {
-    fontSize: typography.size["5xl"],
-    fontWeight: typography.weight.bold,
-    fontFamily: "JetBrainsMono_700Bold",
-    color: colors.text.primary,
-    marginTop: spacing[1],
-  },
-  timeText: {
-    fontSize: typography.size.sm,
-    fontWeight: typography.weight.medium,
-    color: colors.text.secondary,
-    marginTop: spacing[2],
-  },
-  tradeOffText: {
+  headerLabel: {
     fontSize: typography.size.base,
     fontWeight: typography.weight.semibold,
-    color: colors.risk.high.primary,
+    color: colors.text.secondary,
+    letterSpacing: typography.tracking.wide,
+  },
+  scorePill: {
+    paddingHorizontal: spacing[3],
+    paddingVertical: spacing[1],
+    borderRadius: borderRadius.full,
+    minWidth: 42,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  scorePillText: {
+    fontSize: typography.size.base,
+    fontWeight: typography.weight.bold,
+    fontFamily: "JetBrainsMono_700Bold",
+    color: colors.text.inverse,
+  },
+  mainTime: {
+    fontSize: typography.size["8xl"],
+    fontWeight: typography.weight.extrabold,
+    letterSpacing: typography.tracking.tight,
+    marginBottom: spacing[3],
+  },
+  reasonText: {
+    fontSize: typography.size.base,
+    fontWeight: typography.weight.medium,
+    color: colors.text.secondary,
     textAlign: "center",
-    paddingHorizontal: spacing[8],
-    marginTop: spacing[4],
+    marginBottom: spacing[5],
+    paddingHorizontal: spacing[4],
+  },
+  comparisonContainer: {
+    width: "100%",
+    backgroundColor: colors.background.secondary,
+    borderRadius: borderRadius.xl,
+    padding: spacing[4],
+    gap: spacing[3],
+    marginBottom: spacing[5],
+  },
+  comparisonRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing[3],
+  },
+  comparisonLabel: {
+    fontSize: typography.size.base,
+    fontWeight: typography.weight.semibold,
+    color: colors.text.primary,
+    minWidth: 50,
+  },
+  comparisonArrow: {
+    fontSize: typography.size.lg,
+    color: colors.text.tertiary,
+  },
+  comparisonValue: {
+    fontSize: typography.size.base,
+    fontWeight: typography.weight.semibold,
+    fontFamily: "JetBrainsMono_600SemiBold",
+    color: colors.text.secondary,
+    flex: 1,
+  },
+  comparisonValueOptimal: {
+    color: colors.risk.low.primary,
+  },
+  delayBadge: {
+    fontSize: typography.size.xs,
+    fontWeight: typography.weight.bold,
+    color: colors.risk.high.primary,
+    backgroundColor: colors.risk.high.light,
+    paddingHorizontal: spacing[2],
+    paddingVertical: spacing[1],
+    borderRadius: borderRadius.sm,
+  },
+  optimalBadge: {
+    fontSize: typography.size.xs,
+    fontWeight: typography.weight.bold,
+    color: colors.risk.low.primary,
+    backgroundColor: colors.risk.low.light,
+    paddingHorizontal: spacing[2],
+    paddingVertical: spacing[1],
+    borderRadius: borderRadius.sm,
+  },
+  ctaButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: spacing[2],
+    paddingVertical: spacing[4],
+    paddingHorizontal: spacing[6],
+    borderRadius: borderRadius.xl,
+    minWidth: 200,
+  },
+  ctaText: {
+    fontSize: typography.size.lg,
+    fontWeight: typography.weight.bold,
+    color: colors.text.inverse,
   },
 });

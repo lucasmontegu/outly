@@ -24,6 +24,8 @@ import { RiskTimeline } from "@/components/risk-timeline";
 import { ConditionCards } from "@/components/condition-cards";
 import { AlertsSection } from "@/components/alerts-section";
 import { RoutesPreview } from "@/components/routes-preview";
+import { DepartureAlertCta } from "@/components/departure-alert-cta";
+import { TimeSavedBanner } from "@/components/time-saved-banner";
 import {
   Skeleton,
   RiskCircleSkeleton,
@@ -46,18 +48,54 @@ function getRoundedTimestamp(): number {
   return Math.floor(Date.now() / 60000) * 60000;
 }
 
-// Header component with greeting and profile avatar
-function HomeHeader({ userName, location }: { userName: string; location?: string }) {
+// Header component with contextual insight based on risk score
+function HomeHeader({
+  userName,
+  location,
+  score,
+  classification,
+  isImproving,
+  optimalTime
+}: {
+  userName: string;
+  location?: string;
+  score: number;
+  classification: "low" | "medium" | "high";
+  isImproving: boolean;
+  optimalTime: string;
+}) {
   const router = useRouter();
-  const hour = new Date().getHours();
 
-  const greeting = hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
+  // Generate contextual insight based on risk conditions
+  const getInsight = () => {
+    if (isImproving && optimalTime) {
+      return `Clearing up — best by ${optimalTime}`;
+    }
+
+    if (score > 60) {
+      return "Your commute looks rough today";
+    }
+
+    if (score >= 30) {
+      return "Some delays expected";
+    }
+
+    return "Great conditions for your drive";
+  };
+
+  // Get color based on classification
+  const insightColor =
+    classification === "high" ? colors.risk.high.primary :
+    classification === "medium" ? colors.risk.medium.primary :
+    colors.risk.low.primary;
 
   return (
     <View style={styles.homeHeader}>
       <View style={styles.headerLeft}>
-        <Text style={styles.greeting}>{greeting},</Text>
-        <Text style={styles.userName}>{userName}</Text>
+        <Text style={[styles.insight, { color: insightColor }]}>
+          {getInsight()}
+        </Text>
+        <Text style={styles.greeting}>Hi {userName}</Text>
         {location && (
           <View style={styles.locationRow}>
             <HugeiconsIcon icon={Location01Icon} size={14} color={colors.text.tertiary} />
@@ -252,7 +290,14 @@ export default function OverviewScreen() {
       >
         {/* Header with greeting */}
         <Animated.View entering={FadeInDown.duration(400).delay(100)}>
-          <HomeHeader userName={firstName ?? ""} location={address ?? ""} />
+          <HomeHeader
+            userName={firstName ?? ""}
+            location={address ?? ""}
+            score={derivedData.currentScore}
+            classification={derivedData.classification}
+            isImproving={derivedData.weatherTrend === 'improving' || derivedData.trafficTrend === 'improving'}
+            optimalTime={derivedData.optimalTime}
+          />
         </Animated.View>
 
         {/* Location Error State */}
@@ -294,6 +339,35 @@ export default function OverviewScreen() {
               reason={derivedData.reason}
               isOptimalNow={derivedData.isOptimalNow}
               currentDelayMinutes={derivedData.currentDelayMinutes}
+            />
+          </SectionCard>
+        )}
+
+        {/* Departure Alert CTA */}
+        {!isLoading && (
+          <SectionCard>
+            <DepartureAlertCta
+              optimalTime={derivedData.optimalTime}
+              isOptimalNow={derivedData.isOptimalNow}
+              classification={derivedData.classification}
+              onSetAlert={() => {
+                lightHaptic();
+                router.push("/smart-departure");
+              }}
+            />
+          </SectionCard>
+        )}
+
+        {/* Time Saved Banner */}
+        {!isLoading && (
+          <SectionCard>
+            <TimeSavedBanner
+              minutesSavedThisWeek={0}
+              hasRoutes={(dashboardData?.routes?.length ?? 0) > 0}
+              onSetupRoute={() => {
+                lightHaptic();
+                router.push("/add-route");
+              }}
             />
           </SectionCard>
         )}
@@ -501,15 +575,14 @@ const styles = StyleSheet.create({
   headerLeft: {
     flex: 1,
   },
+  insight: {
+    fontSize: typography.size.xl,
+    fontWeight: typography.weight.bold,
+  },
   greeting: {
     fontSize: typography.size.base,
     color: colors.text.secondary,
     fontWeight: typography.weight.medium,
-  },
-  userName: {
-    fontSize: typography.size["3xl"],
-    fontWeight: typography.weight.bold,
-    color: colors.text.primary,
     marginTop: 2,
   },
   locationRow: {
