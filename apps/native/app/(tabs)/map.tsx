@@ -3,12 +3,15 @@ import { api } from "@outia/backend/convex/_generated/api";
 import { Id } from "@outia/backend/convex/_generated/dataModel";
 import {
   Search01Icon,
-  Alert02Icon,
   CheckmarkCircle02Icon,
   Cancel01Icon,
   CloudIcon,
   Location01Icon,
   Tick02Icon,
+  Car01Icon,
+  Navigation03Icon,
+  CarouselHorizontalIcon,
+  GridViewIcon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react-native";
 import {
@@ -19,25 +22,32 @@ import {
   ActivityIndicator,
   TextInput,
   Keyboard,
+  Platform,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { Card } from "heroui-native";
-import { useState, useRef, useEffect, useCallback } from "react";
-import MapView, { Marker, Callout, Circle, Polyline, PROVIDER_DEFAULT } from "react-native-maps";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import { BlurView } from "expo-blur";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
+import MapView, { Circle, PROVIDER_DEFAULT } from "react-native-maps";
 import { useLocalSearchParams } from "expo-router";
 import Animated, {
   FadeIn,
-  FadeOut,
-  SlideInDown,
-  SlideOutDown,
-  useAnimatedStyle,
-  useSharedValue,
-  withSpring,
+  FadeInDown,
+  FadeOutDown,
 } from "react-native-reanimated";
 import { useFocusEffect } from "@react-navigation/native";
 
 import { useLocation } from "@/hooks/use-location";
 import { colors, spacing, borderRadius, typography, shadows } from "@/lib/design-tokens";
+import { calculateDistance, isPointNearRoute } from "@/lib/geo-utils";
+import { lightHaptic, mediumHaptic } from "@/lib/haptics";
+import { AlertsListSheet } from "@/components/alerts-list-sheet";
+import type { AlertItem, UserRoute } from "@/components/alerts-list-sheet";
+import { AlertCarousel } from "@/components/map/alert-carousel";
+import { RoutePolylineGroup } from "@/components/map/route-polyline-group";
+import { TieredEventMarker } from "@/components/map/tiered-event-marker";
+import { TrafficPolyline } from "@/components/map/traffic-polyline";
+import { ClusterMarker } from "@/components/map/cluster-marker";
+import { clusterEvents } from "@/lib/cluster-utils";
 
 // Round timestamp to nearest minute for better Convex cache hits
 function getRoundedTimestamp(): number {
@@ -52,6 +62,7 @@ type SearchResult = {
   lng: number;
 };
 
+// Matches mediumEventDoc from backend (includes routePoints for traffic polylines)
 type EventType = {
   _id: Id<"events">;
   type: "weather" | "traffic";
@@ -64,27 +75,367 @@ type EventType = {
     lat: number;
     lng: number;
   };
-  routePoints?: {
-    lat: number;
-    lng: number;
-  }[];
+  routePoints?: { lat: number; lng: number }[];
+  radius: number;
 };
 
+type TieredEvent = EventType & { tier: 1 | 2 | 3 };
+
+// Full route type from backend (has more fields than UserRoute from alerts-list-sheet)
+type FullRoute = {
+  _id: Id<"routes">;
+  _creationTime: number;
+  userId: string;
+  name: string;
+  fromName: string;
+  toName: string;
+  fromLocation: { lat: number; lng: number };
+  toLocation: { lat: number; lng: number };
+  fromLocationId?: Id<"userLocations">;
+  toLocationId?: Id<"userLocations">;
+  icon: "building" | "running" | "home";
+  monitorDays: boolean[];
+  alertThreshold: number;
+  alertTime: string;
+  isActive: boolean;
+};
+
+/**
+ * Helper function to calculate event marker tier
+ * TIER 1: On user's active route (< 1.5km from route line)
+ * TIER 2: Nearby (< 2km from user location)
+ * TIER 3: Far (>= 2km from user location)
+ */
+function calculateEventTier(
+  event: EventType,
+  userLocation: { lat: number; lng: number } | null,
+  activeRoutes: FullRoute[]
+): 1 | 2 | 3 {
+  if (!userLocation) return 3;
+
+  // Check TIER 1: On any active route
+  for (const route of activeRoutes) {
+    if (
+      isPointNearRoute(
+        event.location,
+        route.fromLocation,
+        route.toLocation,
+        1.5 // 1.5km threshold for "on route"
+      )
+    ) {
+      return 1;
+    }
+  }
+
+  // Check TIER 2: Nearby (< 2km)
+  const distance = calculateDistance(userLocation, event.location);
+  if (distance < 2) {
+    return 2;
+  }
+
+  // TIER 3: Far
+  return 3;
+}
+
+// Floating search bar component
+function MapSearchBar({
+  value,
+  onChangeText,
+  isSearching,
+  onClear,
+  onFocus,
+}: {
+  value: string;
+  onChangeText: (text: string) => void;
+  isSearching: boolean;
+  onClear: () => void;
+  onFocus: () => void;
+}) {
+  return (
+    <BlurView
+      intensity={Platform.OS === 'ios' ? 80 : 100}
+      tint="light"
+      style={styles.searchBarContainer}
+    >
+      <View style={styles.searchBarInner}>
+        <HugeiconsIcon icon={Search01Icon} size={20} color={colors.text.tertiary} />
+        <TextInput
+          style={styles.searchInput}
+          placeholder="Search location..."
+          placeholderTextColor={colors.text.tertiary}
+          value={value}
+          onChangeText={onChangeText}
+          onFocus={onFocus}
+          returnKeyType="search"
+          autoComplete="street-address"
+          textContentType="fullStreetAddress"
+          accessibilityLabel="Search for a location"
+        />
+        {isSearching && (
+          <ActivityIndicator size="small" color={colors.brand.secondary} />
+        )}
+        {value.length > 0 && !isSearching && (
+          <TouchableOpacity
+            onPress={onClear}
+            style={styles.clearButton}
+            accessibilityLabel="Clear search"
+            accessibilityRole="button"
+          >
+            <HugeiconsIcon icon={Cancel01Icon} size={18} color={colors.text.tertiary} />
+          </TouchableOpacity>
+        )}
+      </View>
+    </BlurView>
+  );
+}
+
+// Event detail bottom sheet component
+function EventDetailSheet({
+  event,
+  myVote,
+  isVoting,
+  justVoted,
+  onVote,
+  onClose,
+  bottomOffset = 120,
+}: {
+  event: EventType;
+  myVote: { vote: string } | null | undefined;
+  isVoting: boolean;
+  justVoted: boolean;
+  onVote: (voteType: "still_active" | "cleared" | "not_exists") => void;
+  onClose: () => void;
+  bottomOffset?: number;
+}) {
+  const getTimeRemaining = (ttl: number): string => {
+    const remaining = ttl - Date.now();
+    if (remaining <= 0) return "Expired";
+    const minutes = Math.floor(remaining / 60000);
+    if (minutes < 60) return `${minutes}m`;
+    return `${Math.floor(minutes / 60)}h ${minutes % 60}m`;
+  };
+
+  const getTimeAgo = (timestamp: number): string => {
+    const minutes = Math.floor((Date.now() - timestamp) / 60000);
+    if (minutes < 1) return "Just now";
+    if (minutes < 60) return `${minutes}m ago`;
+    const hours = Math.floor(minutes / 60);
+    return `${hours}h ago`;
+  };
+
+  const formatSubtype = (subtype: string): string => {
+    return subtype
+      .split("_")
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(" ");
+  };
+
+  const getVoteLabel = (voteType: string): string => {
+    switch (voteType) {
+      case "still_active": return "Still happening";
+      case "cleared": return "Cleared";
+      case "not_exists": return "Not here";
+      default: return voteType;
+    }
+  };
+
+  const getEventColor = (severity: number): string => {
+    if (severity >= 4) return colors.state.error;
+    if (severity >= 3) return colors.state.warning;
+    return colors.state.info;
+  };
+
+  const EventIcon = event.type === "weather" ? CloudIcon : Car01Icon;
+
+  return (
+    <Animated.View
+      style={[styles.sheetContainer, { bottom: bottomOffset }]}
+      entering={FadeInDown.duration(250)}
+      exiting={FadeOutDown.duration(150)}
+    >
+      <View style={styles.sheetBlur}>
+        <View style={styles.sheetContent}>
+          {/* Handle bar */}
+          <View style={styles.sheetHandle} />
+
+          {justVoted ? (
+            <Animated.View
+              entering={FadeIn.duration(200)}
+              style={styles.confirmationState}
+            >
+              <View style={styles.confirmationIconBlue}>
+                <HugeiconsIcon icon={CheckmarkCircle02Icon} size={32} color="#FFFFFF" />
+              </View>
+              <Text style={styles.confirmationTitleBlue}>Great job!</Text>
+              <Text style={styles.confirmationSubtitleBlue}>
+                Your vote keeps the community safe
+              </Text>
+              <TouchableOpacity
+                style={styles.confirmationDismissButton}
+                onPress={onClose}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.confirmationDismissText}>Ok, thanks!</Text>
+              </TouchableOpacity>
+            </Animated.View>
+          ) : (
+            <>
+              {/* Header */}
+              <View style={styles.sheetHeader}>
+                <View
+                  style={[
+                    styles.eventIconContainer,
+                    { backgroundColor: `${getEventColor(event.severity)}15` },
+                  ]}
+                >
+                  <HugeiconsIcon
+                    icon={EventIcon}
+                    size={24}
+                    color={getEventColor(event.severity)}
+                  />
+                </View>
+                <View style={styles.eventInfo}>
+                  <Text style={styles.eventTitle}>
+                    {formatSubtype(event.subtype)}
+                  </Text>
+                  <Text style={styles.eventMeta}>
+                    Reported {getTimeAgo(event._creationTime)}
+                  </Text>
+                </View>
+                <TouchableOpacity
+                  style={styles.closeSheetButton}
+                  onPress={onClose}
+                  accessibilityLabel="Close event details"
+                  accessibilityRole="button"
+                >
+                  <HugeiconsIcon icon={Cancel01Icon} size={20} color={colors.text.tertiary} />
+                </TouchableOpacity>
+              </View>
+
+              {/* Info pills row */}
+              <View style={styles.infoPillsRow}>
+                <View style={styles.severityPill}>
+                  <Text style={styles.severityPillText}>
+                    Severity {event.severity}/5
+                  </Text>
+                </View>
+                <View style={styles.confidencePill}>
+                  <Text style={styles.confidencePillText}>
+                    {event.confidenceScore}% confidence
+                  </Text>
+                </View>
+                <Text style={styles.expiryText}>
+                  Expires {getTimeRemaining(event.ttl)}
+                </Text>
+              </View>
+
+              {/* Voting section */}
+              {myVote === null ? (
+                <View style={styles.votingSection}>
+                  <Text style={styles.votingLabel}>HELP THE COMMUNITY</Text>
+                  <Text style={styles.votingQuestion}>Is this still happening?</Text>
+                  <View style={styles.votingRow}>
+                    <TouchableOpacity
+                      style={[styles.voteButton, styles.voteButtonYes]}
+                      onPress={() => onVote("still_active")}
+                      disabled={isVoting}
+                      activeOpacity={0.7}
+                    >
+                      <HugeiconsIcon icon={CheckmarkCircle02Icon} size={18} color={colors.brand.secondary} />
+                      <Text style={[styles.voteButtonText, { color: colors.brand.secondary }]}>Yes, active</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={[styles.voteButton, styles.voteButtonNo]}
+                      onPress={() => onVote("cleared")}
+                      disabled={isVoting}
+                      activeOpacity={0.7}
+                    >
+                      <HugeiconsIcon icon={Tick02Icon} size={18} color={colors.text.secondary} />
+                      <Text style={[styles.voteButtonText, { color: colors.text.secondary }]}>Cleared</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={[styles.voteButton, styles.voteButtonNotHere]}
+                      onPress={() => onVote("not_exists")}
+                      disabled={isVoting}
+                      activeOpacity={0.7}
+                    >
+                      <HugeiconsIcon icon={Cancel01Icon} size={18} color={colors.text.tertiary} />
+                      <Text style={[styles.voteButtonText, { color: colors.text.tertiary }]}>Not here</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              ) : (
+                <View style={styles.votedStatus}>
+                  <HugeiconsIcon icon={CheckmarkCircle02Icon} size={16} color={colors.brand.secondary} />
+                  <Text style={styles.votedStatusText}>
+                    You voted: {myVote && getVoteLabel(myVote.vote)}
+                  </Text>
+                  <TouchableOpacity style={styles.changeVoteButton}>
+                    <Text style={styles.changeVoteText}>Change</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+            </>
+          )}
+        </View>
+      </View>
+    </Animated.View>
+  );
+}
+
+// Bottom view toggle button component
+function ViewToggleButton({
+  view,
+  onToggle,
+  bottom,
+}: {
+  view: 'sheet' | 'carousel';
+  onToggle: () => void;
+  bottom: number;
+}) {
+  return (
+    <TouchableOpacity
+      style={[styles.viewToggleButton, { bottom }]}
+      onPress={() => {
+        lightHaptic();
+        onToggle();
+      }}
+      accessibilityLabel={`Switch to ${view === 'sheet' ? 'carousel' : 'list'} view`}
+      accessibilityRole="button"
+    >
+      <HugeiconsIcon
+        icon={view === 'sheet' ? CarouselHorizontalIcon : GridViewIcon}
+        size={20}
+        color={colors.brand.secondary}
+      />
+    </TouchableOpacity>
+  );
+}
+
+// Custom tab bar height: 56px tab + 16px vertical padding + container bottom offset (8px)
+const TAB_BAR_CHROME = 80;
+
 export default function MapScreen() {
-  const { location } = useLocation();
-  const { eventId: eventIdParam } = useLocalSearchParams<{ eventId?: string }>();
+  const insets = useSafeAreaInsets();
+  const tabBarHeight = TAB_BAR_CHROME + insets.bottom;
+  const { location, error: locationError, refresh: refreshLocation, isLoading: locationLoading } = useLocation();
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [showResults, setShowResults] = useState(false);
   const [selectedEventId, setSelectedEventId] = useState<Id<"events"> | null>(null);
+  const [selectedRouteId, setSelectedRouteId] = useState<Id<"routes"> | null>(null);
+  const [bottomView, setBottomView] = useState<'sheet' | 'carousel'>('sheet');
   const [justVoted, setJustVoted] = useState(false);
   const [isVoting, setIsVoting] = useState(false);
   const [isScreenFocused, setIsScreenFocused] = useState(true);
   const [timestamp, setTimestamp] = useState(getRoundedTimestamp);
+  const { eventId: eventIdParam } = useLocalSearchParams<{ eventId?: string }>();
   const mapRef = useRef<MapView>(null);
-  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const dismissTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const dismissTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Only subscribe when screen is focused (reduces bandwidth when on other tabs)
   useFocusEffect(
@@ -95,32 +446,82 @@ export default function MapScreen() {
     }, [])
   );
 
-  // Query nearby events with optimized parameters
-  // - Uses grid-based filtering (90% bandwidth reduction)
-  // - Timestamp rounded to minute for cache efficiency
-  // - Only subscribes when screen is focused
+  // Query nearby events with medium query (includes routePoints for traffic polylines)
   const events = useQuery(
-    api.events.listNearby,
+    api.events.listNearbyMedium,
     location && isScreenFocused
       ? {
           lat: location.lat,
           lng: location.lng,
-          radiusKm: 5, // Reduced from 10km to 5km (75% less area to query)
+          radiusKm: 5,
           asOfTimestamp: timestamp,
         }
       : "skip"
   ) as EventType[] | undefined;
 
-  // Get selected event details
+  // Query user's saved routes (full route data for polylines)
+  const userRoutes = useQuery(
+    api.routes.getUserRoutes,
+    isScreenFocused ? {} : "skip"
+  ) as FullRoute[] | undefined;
+
+  // Convert to minimal UserRoute type for AlertsListSheet compatibility
+  const userRoutesForAlerts: UserRoute[] | undefined = useMemo(() => {
+    return userRoutes?.map(route => ({
+      _id: route._id as unknown as string,
+      name: route.name,
+      fromLocation: route.fromLocation,
+      toLocation: route.toLocation,
+    }));
+  }, [userRoutes]);
+
+  // Filter to routes monitored today
+  const activeRoutes = useMemo(() => {
+    if (!userRoutes) return [];
+    const today = new Date().getDay(); // 0 = Sunday, 6 = Saturday
+    return userRoutes.filter(route =>
+      route.isActive &&
+      route.monitorDays[today]
+    );
+  }, [userRoutes]);
+
+  // Partition events by type and tier for different rendering strategies
+  const { weatherEvents, trafficEvents, tier3Events } = useMemo(() => {
+    if (!events || !location) return { weatherEvents: [] as TieredEvent[], trafficEvents: [] as TieredEvent[], tier3Events: [] as TieredEvent[] };
+
+    const weather: TieredEvent[] = [];
+    const traffic: TieredEvent[] = [];
+    const tier3: TieredEvent[] = [];
+
+    events.forEach((event) => {
+      const tier = calculateEventTier(event, location, activeRoutes);
+      const tieredEvent = { ...event, tier } as TieredEvent;
+
+      if (tier === 3) {
+        tier3.push(tieredEvent);
+      } else if (event.type === "weather") {
+        weather.push(tieredEvent);
+      } else {
+        traffic.push(tieredEvent);
+      }
+    });
+
+    return { weatherEvents: weather, trafficEvents: traffic, tier3Events: tier3 };
+  }, [events, location, activeRoutes]);
+
+  // Cluster Tier 3 events into count badges (reduces visual clutter)
+  const { clusters: tier3Clusters, singles: tier3Singles } = useMemo(
+    () => clusterEvents(tier3Events, 2),
+    [tier3Events]
+  );
+
   const selectedEvent = events?.find((e) => e._id === selectedEventId);
 
-  // Get user's vote on selected event
   const myVote = useQuery(
     api.confirmations.getMyVote,
     selectedEventId ? { eventId: selectedEventId } : "skip"
   );
 
-  // Vote mutation
   const vote = useMutation(api.confirmations.vote);
 
   // Select event from navigation params
@@ -163,9 +564,9 @@ export default function MapScreen() {
     setIsVoting(true);
     try {
       await vote({ eventId: selectedEventId, vote: voteType });
+      mediumHaptic();
       setJustVoted(true);
 
-      // Auto-dismiss card after showing confirmation
       dismissTimeoutRef.current = setTimeout(() => {
         setSelectedEventId(null);
         setJustVoted(false);
@@ -175,7 +576,6 @@ export default function MapScreen() {
     }
   };
 
-  // Clear dismiss timeout when event changes
   useEffect(() => {
     return () => {
       if (dismissTimeoutRef.current) {
@@ -184,71 +584,24 @@ export default function MapScreen() {
     };
   }, [selectedEventId]);
 
-  // Reset justVoted when selecting a new event
   useEffect(() => {
     setJustVoted(false);
   }, [selectedEventId]);
 
-  const handleMarkerPress = (eventId: Id<"events">) => {
+  const handleMarkerPress = useCallback((eventId: Id<"events">) => {
+    lightHaptic();
     setSelectedEventId(eventId);
-  };
+  }, []);
 
-  const handleMapPress = () => {
+  const handleMapPress = useCallback(() => {
     setSelectedEventId(null);
-  };
-
-  const getTimeRemaining = (ttl: number): string => {
-    const remaining = ttl - Date.now();
-    if (remaining <= 0) return "Expired";
-    const minutes = Math.floor(remaining / 60000);
-    if (minutes < 60) return `${minutes}m`;
-    return `${Math.floor(minutes / 60)}h ${minutes % 60}m`;
-  };
-
-  const getTimeAgo = (timestamp: number): string => {
-    const minutes = Math.floor((Date.now() - timestamp) / 60000);
-    if (minutes < 1) return "Just now";
-    if (minutes < 60) return `${minutes}m ago`;
-    const hours = Math.floor(minutes / 60);
-    return `${hours}h ago`;
-  };
-
-  const getEventIcon = (type: string) => {
-    return type === "weather" ? CloudIcon : Alert02Icon;
-  };
-
-  const getEventColor = (severity: number): string => {
-    if (severity >= 4) return colors.state.error;
-    if (severity >= 3) return colors.state.warning;
-    return colors.state.info;
-  };
+    Keyboard.dismiss();
+  }, []);
 
   const getMarkerColor = (severity: number): string => {
     if (severity >= 4) return colors.risk.high.dark;
     if (severity >= 3) return colors.risk.medium.dark;
     return colors.brand.secondary;
-  };
-
-  const getConfidenceLabel = (score: number): string => {
-    if (score >= 80) return "High Confidence";
-    if (score >= 50) return "Medium Confidence";
-    return "Low Confidence";
-  };
-
-  const formatSubtype = (subtype: string): string => {
-    return subtype
-      .split("_")
-      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-      .join(" ");
-  };
-
-  const getVoteLabel = (voteType: string): string => {
-    switch (voteType) {
-      case "still_active": return "Still happening";
-      case "cleared": return "Cleared";
-      case "not_exists": return "Not here";
-      default: return voteType;
-    }
   };
 
   const centerOnUser = () => {
@@ -306,7 +659,6 @@ export default function MapScreen() {
     }
   };
 
-  // Debounced search
   const handleSearchChange = (text: string) => {
     setSearchQuery(text);
 
@@ -348,68 +700,26 @@ export default function MapScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={["top"]}>
-      {/* Search Bar */}
-      <View style={styles.searchContainer}>
-        <View style={styles.searchBar}>
-          <HugeiconsIcon icon={Search01Icon} size={20} color="#9CA3AF" />
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Search location…"
-            placeholderTextColor="#9CA3AF"
-            value={searchQuery}
-            onChangeText={handleSearchChange}
-            onFocus={() => searchQuery.length >= 3 && setShowResults(true)}
-            returnKeyType="search"
-            autoComplete="street-address"
-            textContentType="fullStreetAddress"
-            accessibilityLabel="Search for a location"
-          />
-          {isSearching && (
-            <ActivityIndicator size="small" color="#3B82F6" />
-          )}
-          {searchQuery.length > 0 && !isSearching && (
-            <TouchableOpacity
-              onPress={clearSearch}
-              style={styles.clearButton}
-              accessibilityLabel="Clear search"
-              accessibilityRole="button"
-            >
-              <HugeiconsIcon icon={Cancel01Icon} size={18} color="#9CA3AF" />
-            </TouchableOpacity>
-          )}
-        </View>
-
-        {/* Search Results Dropdown */}
-        {showResults && searchResults.length > 0 && (
-          <View style={styles.searchResults}>
-            {searchResults.map((result) => (
-              <TouchableOpacity
-                key={result.placeId}
-                style={styles.searchResultItem}
-                onPress={() => handleSearchSelect(result)}
-              >
-                <HugeiconsIcon icon={Location01Icon} size={18} color="#3B82F6" />
-                <View style={styles.searchResultText}>
-                  <Text style={styles.searchResultName} numberOfLines={1}>
-                    {result.name}
-                  </Text>
-                  <Text style={styles.searchResultAddress} numberOfLines={1}>
-                    {result.displayName}
-                  </Text>
-                </View>
-              </TouchableOpacity>
-            ))}
-          </View>
-        )}
-      </View>
-
+    <View style={styles.container}>
       {/* Map */}
       <View style={styles.mapContainer}>
-        {!location ? (
+        {locationError ? (
           <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color="#3B82F6" />
-            <Text style={styles.loadingText}>Getting your location…</Text>
+            <HugeiconsIcon icon={Location01Icon} size={48} color={colors.text.tertiary} />
+            <Text style={styles.errorTitle}>Location Unavailable</Text>
+            <Text style={styles.loadingText}>
+              {locationError === "Location permission denied"
+                ? "Enable location access in settings"
+                : "Unable to get your location"}
+            </Text>
+            <TouchableOpacity style={styles.retryButton} onPress={refreshLocation}>
+              <Text style={styles.retryButtonText}>Try Again</Text>
+            </TouchableOpacity>
+          </View>
+        ) : !location || locationLoading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color={colors.brand.secondary} />
+            <Text style={styles.loadingText}>Getting your location...</Text>
           </View>
         ) : (
           <MapView
@@ -426,77 +736,131 @@ export default function MapScreen() {
             showsMyLocationButton={false}
             onPress={handleMapPress}
           >
-            {/* Traffic route polylines (like Waze congestion lines) */}
-            {events?.filter((e) => e.routePoints && e.routePoints.length > 1).map((event) => (
-              <Polyline
-                key={`polyline-${event._id}`}
-                coordinates={event.routePoints!.map((p) => ({
-                  latitude: p.lat,
-                  longitude: p.lng,
-                }))}
-                strokeColor={getMarkerColor(event.severity)}
-                strokeWidth={event.severity >= 4 ? 8 : event.severity >= 3 ? 6 : 4}
-                lineCap="round"
-                lineJoin="round"
-                tappable
+            {/* User route polylines */}
+            {activeRoutes.map((route) => {
+              const isSelected = selectedRouteId === route._id;
+
+              return (
+                <RoutePolylineGroup
+                  key={route._id}
+                  route={route}
+                  isSelected={isSelected}
+                  onPress={() => {
+                    mediumHaptic();
+                    setSelectedRouteId(isSelected ? null : route._id);
+                  }}
+                />
+              );
+            })}
+
+            {/* Weather circles - reduced opacity, severity-aware radius cap */}
+            {weatherEvents.map((event) => {
+              // Severe weather gets larger radius to reflect real danger zone
+              const maxRadius = event.severity >= 4 ? 3000 : event.severity >= 3 ? 1500 : 500;
+              return (
+                <Circle
+                  key={`circle-${event._id}`}
+                  center={{
+                    latitude: event.location.lat,
+                    longitude: event.location.lng,
+                  }}
+                  radius={Math.min(event.radius || 1000, maxRadius)}
+                  fillColor={`${getMarkerColor(event.severity)}14`}
+                  strokeColor={`${getMarkerColor(event.severity)}30`}
+                  strokeWidth={1}
+                />
+              );
+            })}
+
+            {/* Traffic polylines - street geometry from HERE API */}
+            {trafficEvents.map((event) => (
+              <TrafficPolyline
+                key={`poly-${event._id}`}
+                event={event}
                 onPress={() => handleMarkerPress(event._id)}
               />
             ))}
 
-            {/* Event circles (area of effect) - only for events without route points */}
-            {events?.filter((e) => !e.routePoints || e.routePoints.length < 2).map((event) => (
-              <Circle
-                key={`circle-${event._id}`}
-                center={{
-                  latitude: event.location.lat,
-                  longitude: event.location.lng,
-                }}
-                radius={event.type === "traffic" ? 500 : 1000}
-                fillColor={`${getMarkerColor(event.severity)}20`}
-                strokeColor={`${getMarkerColor(event.severity)}60`}
-                strokeWidth={2}
-              />
-            ))}
-
-            {/* Event markers */}
-            {events?.map((event) => (
-              <Marker
+            {/* Weather markers - Tier 1 + 2 only */}
+            {weatherEvents.map((event) => (
+              <TieredEventMarker
                 key={event._id}
-                coordinate={{
-                  latitude: event.location.lat,
-                  longitude: event.location.lng,
-                }}
+                event={event}
+                tier={event.tier}
+                isSelected={selectedEventId === event._id}
                 onPress={() => handleMarkerPress(event._id)}
-              >
-                <View style={[
-                  styles.customMarker,
-                  { borderColor: getMarkerColor(event.severity) },
-                  selectedEventId === event._id && styles.customMarkerSelected,
-                ]}>
-                  <HugeiconsIcon
-                    icon={getEventIcon(event.type)}
-                    size={18}
-                    color={getMarkerColor(event.severity)}
-                  />
-                </View>
-                <Callout tooltip onPress={() => handleMarkerPress(event._id)}>
-                  <View style={styles.calloutContainer}>
-                    <View style={[styles.calloutBadge, { backgroundColor: getMarkerColor(event.severity) }]}>
-                      <Text style={styles.calloutBadgeText}>
-                        {event.type === "traffic" ? "TRAFFIC" : "WEATHER"}
-                      </Text>
-                    </View>
-                    <Text style={styles.calloutTitle}>{formatSubtype(event.subtype)}</Text>
-                    <Text style={styles.calloutSubtext}>
-                      {getTimeAgo(event._creationTime)} · {event.confidenceScore}% confidence
-                    </Text>
-                    <Text style={styles.calloutHint}>Tap for details</Text>
-                  </View>
-                </Callout>
-              </Marker>
+              />
+            ))}
+
+            {/* Tier 3 clusters - count badge markers */}
+            {tier3Clusters.map((cluster) => (
+              <ClusterMarker
+                key={cluster.id}
+                coordinate={cluster.coordinate}
+                count={cluster.count}
+                onPress={() => {
+                  lightHaptic();
+                  mapRef.current?.animateToRegion({
+                    latitude: cluster.coordinate.latitude,
+                    longitude: cluster.coordinate.longitude,
+                    latitudeDelta: 0.01,
+                    longitudeDelta: 0.01,
+                  }, 500);
+                }}
+              />
+            ))}
+
+            {/* Tier 3 singles - individual markers for unclustered far events */}
+            {tier3Singles.map((event) => (
+              <TieredEventMarker
+                key={event._id}
+                event={event}
+                tier={3}
+                isSelected={selectedEventId === event._id}
+                onPress={() => handleMarkerPress(event._id)}
+              />
             ))}
           </MapView>
         )}
+
+        {/* Floating search bar */}
+        <SafeAreaView style={styles.searchBarWrapper} edges={["top"]}>
+          <MapSearchBar
+            value={searchQuery}
+            onChangeText={handleSearchChange}
+            isSearching={isSearching}
+            onClear={clearSearch}
+            onFocus={() => searchQuery.length >= 3 && setShowResults(true)}
+          />
+
+          {/* Search Results Dropdown */}
+          {showResults && searchResults.length > 0 && (
+            <Animated.View
+              entering={FadeInDown.duration(200)}
+              style={styles.searchResults}
+            >
+              {searchResults.map((result) => (
+                <TouchableOpacity
+                  key={result.placeId}
+                  style={styles.searchResultItem}
+                  onPress={() => handleSearchSelect(result)}
+                >
+                  <View style={styles.searchResultIcon}>
+                    <HugeiconsIcon icon={Location01Icon} size={18} color={colors.brand.secondary} />
+                  </View>
+                  <View style={styles.searchResultText}>
+                    <Text style={styles.searchResultName} numberOfLines={1}>
+                      {result.name}
+                    </Text>
+                    <Text style={styles.searchResultAddress} numberOfLines={1}>
+                      {result.displayName}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </Animated.View>
+          )}
+        </SafeAreaView>
 
         {/* My Location Button */}
         {location && (
@@ -506,144 +870,73 @@ export default function MapScreen() {
             accessibilityLabel="Center on my location"
             accessibilityRole="button"
           >
-            <HugeiconsIcon icon={Location01Icon} size={22} color="#3B82F6" />
+            <HugeiconsIcon icon={Navigation03Icon} size={22} color={colors.brand.secondary} />
           </TouchableOpacity>
         )}
 
         {/* Events count badge */}
         {events && events.length > 0 && (
           <View style={styles.eventsBadge}>
+            <View style={styles.eventsBadgeDot} />
             <Text style={styles.eventsBadgeText}>
-              {events.length} signal{events.length !== 1 ? "s" : ""} nearby
+              {weatherEvents.length + trafficEvents.length} near
+              {tier3Events.length > 0 ? ` · ${tier3Events.length} far` : ""}
             </Text>
           </View>
         )}
       </View>
 
-      {/* Event Detail Card */}
-      {selectedEvent && (
-        <Animated.View
-          style={styles.eventCardContainer}
-          entering={SlideInDown.springify().damping(20)}
-          exiting={SlideOutDown.duration(200)}
-        >
-          <Card style={styles.eventCard}>
-            <Card.Body style={styles.eventCardBody}>
-              {/* Show confirmation state after voting */}
-              {justVoted ? (
-                <Animated.View
-                  entering={FadeIn.duration(200)}
-                  style={styles.confirmationState}
-                >
-                  <View style={styles.confirmationIcon}>
-                    <HugeiconsIcon icon={Tick02Icon} size={28} color={colors.risk.low.primary} />
-                  </View>
-                  <Text style={styles.confirmationTitle}>Thanks for voting!</Text>
-                  <Text style={styles.confirmationSubtitle}>
-                    Your feedback helps keep the community safe
-                  </Text>
-                </Animated.View>
-              ) : (
-                <>
-                  {/* Header */}
-                  <View style={styles.eventHeader}>
-                    <View
-                      style={[
-                        styles.eventIconContainer,
-                        { backgroundColor: `${getEventColor(selectedEvent.severity)}20` },
-                      ]}
-                    >
-                      <HugeiconsIcon
-                        icon={getEventIcon(selectedEvent.type)}
-                        size={24}
-                        color={getEventColor(selectedEvent.severity)}
-                      />
-                    </View>
-                    <View style={styles.eventInfo}>
-                      <Text style={styles.eventTitle}>
-                        {formatSubtype(selectedEvent.subtype)}
-                      </Text>
-                      <Text style={styles.eventMeta}>
-                        Reported {getTimeAgo(selectedEvent._creationTime)}
-                      </Text>
-                    </View>
-                    {/* Close button */}
-                    <TouchableOpacity
-                      style={styles.closeCardButton}
-                      onPress={() => setSelectedEventId(null)}
-                      accessibilityLabel="Close event details"
-                      accessibilityRole="button"
-                    >
-                      <HugeiconsIcon icon={Cancel01Icon} size={20} color={colors.text.tertiary} />
-                    </TouchableOpacity>
-                  </View>
+      {/* Bottom UI - Conditional rendering based on view mode */}
+      {events && events.length > 0 && location && (
+        <>
+          {bottomView === 'sheet' ? (
+            <AlertsListSheet
+              alerts={events as AlertItem[]}
+              userLocation={location}
+              userRoutes={userRoutesForAlerts}
+              mapRef={mapRef}
+              bottomInset={tabBarHeight}
+              onAlertSelect={(alert) => {
+                lightHaptic();
+                setSelectedEventId(alert._id as Id<"events">);
+              }}
+            />
+          ) : (
+            <AlertCarousel
+              alerts={events as AlertItem[]}
+              userLocation={location}
+              userRoutes={userRoutesForAlerts}
+              bottomInset={tabBarHeight + 12}
+              onAlertSelect={(alert) => {
+                mediumHaptic();
+                setSelectedEventId(alert._id as Id<"events">);
+              }}
+              selectedAlertId={selectedEventId || undefined}
+            />
+          )}
 
-                  {/* Compact info row */}
-                  <View style={styles.compactInfoRow}>
-                    <View style={styles.confidencePill}>
-                      <Text style={styles.confidencePillText}>
-                        {selectedEvent.confidenceScore}% confidence
-                      </Text>
-                    </View>
-                    <Text style={styles.expiryPill}>
-                      Expires {getTimeRemaining(selectedEvent.ttl)}
-                    </Text>
-                  </View>
-
-                  {/* Voting section - only show if user hasn't voted yet */}
-                  {myVote === null ? (
-                    <View style={styles.votingSection}>
-                      <Text style={styles.votingLabel}>IS THIS STILL HAPPENING?</Text>
-                      <View style={styles.votingButtons}>
-                        <TouchableOpacity
-                          style={[styles.voteButton, styles.voteYes]}
-                          onPress={() => handleVote("still_active")}
-                          disabled={isVoting}
-                        >
-                          <HugeiconsIcon icon={CheckmarkCircle02Icon} size={18} color="#10B981" />
-                          <Text style={[styles.voteText, styles.voteYesText]}>Yes</Text>
-                        </TouchableOpacity>
-
-                        <TouchableOpacity
-                          style={[styles.voteButton, styles.voteCleared]}
-                          onPress={() => handleVote("cleared")}
-                          disabled={isVoting}
-                        >
-                          <Text style={[styles.voteText, styles.voteClearedText]}>Cleared</Text>
-                        </TouchableOpacity>
-
-                        <TouchableOpacity
-                          style={[styles.voteButton, styles.voteNo]}
-                          onPress={() => handleVote("not_exists")}
-                          disabled={isVoting}
-                        >
-                          <HugeiconsIcon icon={Cancel01Icon} size={18} color="#EF4444" />
-                          <Text style={[styles.voteText, styles.voteNoText]}>Not Here</Text>
-                        </TouchableOpacity>
-                      </View>
-                    </View>
-                  ) : (
-                    /* Already voted - show compact status */
-                    <View style={styles.votedStatus}>
-                      <HugeiconsIcon icon={Tick02Icon} size={16} color={colors.risk.low.primary} />
-                      <Text style={styles.votedStatusText}>
-                        You voted: {getVoteLabel(myVote.vote)}
-                      </Text>
-                      <TouchableOpacity
-                        style={styles.changeVoteButton}
-                        onPress={() => {/* Could implement vote change */}}
-                      >
-                        <Text style={styles.changeVoteText}>Change</Text>
-                      </TouchableOpacity>
-                    </View>
-                  )}
-                </>
-              )}
-            </Card.Body>
-          </Card>
-        </Animated.View>
+          {/* View Toggle Button - positioned above carousel/sheet */}
+          <ViewToggleButton
+            view={bottomView}
+            onToggle={() => setBottomView(bottomView === 'sheet' ? 'carousel' : 'sheet')}
+            bottom={tabBarHeight + (bottomView === 'carousel' ? 188 : 12)}
+          />
+        </>
       )}
-    </SafeAreaView>
+
+      {/* Event Detail Bottom Sheet */}
+      {selectedEvent && (
+        <EventDetailSheet
+          event={selectedEvent}
+          myVote={myVote}
+          isVoting={isVoting}
+          justVoted={justVoted}
+          onVote={handleVote}
+          onClose={() => setSelectedEventId(null)}
+          bottomOffset={tabBarHeight + 16}
+        />
+      )}
+    </View>
   );
 }
 
@@ -652,24 +945,69 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background.primary,
   },
-  searchContainer: {
-    paddingHorizontal: spacing[4],
+  mapContainer: {
+    flex: 1,
+  },
+  map: {
+    flex: 1,
+  },
+  loadingContainer: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.slate[100],
+    gap: spacing[3],
+    paddingHorizontal: spacing[6],
+  },
+  loadingText: {
+    fontSize: typography.size.base,
+    color: colors.text.secondary,
+    textAlign: "center",
+  },
+  errorTitle: {
+    fontSize: typography.size.lg,
+    fontWeight: typography.weight.semibold,
+    color: colors.text.primary,
+  },
+  retryButton: {
+    marginTop: spacing[2],
+    backgroundColor: colors.brand.primary,
+    paddingHorizontal: spacing[5],
     paddingVertical: spacing[3],
+    borderRadius: borderRadius.lg,
+  },
+  retryButtonText: {
+    fontSize: typography.size.base,
+    fontWeight: typography.weight.semibold,
+    color: colors.text.inverse,
+  },
+
+  // Floating search bar
+  searchBarWrapper: {
     position: "absolute",
-    top: 50,
+    top: 0,
     left: 0,
     right: 0,
     zIndex: 10,
+    paddingHorizontal: spacing[4],
+    paddingTop: spacing[2],
   },
-  searchBar: {
+  searchBarContainer: {
+    borderRadius: borderRadius['2xl'],
+    overflow: "hidden",
+    shadowColor: colors.brand.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 4,
+  },
+  searchBarInner: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: colors.background.primary,
+    backgroundColor: Platform.OS === 'ios' ? 'rgba(255,255,255,0.85)' : '#FFFFFF',
     paddingHorizontal: spacing[4],
-    paddingVertical: spacing[3],
-    borderRadius: borderRadius.lg,
+    paddingVertical: spacing[3] + 2,
     gap: spacing[3],
-    ...shadows.md,
   },
   searchInput: {
     flex: 1,
@@ -681,19 +1019,27 @@ const styles = StyleSheet.create({
   },
   searchResults: {
     backgroundColor: colors.background.primary,
-    borderRadius: borderRadius.lg,
+    borderRadius: borderRadius.xl,
     marginTop: spacing[2],
-    ...shadows.md,
+    ...shadows.lg,
     overflow: "hidden",
   },
   searchResultItem: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: spacing[3] + 2,
+    paddingHorizontal: spacing[4],
     paddingVertical: spacing[3],
-    gap: spacing[2] + 2,
+    gap: spacing[3],
     borderBottomWidth: 1,
     borderBottomColor: colors.slate[100],
+  },
+  searchResultIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: borderRadius.full,
+    backgroundColor: `${colors.brand.secondary}10`,
+    alignItems: "center",
+    justifyContent: "center",
   },
   searchResultText: {
     flex: 1,
@@ -708,125 +1054,89 @@ const styles = StyleSheet.create({
     color: colors.text.secondary,
     marginTop: 2,
   },
-  mapContainer: {
-    flex: 1,
-  },
-  map: {
-    flex: 1,
-  },
-  loadingContainer: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: colors.slate[100],
-    gap: spacing[3],
-  },
-  loadingText: {
-    fontSize: typography.size.base,
-    color: colors.text.secondary,
-  },
-  customMarker: {
-    width: 40,
-    height: 40,
-    borderRadius: borderRadius.full,
-    backgroundColor: colors.background.primary,
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 3,
-    ...shadows.md,
-  },
-  customMarkerSelected: {
-    transform: [{ scale: 1.2 }],
-    shadowOpacity: 0.3,
-    shadowRadius: 6,
-  },
-  calloutContainer: {
-    backgroundColor: colors.background.primary,
-    borderRadius: borderRadius.lg,
-    padding: spacing[3],
-    minWidth: 180,
-    maxWidth: 220,
-    ...shadows.md,
-  },
-  calloutBadge: {
-    alignSelf: "flex-start",
-    paddingHorizontal: spacing[2],
-    paddingVertical: 3,
-    borderRadius: borderRadius.sm,
-    marginBottom: 6,
-  },
-  calloutBadgeText: {
-    fontSize: typography.size.xs - 2,
-    fontWeight: typography.weight.bold,
-    color: colors.text.inverse,
-    letterSpacing: typography.tracking.wide,
-  },
-  calloutTitle: {
-    fontSize: typography.size.base,
-    fontWeight: typography.weight.bold,
-    color: colors.text.primary,
-    marginBottom: spacing[1],
-  },
-  calloutSubtext: {
-    fontSize: typography.size.xs,
-    color: colors.text.secondary,
-    marginBottom: 6,
-  },
-  calloutHint: {
-    fontSize: typography.size.xs - 1,
-    color: colors.state.info,
-    fontWeight: typography.weight.semibold,
-  },
+
+  // Map controls
   myLocationButton: {
     position: "absolute",
     right: spacing[4],
-    top: 120,
-    width: 44,
-    height: 44,
+    top: 140,
+    width: 48,
+    height: 48,
     borderRadius: borderRadius.full,
     backgroundColor: colors.background.primary,
     alignItems: "center",
     justifyContent: "center",
-    ...shadows.md,
+    shadowColor: colors.brand.primary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
   },
   eventsBadge: {
     position: "absolute",
     left: spacing[4],
-    top: 120,
+    top: 140,
+    flexDirection: "row",
+    alignItems: "center",
     backgroundColor: colors.background.primary,
     paddingHorizontal: spacing[3],
-    paddingVertical: spacing[2],
-    borderRadius: borderRadius['2xl'],
-    ...shadows.sm,
+    paddingVertical: spacing[2] + 2,
+    borderRadius: borderRadius.full,
+    gap: spacing[2],
+    shadowColor: colors.brand.primary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  eventsBadgeDot: {
+    width: 8,
+    height: 8,
+    borderRadius: borderRadius.full,
+    backgroundColor: colors.risk.medium.primary,
   },
   eventsBadgeText: {
     fontSize: typography.size.sm,
     fontWeight: typography.weight.semibold,
-    color: colors.slate[700],
+    color: colors.text.secondary,
   },
-  eventCardContainer: {
+
+  // Bottom sheet
+  sheetContainer: {
     position: "absolute",
-    bottom: spacing[6],
     left: spacing[4],
     right: spacing[4],
   },
-  eventCard: {
-    backgroundColor: colors.background.primary,
-    borderRadius: borderRadius['2xl'],
-    ...shadows.lg,
+  sheetBlur: {
+    borderRadius: borderRadius['3xl'],
+    overflow: "hidden",
+    shadowColor: colors.brand.primary,
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 20,
+    elevation: 8,
   },
-  eventCardBody: {
+  sheetContent: {
+    backgroundColor: '#FFFFFF',
     padding: spacing[5],
   },
-  eventHeader: {
+  sheetHandle: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: `${colors.brand.secondary}30`,
+    alignSelf: "center",
+    marginBottom: spacing[4],
+  },
+  sheetHeader: {
     flexDirection: "row",
     alignItems: "flex-start",
     gap: spacing[3],
   },
   eventIconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: borderRadius.full,
+    width: 52,
+    height: 52,
+    borderRadius: borderRadius.xl,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -843,25 +1153,7 @@ const styles = StyleSheet.create({
     color: colors.text.secondary,
     marginTop: 2,
   },
-  confidenceBadge: {
-    backgroundColor: colors.risk.low.light,
-    paddingHorizontal: spacing[2] + 2,
-    paddingVertical: 6,
-    borderRadius: borderRadius.md,
-    alignItems: "flex-end",
-  },
-  confidenceLabel: {
-    fontSize: typography.size.xs - 2,
-    fontWeight: typography.weight.semibold,
-    color: colors.risk.low.dark,
-    letterSpacing: typography.tracking.normal + 0.3,
-  },
-  confidenceValue: {
-    fontSize: typography.size.base,
-    fontWeight: typography.weight.bold,
-    color: colors.risk.low.dark,
-  },
-  closeCardButton: {
+  closeSheetButton: {
     width: 36,
     height: 36,
     borderRadius: borderRadius.full,
@@ -869,19 +1161,30 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  compactInfoRow: {
+
+  // Info pills
+  infoPillsRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: spacing[2],
-    marginTop: spacing[3],
-    paddingTop: spacing[3],
-    borderTopWidth: 1,
-    borderTopColor: colors.slate[100],
+    marginTop: spacing[4],
+    flexWrap: "wrap",
+  },
+  severityPill: {
+    backgroundColor: colors.risk.medium.light,
+    paddingHorizontal: spacing[2] + 2,
+    paddingVertical: spacing[1] + 2,
+    borderRadius: borderRadius.full,
+  },
+  severityPillText: {
+    fontSize: typography.size.xs,
+    fontWeight: typography.weight.semibold,
+    color: colors.risk.medium.dark,
   },
   confidencePill: {
     backgroundColor: colors.risk.low.light,
     paddingHorizontal: spacing[2] + 2,
-    paddingVertical: spacing[1],
+    paddingVertical: spacing[1] + 2,
     borderRadius: borderRadius.full,
   },
   confidencePillText: {
@@ -889,98 +1192,126 @@ const styles = StyleSheet.create({
     fontWeight: typography.weight.semibold,
     color: colors.risk.low.dark,
   },
-  expiryPill: {
+  expiryText: {
     fontSize: typography.size.xs,
     color: colors.state.warning,
     fontWeight: typography.weight.medium,
+    marginLeft: "auto",
   },
+
+  // Voting section
   votingSection: {
     marginTop: spacing[4],
+    backgroundColor: `${colors.brand.secondary}06`,
+    borderRadius: borderRadius.xl,
+    padding: spacing[4],
+    borderWidth: 1,
+    borderColor: `${colors.brand.secondary}12`,
   },
   votingLabel: {
-    fontSize: typography.size.xs - 1,
+    fontSize: typography.size.xs,
     fontWeight: typography.weight.semibold,
-    color: colors.text.tertiary,
-    letterSpacing: typography.tracking.wide,
+    color: colors.brand.secondary,
+    letterSpacing: typography.tracking.wider,
+    marginBottom: spacing[1],
+  },
+  votingQuestion: {
+    fontSize: typography.size.md,
+    fontWeight: typography.weight.semibold,
+    color: colors.text.primary,
     marginBottom: spacing[3],
   },
-  votingButtons: {
+  votingRow: {
     flexDirection: "row",
-    gap: spacing[2] + 2,
+    gap: spacing[2],
   },
   voteButton: {
     flex: 1,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: spacing[3],
-    borderRadius: borderRadius.md,
-    gap: 6,
+    height: 44,
+    borderRadius: borderRadius.full,
+    gap: spacing[1] + 2,
+    borderWidth: 1.5,
   },
-  voteSelected: {
-    borderWidth: 2,
-    borderColor: colors.text.primary,
+  voteButtonYes: {
+    backgroundColor: `${colors.brand.secondary}08`,
+    borderColor: `${colors.brand.secondary}30`,
   },
-  voteYes: {
-    backgroundColor: colors.risk.low.light,
+  voteButtonNo: {
+    backgroundColor: colors.slate[50],
+    borderColor: colors.slate[200],
   },
-  voteCleared: {
-    backgroundColor: colors.slate[100],
+  voteButtonNotHere: {
+    backgroundColor: colors.slate[50],
+    borderColor: colors.slate[200],
   },
-  voteNo: {
-    backgroundColor: colors.risk.high.light,
-  },
-  voteText: {
-    fontSize: typography.size.base,
+  voteButtonText: {
+    fontSize: typography.size.sm,
     fontWeight: typography.weight.semibold,
   },
-  voteYesText: {
-    color: colors.risk.low.dark,
-  },
-  voteClearedText: {
-    color: colors.text.secondary,
-  },
-  voteNoText: {
-    color: colors.risk.high.dark,
-  },
+
+  // Confirmation state - blue card inspired by Daily UI #45
   confirmationState: {
     alignItems: "center",
-    paddingVertical: spacing[4],
+    backgroundColor: colors.brand.secondary,
+    borderRadius: borderRadius.xl,
+    paddingVertical: spacing[6],
+    paddingHorizontal: spacing[5],
+    marginVertical: -spacing[1],
+    marginHorizontal: -spacing[1],
   },
-  confirmationIcon: {
-    width: 56,
-    height: 56,
+  confirmationIconBlue: {
+    width: 64,
+    height: 64,
     borderRadius: borderRadius.full,
-    backgroundColor: colors.risk.low.light,
+    backgroundColor: 'rgba(255,255,255,0.2)',
     alignItems: "center",
     justifyContent: "center",
     marginBottom: spacing[3],
   },
-  confirmationTitle: {
-    fontSize: typography.size.lg,
+  confirmationTitleBlue: {
+    fontSize: typography.size['2xl'],
     fontWeight: typography.weight.bold,
-    color: colors.text.primary,
+    color: '#FFFFFF',
   },
-  confirmationSubtitle: {
-    fontSize: typography.size.sm,
-    color: colors.text.secondary,
+  confirmationSubtitleBlue: {
+    fontSize: typography.size.base,
+    color: 'rgba(255,255,255,0.8)',
     marginTop: spacing[1],
     textAlign: "center",
   },
+  confirmationDismissButton: {
+    marginTop: spacing[5],
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    paddingHorizontal: spacing[6],
+    paddingVertical: spacing[3],
+    borderRadius: borderRadius.full,
+  },
+  confirmationDismissText: {
+    fontSize: typography.size.base,
+    fontWeight: typography.weight.semibold,
+    color: '#FFFFFF',
+  },
+
+  // Voted status
   votedStatus: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    marginTop: spacing[3],
+    marginTop: spacing[4],
     paddingVertical: spacing[3],
-    backgroundColor: colors.slate[50],
-    borderRadius: borderRadius.lg,
+    backgroundColor: `${colors.brand.secondary}08`,
+    borderRadius: borderRadius.full,
     gap: spacing[2],
+    borderWidth: 1,
+    borderColor: `${colors.brand.secondary}15`,
   },
   votedStatusText: {
     fontSize: typography.size.sm,
     fontWeight: typography.weight.medium,
-    color: colors.text.secondary,
+    color: colors.brand.secondary,
   },
   changeVoteButton: {
     marginLeft: spacing[2],
@@ -989,5 +1320,23 @@ const styles = StyleSheet.create({
     fontSize: typography.size.sm,
     fontWeight: typography.weight.semibold,
     color: colors.brand.secondary,
+  },
+
+  // View toggle button
+  viewToggleButton: {
+    position: "absolute",
+    right: spacing[4],
+    width: 48,
+    height: 48,
+    borderRadius: borderRadius.full,
+    backgroundColor: colors.background.primary,
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: colors.brand.primary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
+    zIndex: 10,
   },
 });

@@ -4,7 +4,6 @@ import { useQuery, useMutation } from "convex/react";
 import { api } from "@outia/backend/convex/_generated/api";
 import { Id } from "@outia/backend/convex/_generated/dataModel";
 import {
-  ArrowLeft01Icon,
   Location01Icon,
   Add01Icon,
   Delete02Icon,
@@ -28,18 +27,21 @@ import {
   Platform,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Card, Button } from "heroui-native";
+import { Button } from "heroui-native";
+import Animated, { FadeInDown } from "react-native-reanimated";
+import * as Haptics from "expo-haptics";
 
+import { ScreenHeader } from "@/components/screen-header";
 import { useLocation } from "@/hooks/use-location";
 import { colors, spacing, borderRadius, typography, shadows } from "@/lib/design-tokens";
 
 type LocationIcon = "home" | "building" | "star" | "location";
 
-const LOCATION_ICONS: { type: LocationIcon; icon: any; label: string }[] = [
-  { type: "home", icon: Home01Icon, label: "Home" },
-  { type: "building", icon: Building02Icon, label: "Work" },
-  { type: "star", icon: StarIcon, label: "Favorite" },
-  { type: "location", icon: Location01Icon, label: "Other" },
+const LOCATION_ICONS: { type: LocationIcon; icon: any; label: string; color: string; bg: string }[] = [
+  { type: "home", icon: Home01Icon, label: "Home", color: colors.state.success, bg: "#ECFDF5" },
+  { type: "building", icon: Building02Icon, label: "Work", color: colors.state.info, bg: "#EFF6FF" },
+  { type: "star", icon: StarIcon, label: "Favorite", color: colors.gamification.gold, bg: "#FEF3C7" },
+  { type: "location", icon: Location01Icon, label: "Other", color: colors.gamification.xp, bg: "#EDE9FE" },
 ];
 
 export default function SavedLocationsScreen() {
@@ -68,11 +70,13 @@ export default function SavedLocationsScreen() {
   };
 
   const handleOpenAdd = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     resetForm();
     setShowAddModal(true);
   };
 
   const handleOpenEdit = (loc: any) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setEditingLocation(loc._id);
     setNewName(loc.name);
     setNewAddress(loc.address || "");
@@ -107,6 +111,7 @@ export default function SavedLocationsScreen() {
           isDefault,
         });
       }
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       setShowAddModal(false);
       resetForm();
     } catch (error) {
@@ -117,6 +122,7 @@ export default function SavedLocationsScreen() {
   };
 
   const handleDelete = (id: Id<"userLocations">, name: string) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     Alert.alert(
       "Delete Location",
       `Are you sure you want to delete "${name}"?`,
@@ -128,6 +134,7 @@ export default function SavedLocationsScreen() {
           onPress: async () => {
             try {
               await removeLocation({ id });
+              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
             } catch (error) {
               Alert.alert("Error", "Failed to delete location");
             }
@@ -135,14 +142,6 @@ export default function SavedLocationsScreen() {
         },
       ]
     );
-  };
-
-  const handleSetDefault = async (id: Id<"userLocations">) => {
-    try {
-      await updateLocation({ id, isDefault: true });
-    } catch (error) {
-      Alert.alert("Error", "Failed to set default location");
-    }
   };
 
   const getLocationIcon = (name: string) => {
@@ -154,131 +153,135 @@ export default function SavedLocationsScreen() {
 
   const getLocationColor = (name: string): { color: string; bg: string } => {
     const lowerName = name.toLowerCase();
-    if (lowerName.includes("home")) return { color: colors.state.success, bg: colors.risk.low.light };
-    if (lowerName.includes("work") || lowerName.includes("office")) return { color: colors.state.info, bg: colors.risk.low.light };
+    if (lowerName.includes("home")) return { color: colors.state.success, bg: "#ECFDF5" };
+    if (lowerName.includes("work") || lowerName.includes("office")) return { color: colors.state.info, bg: "#EFF6FF" };
     return { color: colors.gamification.xp, bg: "#EDE9FE" };
   };
 
   if (locations === undefined) {
     return (
-      <SafeAreaView style={styles.container} edges={["top"]}>
+      <View style={styles.container}>
+        <ScreenHeader
+          title="Saved Locations"
+          rightAction={{ label: "Add", onPress: handleOpenAdd }}
+        />
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.state.info} />
+          <ActivityIndicator size="large" color={colors.brand.secondary} />
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={["top"]}>
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-          <HugeiconsIcon icon={ArrowLeft01Icon} size={24} color={colors.text.primary} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Saved Locations</Text>
-        <TouchableOpacity style={styles.addButton} onPress={handleOpenAdd}>
-          <HugeiconsIcon icon={Add01Icon} size={24} color={colors.state.info} />
-        </TouchableOpacity>
-      </View>
+    <View style={styles.container}>
+      <ScreenHeader
+        title="Saved Locations"
+        rightAction={{ label: "Add", onPress: handleOpenAdd }}
+      />
 
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
       >
         {/* Current Location Card */}
-        <Card style={styles.currentLocationCard}>
-          <Card.Body style={styles.currentLocationBody}>
-            <View style={styles.currentLocationIcon}>
-              <HugeiconsIcon icon={Location01Icon} size={24} color={colors.state.info} />
-            </View>
-            <View style={styles.currentLocationInfo}>
-              <Text style={styles.currentLocationLabel}>Current Location</Text>
-              <Text style={styles.currentLocationAddress}>
-                {currentAddress || "Detecting..."}
-              </Text>
-            </View>
-            <TouchableOpacity
-              style={styles.saveCurrentButton}
-              onPress={() => {
-                setNewAddress(currentAddress || "");
-                handleOpenAdd();
-              }}
-            >
-              <Text style={styles.saveCurrentText}>Save</Text>
-            </TouchableOpacity>
-          </Card.Body>
-        </Card>
+        <Animated.View entering={FadeInDown.duration(500).delay(100)} style={styles.currentLocationCard}>
+          <View style={styles.currentLocationIcon}>
+            <HugeiconsIcon icon={Location01Icon} size={24} color={colors.brand.secondary} />
+          </View>
+          <View style={styles.currentLocationInfo}>
+            <Text style={styles.currentLocationLabel}>Current Location</Text>
+            <Text style={styles.currentLocationAddress} numberOfLines={1}>
+              {currentAddress || "Detecting..."}
+            </Text>
+          </View>
+          <TouchableOpacity
+            style={styles.saveCurrentButton}
+            onPress={() => {
+              setNewAddress(currentAddress || "");
+              handleOpenAdd();
+            }}
+            activeOpacity={0.7}
+          >
+            <HugeiconsIcon icon={Add01Icon} size={18} color={colors.text.inverse} />
+            <Text style={styles.saveCurrentText}>Save</Text>
+          </TouchableOpacity>
+        </Animated.View>
 
         {/* Saved Locations List */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Your Locations</Text>
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>YOUR LOCATIONS</Text>
+          <Text style={styles.sectionCount}>{locations.length} saved</Text>
+        </View>
 
-          {locations.length === 0 ? (
-            <Card style={styles.emptyCard}>
-              <Card.Body style={styles.emptyCardBody}>
-                <Text style={styles.emptyIcon}>📍</Text>
-                <Text style={styles.emptyTitle}>No saved locations</Text>
-                <Text style={styles.emptyText}>
-                  Add your frequently visited places for quick access
-                </Text>
-                <Button
-                  color="accent"
-                  className="px-6 h-12 rounded-xl"
-                  onPress={handleOpenAdd}
-                >
-                  Add Location
-                </Button>
-              </Card.Body>
-            </Card>
-          ) : (
-            locations.map((loc) => {
+        {locations.length === 0 ? (
+          <Animated.View entering={FadeInDown.duration(500).delay(200)} style={styles.emptyCard}>
+            <Text style={styles.emptyEmoji}>pin</Text>
+            <Text style={styles.emptyTitle}>No saved locations</Text>
+            <Text style={styles.emptyText}>
+              Add your frequently visited places for quick access to risk scores
+            </Text>
+            <Button
+              color="accent"
+              className="px-6 h-12 rounded-xl mt-4"
+              onPress={handleOpenAdd}
+            >
+              Add Location
+            </Button>
+          </Animated.View>
+        ) : (
+          <Animated.View entering={FadeInDown.duration(500).delay(200)}>
+            {locations.map((loc, index) => {
               const locColors = getLocationColor(loc.name);
               return (
-                <Card key={loc._id} style={styles.locationCard}>
-                  <Card.Body style={styles.locationCardBody}>
-                    <View style={[styles.locationIcon, { backgroundColor: locColors.bg }]}>
-                      <HugeiconsIcon
-                        icon={getLocationIcon(loc.name)}
-                        size={20}
-                        color={locColors.color}
-                      />
-                    </View>
-                    <View style={styles.locationInfo}>
-                      <View style={styles.locationNameRow}>
-                        <Text style={styles.locationName}>{loc.name}</Text>
-                        {loc.isDefault && (
-                          <View style={styles.defaultBadge}>
-                            <Text style={styles.defaultBadgeText}>Default</Text>
-                          </View>
-                        )}
-                      </View>
-                      {loc.address && (
-                        <Text style={styles.locationAddress} numberOfLines={1}>
-                          {loc.address}
-                        </Text>
+                <TouchableOpacity
+                  key={loc._id}
+                  style={styles.locationCard}
+                  onPress={() => handleOpenEdit(loc)}
+                  activeOpacity={0.7}
+                >
+                  <View style={[styles.locationIcon, { backgroundColor: locColors.bg }]}>
+                    <HugeiconsIcon
+                      icon={getLocationIcon(loc.name)}
+                      size={22}
+                      color={locColors.color}
+                    />
+                  </View>
+                  <View style={styles.locationInfo}>
+                    <View style={styles.locationNameRow}>
+                      <Text style={styles.locationName}>{loc.name}</Text>
+                      {loc.isDefault && (
+                        <View style={styles.defaultBadge}>
+                          <Text style={styles.defaultBadgeText}>Default</Text>
+                        </View>
                       )}
                     </View>
-                    <View style={styles.locationActions}>
-                      <TouchableOpacity
-                        style={styles.actionButton}
-                        onPress={() => handleOpenEdit(loc)}
-                      >
-                        <HugeiconsIcon icon={Edit02Icon} size={18} color={colors.text.secondary} />
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        style={styles.actionButton}
-                        onPress={() => handleDelete(loc._id, loc.name)}
-                      >
-                        <HugeiconsIcon icon={Delete02Icon} size={18} color={colors.state.error} />
-                      </TouchableOpacity>
-                    </View>
-                  </Card.Body>
-                </Card>
+                    {loc.address && (
+                      <Text style={styles.locationAddress} numberOfLines={1}>
+                        {loc.address}
+                      </Text>
+                    )}
+                  </View>
+                  <View style={styles.locationActions}>
+                    <TouchableOpacity
+                      style={styles.actionButton}
+                      onPress={(e) => {
+                        e.stopPropagation();
+                        handleDelete(loc._id, loc.name);
+                      }}
+                      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                    >
+                      <HugeiconsIcon icon={Delete02Icon} size={20} color={colors.state.error} />
+                    </TouchableOpacity>
+                  </View>
+                </TouchableOpacity>
               );
-            })
-          )}
-        </View>
+            })}
+          </Animated.View>
+        )}
+
+        {/* Bottom spacing */}
+        <View style={{ height: spacing[10] }} />
       </ScrollView>
 
       {/* Add/Edit Modal */}
@@ -315,10 +318,11 @@ export default function SavedLocationsScreen() {
             <ScrollView
               style={styles.modalContent}
               contentContainerStyle={styles.modalContentContainer}
+              showsVerticalScrollIndicator={false}
             >
               {/* Icon Selection */}
               <View style={styles.modalSection}>
-                <Text style={styles.modalLabel}>Type</Text>
+                <Text style={styles.modalLabel}>TYPE</Text>
                 <View style={styles.iconGrid}>
                   {LOCATION_ICONS.map((item) => (
                     <TouchableOpacity
@@ -326,23 +330,28 @@ export default function SavedLocationsScreen() {
                       style={[
                         styles.iconOption,
                         newIcon === item.type && styles.iconOptionSelected,
+                        newIcon === item.type && { borderColor: item.color },
                       ]}
                       onPress={() => {
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                         setNewIcon(item.type);
                         if (!newName && item.type !== "location") {
                           setNewName(item.label);
                         }
                       }}
+                      activeOpacity={0.7}
                     >
-                      <HugeiconsIcon
-                        icon={item.icon}
-                        size={24}
-                        color={newIcon === item.type ? colors.state.info : colors.text.secondary}
-                      />
+                      <View style={[styles.iconOptionCircle, { backgroundColor: item.bg }]}>
+                        <HugeiconsIcon
+                          icon={item.icon}
+                          size={24}
+                          color={item.color}
+                        />
+                      </View>
                       <Text
                         style={[
                           styles.iconOptionLabel,
-                          newIcon === item.type && styles.iconOptionLabelSelected,
+                          newIcon === item.type && { color: item.color },
                         ]}
                       >
                         {item.label}
@@ -354,7 +363,7 @@ export default function SavedLocationsScreen() {
 
               {/* Name Input */}
               <View style={styles.modalSection}>
-                <Text style={styles.modalLabel}>Name</Text>
+                <Text style={styles.modalLabel}>NAME</Text>
                 <TextInput
                   style={styles.modalInput}
                   placeholder="e.g., Home, Work, Gym"
@@ -366,7 +375,7 @@ export default function SavedLocationsScreen() {
 
               {/* Address Input */}
               <View style={styles.modalSection}>
-                <Text style={styles.modalLabel}>Address (optional)</Text>
+                <Text style={styles.modalLabel}>ADDRESS (OPTIONAL)</Text>
                 <TextInput
                   style={[styles.modalInput, styles.modalInputMultiline]}
                   placeholder="Enter address or use current location"
@@ -379,9 +388,13 @@ export default function SavedLocationsScreen() {
                 {currentAddress && (
                   <TouchableOpacity
                     style={styles.useCurrentButton}
-                    onPress={() => setNewAddress(currentAddress)}
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      setNewAddress(currentAddress);
+                    }}
+                    activeOpacity={0.7}
                   >
-                    <HugeiconsIcon icon={Location01Icon} size={16} color={colors.state.info} />
+                    <HugeiconsIcon icon={Location01Icon} size={16} color={colors.brand.secondary} />
                     <Text style={styles.useCurrentText}>Use current location</Text>
                   </TouchableOpacity>
                 )}
@@ -390,7 +403,11 @@ export default function SavedLocationsScreen() {
               {/* Default Toggle */}
               <TouchableOpacity
                 style={styles.defaultToggle}
-                onPress={() => setIsDefault(!isDefault)}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  setIsDefault(!isDefault);
+                }}
+                activeOpacity={0.7}
               >
                 <View style={styles.defaultToggleContent}>
                   <Text style={styles.defaultToggleLabel}>Set as default location</Text>
@@ -404,7 +421,7 @@ export default function SavedLocationsScreen() {
                     isDefault && styles.checkboxChecked,
                   ]}
                 >
-                  {isDefault && <Text style={styles.checkmark}>✓</Text>}
+                  {isDefault && <Text style={styles.checkmark}>check</Text>}
                 </View>
               </TouchableOpacity>
             </ScrollView>
@@ -413,7 +430,7 @@ export default function SavedLocationsScreen() {
               <Button
                 color="accent"
                 size="lg"
-                className="w-full h-14 rounded-xl"
+                className="w-full h-14 rounded-2xl"
                 onPress={handleSubmit}
                 isDisabled={isSubmitting || !newName.trim()}
               >
@@ -427,7 +444,7 @@ export default function SavedLocationsScreen() {
           </KeyboardAvoidingView>
         </SafeAreaView>
       </Modal>
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -441,33 +458,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: spacing[4],
-    paddingVertical: spacing[3],
-    backgroundColor: colors.background.primary,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border.light,
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  headerTitle: {
-    fontSize: typography.size.xl,
-    fontWeight: typography.weight.bold,
-    color: colors.text.primary,
-  },
-  addButton: {
-    width: 40,
-    height: 40,
-    alignItems: "center",
-    justifyContent: "center",
-  },
   scrollView: {
     flex: 1,
   },
@@ -475,22 +465,23 @@ const styles = StyleSheet.create({
     padding: spacing[4],
     paddingBottom: spacing[10],
   },
+
+  // Current Location Card
   currentLocationCard: {
     backgroundColor: "#EFF6FF",
-    borderRadius: borderRadius.xl,
-    marginBottom: spacing[6],
-  },
-  currentLocationBody: {
+    borderRadius: 20,
+    padding: spacing[4],
     flexDirection: "row",
     alignItems: "center",
-    padding: spacing[4],
     gap: spacing[3],
+    marginBottom: spacing[6],
+    ...shadows.sm,
   },
   currentLocationIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: colors.risk.low.light,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: "#FFFFFF",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -500,7 +491,7 @@ const styles = StyleSheet.create({
   currentLocationLabel: {
     fontSize: typography.size.sm,
     fontWeight: typography.weight.semibold,
-    color: colors.state.info,
+    color: colors.brand.secondary,
     marginBottom: 2,
   },
   currentLocationAddress: {
@@ -508,36 +499,49 @@ const styles = StyleSheet.create({
     color: "#1E40AF",
   },
   saveCurrentButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
     paddingHorizontal: spacing[4],
-    paddingVertical: spacing[2],
-    backgroundColor: colors.state.info,
-    borderRadius: borderRadius.md,
+    paddingVertical: spacing[2] + 2,
+    backgroundColor: colors.brand.secondary,
+    borderRadius: 10,
   },
   saveCurrentText: {
     fontSize: typography.size.base,
     fontWeight: typography.weight.semibold,
     color: colors.text.inverse,
   },
-  section: {
-    marginBottom: spacing[6],
+
+  // Section Header
+  sectionHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: spacing[3],
+    paddingHorizontal: spacing[1],
   },
   sectionTitle: {
-    fontSize: 13,
+    fontSize: typography.size.sm,
     fontWeight: typography.weight.semibold,
     color: colors.text.secondary,
-    marginBottom: spacing[3],
-    marginLeft: 4,
+    letterSpacing: 0.5,
   },
+  sectionCount: {
+    fontSize: typography.size.sm,
+    color: colors.text.tertiary,
+  },
+
+  // Empty State
   emptyCard: {
-    backgroundColor: colors.background.primary,
-    borderRadius: borderRadius.xl,
-  },
-  emptyCardBody: {
-    alignItems: "center",
+    backgroundColor: "#FFFFFF",
+    borderRadius: 20,
     padding: spacing[8],
+    alignItems: "center",
+    ...shadows.sm,
   },
-  emptyIcon: {
-    fontSize: 48,
+  emptyEmoji: {
+    fontSize: 56,
     marginBottom: spacing[4],
   },
   emptyTitle: {
@@ -550,23 +554,24 @@ const styles = StyleSheet.create({
     fontSize: typography.size.base,
     color: colors.text.secondary,
     textAlign: "center",
-    marginBottom: spacing[5],
+    lineHeight: 22,
   },
+
+  // Location Card
   locationCard: {
-    backgroundColor: colors.background.primary,
-    borderRadius: borderRadius.lg,
-    marginBottom: spacing[2],
-  },
-  locationCardBody: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 16,
+    padding: spacing[4],
     flexDirection: "row",
     alignItems: "center",
-    padding: 14,
     gap: spacing[3],
+    marginBottom: spacing[3],
+    ...shadows.sm,
   },
   locationIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: borderRadius.md,
+    width: 48,
+    height: 48,
+    borderRadius: 14,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -587,7 +592,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.risk.low.light,
     paddingHorizontal: spacing[2],
     paddingVertical: 2,
-    borderRadius: 4,
+    borderRadius: 6,
   },
   defaultBadgeText: {
     fontSize: typography.size.xs,
@@ -595,7 +600,7 @@ const styles = StyleSheet.create({
     color: colors.risk.low.dark,
   },
   locationAddress: {
-    fontSize: 13,
+    fontSize: typography.size.sm,
     color: colors.text.secondary,
     marginTop: 2,
   },
@@ -604,15 +609,18 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   actionButton: {
-    width: 36,
-    height: 36,
+    width: 40,
+    height: 40,
     alignItems: "center",
     justifyContent: "center",
-    borderRadius: borderRadius.md,
+    borderRadius: 10,
+    backgroundColor: colors.risk.high.light,
   },
+
+  // Modal
   modalContainer: {
     flex: 1,
-    backgroundColor: colors.background.primary,
+    backgroundColor: colors.background.secondary,
   },
   modalKeyboard: {
     flex: 1,
@@ -622,7 +630,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: spacing[4],
-    paddingVertical: spacing[3],
+    paddingVertical: spacing[4],
+    backgroundColor: "#FFFFFF",
     borderBottomWidth: 1,
     borderBottomColor: colors.border.light,
   },
@@ -645,16 +654,17 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   modalContentContainer: {
-    padding: spacing[5],
+    padding: spacing[4],
   },
   modalSection: {
-    marginBottom: spacing[6],
+    marginBottom: spacing[5],
   },
   modalLabel: {
-    fontSize: typography.size.base,
+    fontSize: typography.size.sm,
     fontWeight: typography.weight.semibold,
-    color: colors.slate[700],
-    marginBottom: 10,
+    color: colors.text.secondary,
+    marginBottom: spacing[3],
+    letterSpacing: 0.5,
   },
   iconGrid: {
     flexDirection: "row",
@@ -664,31 +674,34 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: "center",
     padding: spacing[4],
-    borderRadius: borderRadius.lg,
-    backgroundColor: colors.background.secondary,
+    borderRadius: 16,
+    backgroundColor: "#FFFFFF",
     borderWidth: 2,
     borderColor: colors.border.light,
   },
   iconOptionSelected: {
-    borderColor: colors.state.info,
-    backgroundColor: "#EFF6FF",
+    backgroundColor: "#FFFFFF",
+  },
+  iconOptionCircle: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: spacing[2],
   },
   iconOptionLabel: {
     fontSize: typography.size.sm,
     fontWeight: typography.weight.semibold,
     color: colors.text.secondary,
-    marginTop: spacing[2],
-  },
-  iconOptionLabelSelected: {
-    color: colors.state.info,
   },
   modalInput: {
-    backgroundColor: colors.background.secondary,
+    backgroundColor: "#FFFFFF",
     borderWidth: 1,
     borderColor: colors.border.light,
-    borderRadius: borderRadius.lg,
+    borderRadius: 14,
     paddingHorizontal: spacing[4],
-    paddingVertical: 14,
+    paddingVertical: spacing[4],
     fontSize: typography.size.md,
     color: colors.text.primary,
   },
@@ -699,23 +712,23 @@ const styles = StyleSheet.create({
   useCurrentButton: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
-    marginTop: 10,
-    padding: 10,
+    gap: spacing[2],
+    marginTop: spacing[3],
+    padding: spacing[3],
     backgroundColor: "#EFF6FF",
-    borderRadius: borderRadius.md,
+    borderRadius: 12,
   },
   useCurrentText: {
     fontSize: typography.size.base,
-    color: colors.state.info,
+    color: colors.brand.secondary,
     fontWeight: typography.weight.medium,
   },
   defaultToggle: {
     flexDirection: "row",
     alignItems: "center",
     padding: spacing[4],
-    backgroundColor: colors.background.secondary,
-    borderRadius: borderRadius.lg,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 16,
   },
   defaultToggleContent: {
     flex: 1,
@@ -726,30 +739,31 @@ const styles = StyleSheet.create({
     color: colors.text.primary,
   },
   defaultToggleDescription: {
-    fontSize: 13,
+    fontSize: typography.size.sm,
     color: colors.text.secondary,
     marginTop: 2,
   },
   checkbox: {
-    width: 24,
-    height: 24,
-    borderRadius: 6,
+    width: 26,
+    height: 26,
+    borderRadius: 8,
     borderWidth: 2,
     borderColor: colors.border.medium,
     alignItems: "center",
     justifyContent: "center",
   },
   checkboxChecked: {
-    backgroundColor: colors.state.info,
-    borderColor: colors.state.info,
+    backgroundColor: colors.brand.secondary,
+    borderColor: colors.brand.secondary,
   },
   checkmark: {
     color: colors.text.inverse,
-    fontSize: typography.size.base,
-    fontWeight: typography.weight.bold,
+    fontSize: typography.size.sm,
   },
   modalFooter: {
     padding: spacing[4],
+    paddingBottom: spacing[6],
+    backgroundColor: "#FFFFFF",
     borderTopWidth: 1,
     borderTopColor: colors.border.light,
   },

@@ -33,9 +33,16 @@ export function useLocation(): LocationState {
         return;
       }
 
-      const position = await Location.getCurrentPositionAsync({
+      // Add timeout to prevent hanging forever
+      const positionPromise = Location.getCurrentPositionAsync({
         accuracy: Location.Accuracy.Balanced,
       });
+
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        setTimeout(() => reject(new Error("Location request timed out")), 15000);
+      });
+
+      const position = await Promise.race([positionPromise, timeoutPromise]);
 
       const coords = {
         lat: position.coords.latitude,

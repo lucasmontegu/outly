@@ -19,6 +19,7 @@
     "@ai-sdk/openai": "^2.0.50",
     "@outia/env": "*",
     "dotenv": "^17.2.2",
+    "react-native-gesture-handler": "~2.28.0",
     "zod": "^4.1.13"
   },
   "devDependencies": {

@@ -114,8 +114,8 @@ function ToastItem({ config, onHide }: ToastItemProps) {
 
   return (
     <Animated.View
-      entering={SlideInUp.springify().damping(20).stiffness(300)}
-      exiting={SlideOutUp.springify().damping(20)}
+      entering={SlideInUp.duration(200)}
+      exiting={SlideOutUp.duration(150)}
       style={[
         styles.toast,
         { backgroundColor: colors.bg, marginTop: insets.top + spacing[2] },

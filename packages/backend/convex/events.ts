@@ -90,6 +90,26 @@ const slimEventDoc = v.object({
   ttl: v.number(),
 });
 
+// Medium event for map view (includes routePoints for traffic polylines, excludes rawData)
+const mediumEventDoc = v.object({
+  _id: v.id("events"),
+  _creationTime: v.number(),
+  type: v.union(v.literal("weather"), v.literal("traffic")),
+  subtype: v.string(),
+  location: v.object({ lat: v.number(), lng: v.number() }),
+  routePoints: v.optional(v.array(v.object({ lat: v.number(), lng: v.number() }))),
+  radius: v.number(),
+  severity: v.number(),
+  source: v.union(
+    v.literal("openweathermap"),
+    v.literal("tomorrow"),
+    v.literal("here"),
+    v.literal("user")
+  ),
+  confidenceScore: v.number(),
+  ttl: v.number(),
+});
+
 export const listActive = query({
   args: {
     type: v.optional(v.union(v.literal("weather"), v.literal("traffic"))),
@@ -248,6 +268,62 @@ export const listNearbySlim = query({
         location,
         radius,
         severity,
+        confidenceScore,
+        ttl,
+      }));
+  },
+});
+
+// Medium version for map view - includes routePoints for traffic polylines, excludes rawData
+export const listNearbyMedium = query({
+  args: {
+    lat: v.number(),
+    lng: v.number(),
+    radiusKm: v.number(),
+    asOfTimestamp: v.optional(v.number()),
+  },
+  returns: v.array(mediumEventDoc),
+  handler: async (ctx, args) => {
+    const now = args.asOfTimestamp
+      ? Math.floor(args.asOfTimestamp / 60000) * 60000
+      : Date.now();
+
+    const gridCells = getIntersectingGridCells(args.lat, args.lng, args.radiusKm);
+
+    const eventPromises = gridCells.map((cell) =>
+      ctx.db
+        .query("events")
+        .withIndex("by_grid_ttl", (q) => q.eq("gridCell", cell).gt("ttl", now))
+        .collect()
+    );
+
+    const eventArrays = await Promise.all(eventPromises);
+    const events = eventArrays.flat();
+
+    const seen = new Set<string>();
+    return events
+      .filter((e) => {
+        if (seen.has(e._id)) return false;
+        seen.add(e._id);
+        if (e.confidenceScore <= 20) return false;
+        const distance = haversineDistance(
+          args.lat,
+          args.lng,
+          e.location.lat,
+          e.location.lng
+        );
+        return distance <= args.radiusKm;
+      })
+      .map(({ _id, _creationTime, type, subtype, location, routePoints, radius, severity, source, confidenceScore, ttl }) => ({
+        _id,
+        _creationTime,
+        type,
+        subtype,
+        location,
+        routePoints,
+        radius,
+        severity,
+        source,
         confidenceScore,
         ttl,
       }));

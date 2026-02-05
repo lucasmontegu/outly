@@ -133,8 +133,8 @@ export function ConditionCards({ weather, traffic }: ConditionCardsProps) {
 
 const styles = StyleSheet.create({
   container: {
-    marginTop: spacing[6],
-    paddingHorizontal: spacing[6],
+    marginTop: 0,
+    paddingHorizontal: 0,
   },
   header: {
     marginBottom: spacing[3],

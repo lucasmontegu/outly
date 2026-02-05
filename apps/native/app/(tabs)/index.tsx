@@ -10,6 +10,7 @@ import {
   StyleSheet,
   ScrollView,
   RefreshControl,
+  TouchableOpacity,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useState, useCallback, useMemo } from "react";
@@ -45,10 +46,58 @@ function getRoundedTimestamp(): number {
   return Math.floor(Date.now() / 60000) * 60000;
 }
 
+// Header component with greeting and profile avatar
+function HomeHeader({ userName, location }: { userName: string; location?: string }) {
+  const router = useRouter();
+  const hour = new Date().getHours();
+
+  const greeting = hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
+
+  return (
+    <View style={styles.homeHeader}>
+      <View style={styles.headerLeft}>
+        <Text style={styles.greeting}>{greeting},</Text>
+        <Text style={styles.userName}>{userName}</Text>
+        {location && (
+          <View style={styles.locationRow}>
+            <HugeiconsIcon icon={Location01Icon} size={14} color={colors.text.tertiary} />
+            <Text style={styles.locationText}>{location}</Text>
+          </View>
+        )}
+      </View>
+      <TouchableOpacity
+        style={styles.avatarButton}
+        onPress={() => {
+          lightHaptic();
+          router.push("/(tabs)/settings");
+        }}
+        accessibilityLabel="Open settings"
+        accessibilityRole="button"
+      >
+        <View style={styles.avatar}>
+          <HugeiconsIcon icon={UserIcon} size={24} color={colors.brand.primary} />
+        </View>
+      </TouchableOpacity>
+    </View>
+  );
+}
+
+// Section card wrapper component
+function SectionCard({ children, style }: { children: React.ReactNode; style?: any }) {
+  return (
+    <Animated.View
+      entering={FadeInDown.delay(100)}
+      style={[styles.sectionCard, style]}
+    >
+      {children}
+    </Animated.View>
+  );
+}
+
 export default function OverviewScreen() {
   const router = useRouter();
   const { user } = useUser();
-  const { location, address, isLoading: locationLoading } = useLocation();
+  const { location, address, isLoading: locationLoading, error: locationError, refresh: refreshLocation } = useLocation();
   const [refreshing, setRefreshing] = useState(false);
   const [timestamp, setTimestamp] = useState(getRoundedTimestamp);
 
@@ -70,12 +119,16 @@ export default function OverviewScreen() {
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     lightHaptic();
+    // Refresh location if there was an error
+    if (locationError) {
+      await refreshLocation();
+    }
     // Update timestamp to force fresh data
     setTimestamp(getRoundedTimestamp());
     setTimeout(() => setRefreshing(false), 1000);
-  }, []);
+  }, [locationError, refreshLocation]);
 
-  const isLoading = locationLoading || dashboardData === undefined;
+  const isLoading = locationLoading || (!locationError && dashboardData === undefined);
 
   // Calculate derived data from consolidated dashboard query
   const derivedData = useMemo(() => {
@@ -166,6 +219,9 @@ export default function OverviewScreen() {
     router.push("/(tabs)/saved");
   };
 
+  // Get user's first name
+  const firstName = user?.firstName || user?.username || "there";
+
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
       <ScrollView
@@ -176,58 +232,42 @@ export default function OverviewScreen() {
         }
         showsVerticalScrollIndicator={false}
       >
-        {/* Header */}
-        <Animated.View
-          entering={FadeInDown.duration(400).delay(100)}
-          style={styles.header}
-        >
-          <View style={styles.locationInfo}>
-            <View style={styles.locationLabel}>
-              <HugeiconsIcon
-                icon={Location01Icon}
-                size={14}
-                color={colors.text.secondary}
-              />
-              <Text style={styles.locationLabelText}>CURRENT LOCATION</Text>
-            </View>
-            {address ? (
-              <Animated.Text
-                entering={FadeIn.duration(300)}
-                style={styles.locationName}
-                numberOfLines={1}
-              >
-                {address}
-              </Animated.Text>
-            ) : (
-              <Skeleton
-                width={180}
-                height={24}
-                borderRadius={6}
-                style={{ marginTop: 4 }}
-              />
-            )}
-          </View>
-          <AnimatedIconButton
-            style={styles.profileButton}
-            onPress={() => router.push("/(tabs)/settings")}
-            accessibilityLabel="Open settings"
-            accessibilityRole="button"
-          >
-            <HugeiconsIcon
-              icon={UserIcon}
-              size={24}
-              color={colors.text.secondary}
-            />
-          </AnimatedIconButton>
+        {/* Header with greeting */}
+        <Animated.View entering={FadeInDown.duration(400).delay(100)}>
+          <HomeHeader userName={firstName ?? ""} location={address ?? ""} />
         </Animated.View>
 
-        {/* Departure Hero - Main CTA */}
-        <Animated.View entering={FadeIn.duration(500).delay(200)}>
-          {isLoading ? (
-            <View style={styles.heroSkeleton}>
-              <RiskCircleSkeleton />
+        {/* Location Error State */}
+        {locationError && (
+          <View style={styles.locationErrorContainer}>
+            <View style={styles.locationErrorCard}>
+              <HugeiconsIcon icon={Location01Icon} size={32} color={colors.text.tertiary} />
+              <Text style={styles.locationErrorTitle}>Location Unavailable</Text>
+              <Text style={styles.locationErrorText}>
+                {locationError === "Location permission denied"
+                  ? "Please enable location access in your device settings to see local conditions."
+                  : "Unable to get your location. Pull down to retry."}
+              </Text>
+              <TouchableOpacity
+                style={styles.locationErrorButton}
+                onPress={() => {
+                  lightHaptic();
+                  refreshLocation();
+                }}
+              >
+                <Text style={styles.locationErrorButtonText}>Try Again</Text>
+              </TouchableOpacity>
             </View>
-          ) : (
+          </View>
+        )}
+
+        {/* Departure Hero - Main CTA */}
+        {isLoading ? (
+          <View style={styles.heroSkeleton}>
+            <RiskCircleSkeleton />
+          </View>
+        ) : (
+          <SectionCard style={{ marginTop: spacing[6] }}>
             <DepartureHero
               optimalDepartureMinutes={derivedData.optimalDepartureMinutes}
               optimalTime={derivedData.optimalTime}
@@ -236,28 +276,28 @@ export default function OverviewScreen() {
               reason={derivedData.reason}
               isOptimalNow={derivedData.isOptimalNow}
             />
-          )}
-        </Animated.View>
+          </SectionCard>
+        )}
 
         {/* Risk Timeline - Next 2 Hours */}
-        <Animated.View entering={FadeInDown.duration(400).delay(300)}>
-          {isLoading ? (
-            <View style={styles.timelineSkeleton}>
-              <View style={styles.timelineHeader}>
-                <Skeleton width={100} height={20} borderRadius={4} />
-              </View>
-              <View style={styles.timelineSlotsSkeleton}>
-                {[1, 2, 3, 4, 5, 6].map((i) => (
-                  <Skeleton
-                    key={i}
-                    width={64}
-                    height={100}
-                    borderRadius={12}
-                  />
-                ))}
-              </View>
+        {isLoading ? (
+          <View style={styles.timelineSkeleton}>
+            <View style={styles.timelineHeader}>
+              <Skeleton width={100} height={20} borderRadius={4} />
             </View>
-          ) : (
+            <View style={styles.timelineSlotsSkeleton}>
+              {[1, 2, 3, 4, 5, 6].map((i) => (
+                <Skeleton
+                  key={i}
+                  width={64}
+                  height={100}
+                  borderRadius={12}
+                />
+              ))}
+            </View>
+          </View>
+        ) : (
+          <SectionCard>
             <RiskTimeline
               slots={derivedData.timelineSlots}
               onSlotPress={(slot) => {
@@ -265,17 +305,17 @@ export default function OverviewScreen() {
                 // Could show more details about that time slot
               }}
             />
-          )}
-        </Animated.View>
+          </SectionCard>
+        )}
 
         {/* Condition Cards - Weather & Traffic Details */}
-        <Animated.View entering={FadeInDown.duration(400).delay(400)}>
-          {isLoading ? (
-            <View style={styles.conditionsSkeleton}>
-              <DataCardSkeleton />
-              <DataCardSkeleton />
-            </View>
-          ) : (
+        {isLoading ? (
+          <View style={styles.conditionsSkeleton}>
+            <DataCardSkeleton />
+            <DataCardSkeleton />
+          </View>
+        ) : (
+          <SectionCard>
             <ConditionCards
               weather={{
                 status: derivedData.weatherStatus.status,
@@ -288,32 +328,32 @@ export default function OverviewScreen() {
                 score: derivedData.trafficScore,
               }}
             />
-          )}
-        </Animated.View>
+          </SectionCard>
+        )}
 
         {/* Saved Routes Preview */}
-        <Animated.View entering={FadeInDown.duration(400).delay(450)}>
-          {dashboardData?.routes && dashboardData.routes.length > 0 && (
+        {dashboardData?.routes && dashboardData.routes.length > 0 && (
+          <SectionCard>
             <RoutesPreview
               routes={dashboardData.routes}
               onRoutePress={handleRoutePress}
               onViewAllPress={handleViewAllRoutes}
             />
-          )}
-        </Animated.View>
+          </SectionCard>
+        )}
 
         {/* Alerts Section */}
-        <Animated.View entering={FadeInDown.duration(400).delay(500)}>
-          {!isLoading && (
+        {!isLoading && (
+          <SectionCard>
             <AlertsSection
               alerts={derivedData.alerts}
               onAlertPress={handleAlertPress}
               onViewAllPress={handleViewMapPress}
             />
-          )}
-        </Animated.View>
+          </SectionCard>
+        )}
 
-        {/* Bottom padding */}
+        {/* Bottom padding for floating tab bar */}
         <View style={styles.bottomPadding} />
       </ScrollView>
 
@@ -413,55 +453,80 @@ function formatTimeAgo(timestamp: number): string {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background.primary,
+    backgroundColor: colors.slate[50],
   },
   scrollView: {
     flex: 1,
   },
   scrollContent: {
-    paddingBottom: spacing[6],
+    paddingBottom: 120,
   },
-  header: {
+  // Header with greeting
+  homeHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "flex-start",
     paddingHorizontal: spacing[6],
     paddingTop: spacing[4],
+    paddingBottom: spacing[2],
   },
-  locationInfo: {
+  headerLeft: {
     flex: 1,
   },
-  locationLabel: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing[1],
-  },
-  locationLabelText: {
-    fontSize: typography.size.xs,
-    fontWeight: typography.weight.semibold,
+  greeting: {
+    fontSize: typography.size.base,
     color: colors.text.secondary,
-    letterSpacing: typography.tracking.wide,
+    fontWeight: typography.weight.medium,
   },
-  locationName: {
-    fontSize: typography.size["2xl"],
+  userName: {
+    fontSize: typography.size["3xl"],
     fontWeight: typography.weight.bold,
     color: colors.text.primary,
-    marginTop: spacing[1],
+    marginTop: 2,
   },
-  profileButton: {
-    width: 44,
-    height: 44,
-    borderRadius: borderRadius.full,
-    backgroundColor: colors.slate[100],
+  locationRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    marginTop: spacing[2],
+  },
+  locationText: {
+    fontSize: typography.size.sm,
+    color: colors.text.tertiary,
+  },
+  avatarButton: {
+    marginLeft: spacing[4],
+  },
+  avatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: `${colors.brand.primary}10`,
     alignItems: "center",
     justifyContent: "center",
+  },
+  // Section card wrapper
+  sectionCard: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 20,
+    marginHorizontal: spacing[4],
+    marginBottom: spacing[4],
+    padding: spacing[5],
+    shadowColor: colors.brand.primary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 12,
+    elevation: 3,
   },
   heroSkeleton: {
     alignItems: "center",
     paddingVertical: spacing[6],
+    marginHorizontal: spacing[4],
+    marginTop: spacing[6],
   },
   timelineSkeleton: {
     marginTop: spacing[6],
+    marginHorizontal: spacing[4],
   },
   timelineHeader: {
     paddingHorizontal: spacing[6],
@@ -479,6 +544,47 @@ const styles = StyleSheet.create({
     gap: spacing[3],
   },
   bottomPadding: {
-    height: spacing[8],
+    height: spacing[12],
+  },
+  // Location error
+  locationErrorContainer: {
+    marginHorizontal: spacing[4],
+    marginTop: spacing[6],
+  },
+  locationErrorCard: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 20,
+    padding: spacing[6],
+    alignItems: "center",
+    shadowColor: colors.brand.primary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 12,
+    elevation: 3,
+  },
+  locationErrorTitle: {
+    fontSize: typography.size.lg,
+    fontWeight: typography.weight.semibold,
+    color: colors.text.primary,
+    marginTop: spacing[3],
+  },
+  locationErrorText: {
+    fontSize: typography.size.base,
+    color: colors.text.secondary,
+    textAlign: "center",
+    marginTop: spacing[2],
+    lineHeight: 22,
+  },
+  locationErrorButton: {
+    marginTop: spacing[4],
+    backgroundColor: colors.brand.primary,
+    paddingHorizontal: spacing[6],
+    paddingVertical: spacing[3],
+    borderRadius: borderRadius.lg,
+  },
+  locationErrorButtonText: {
+    fontSize: typography.size.base,
+    fontWeight: typography.weight.semibold,
+    color: colors.text.inverse,
   },
 });

@@ -1,7 +1,7 @@
 import React from "react";
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from "react-native";
-import Animated, { FadeInRight } from "react-native-reanimated";
-import { colors, spacing, borderRadius, typography, shadows } from "@/lib/design-tokens";
+import Animated, { FadeInDown, useAnimatedStyle, useSharedValue, withSpring } from "react-native-reanimated";
+import { colors, spacing, borderRadius, typography } from "@/lib/design-tokens";
 import { lightHaptic } from "@/lib/haptics";
 
 type Classification = "low" | "medium" | "high";
@@ -20,17 +20,88 @@ type RiskTimelineProps = {
   onSlotPress?: (slot: TimeSlot) => void;
 };
 
-const COLORS = {
+// Use the brand's existing risk colors from design tokens
+const RISK_COLORS = {
   low: colors.risk.low.primary,
   medium: colors.risk.medium.primary,
   high: colors.risk.high.primary,
 };
 
-const BG_COLORS = {
-  low: colors.risk.low.light,
-  medium: colors.risk.medium.light,
-  high: colors.risk.high.light,
+type TimeSlotCardProps = {
+  slot: TimeSlot;
+  index: number;
+  onPress?: (slot: TimeSlot) => void;
 };
+
+function TimeSlotCard({ slot, index, onPress }: TimeSlotCardProps) {
+  const scale = useSharedValue(1);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+
+  const handlePressIn = () => {
+    scale.value = withSpring(0.95, {
+      damping: 18,
+      stiffness: 500,
+    });
+  };
+
+  const handlePressOut = () => {
+    scale.value = withSpring(1, {
+      damping: 15,
+      stiffness: 400,
+    });
+  };
+
+  const handlePress = () => {
+    lightHaptic();
+    onPress?.(slot);
+  };
+
+  return (
+    <Animated.View
+      entering={FadeInDown.duration(400).delay(index * 80)}
+      style={animatedStyle}
+    >
+      <TouchableOpacity
+        style={[
+          styles.slotCard,
+          slot.isOptimal && styles.slotOptimal,
+        ]}
+        onPressIn={handlePressIn}
+        onPressOut={handlePressOut}
+        onPress={handlePress}
+        activeOpacity={1}
+        accessibilityLabel={`${slot.label}: Risk score ${slot.score}, ${slot.classification} risk`}
+      >
+        {/* Time Label */}
+        <Text style={[styles.timeLabel, slot.isNow && styles.timeLabelNow]}>
+          {slot.isNow ? "NOW" : slot.label}
+        </Text>
+
+        {/* Risk indicator dot */}
+{/*         <View
+          style={[
+            styles.riskIndicator,
+            { backgroundColor: RISK_COLORS[slot.classification] },
+          ]}
+        /> */}
+
+        {/* Score Number */}
+        <Text
+          style={[
+            styles.scoreText,
+            { color: RISK_COLORS[slot.classification] },
+          ]}
+        >
+          {slot.score}
+        </Text>
+
+      </TouchableOpacity>
+    </Animated.View>
+  );
+}
 
 export function RiskTimeline({ slots, onSlotPress }: RiskTimelineProps) {
   return (
@@ -46,92 +117,27 @@ export function RiskTimeline({ slots, onSlotPress }: RiskTimelineProps) {
         contentContainerStyle={styles.scrollContent}
       >
         {slots.map((slot, index) => (
-          <Animated.View
+          <TimeSlotCard
             key={slot.time}
-            entering={FadeInRight.duration(300).delay(index * 50)}
-          >
-            <TouchableOpacity
-              style={[
-                styles.slot,
-                slot.isNow && styles.slotNow,
-                slot.isOptimal && styles.slotOptimal,
-              ]}
-              onPress={() => {
-                lightHaptic();
-                onSlotPress?.(slot);
-              }}
-              activeOpacity={0.7}
-              accessibilityLabel={`${slot.label}: Risk score ${slot.score}, ${slot.classification} risk`}
-            >
-              {/* Time Label */}
-              <Text style={[styles.timeLabel, slot.isNow && styles.timeLabelNow]}>
-                {slot.isNow ? "NOW" : slot.label}
-              </Text>
-
-              {/* Risk Indicator */}
-              <View
-                style={[
-                  styles.riskIndicator,
-                  { backgroundColor: BG_COLORS[slot.classification] },
-                ]}
-              >
-                <View
-                  style={[
-                    styles.riskDot,
-                    { backgroundColor: COLORS[slot.classification] },
-                  ]}
-                />
-              </View>
-
-              {/* Score */}
-              <Text
-                style={[
-                  styles.scoreText,
-                  { color: COLORS[slot.classification] },
-                ]}
-              >
-                {slot.score}
-              </Text>
-
-              {/* Optimal Badge */}
-              {slot.isOptimal && (
-                <View style={styles.optimalBadge}>
-                  <Text style={styles.optimalText}>BEST</Text>
-                </View>
-              )}
-            </TouchableOpacity>
-          </Animated.View>
+            slot={slot}
+            index={index}
+            onPress={onSlotPress}
+          />
         ))}
       </ScrollView>
-
-      {/* Legend */}
-      <View style={styles.legend}>
-        <View style={styles.legendItem}>
-          <View style={[styles.legendDot, { backgroundColor: COLORS.low }]} />
-          <Text style={styles.legendText}>Low</Text>
-        </View>
-        <View style={styles.legendItem}>
-          <View style={[styles.legendDot, { backgroundColor: COLORS.medium }]} />
-          <Text style={styles.legendText}>Medium</Text>
-        </View>
-        <View style={styles.legendItem}>
-          <View style={[styles.legendDot, { backgroundColor: COLORS.high }]} />
-          <Text style={styles.legendText}>High</Text>
-        </View>
-      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    marginTop: spacing[6],
+    marginTop: 0,
   },
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingHorizontal: spacing[6],
+    paddingHorizontal: 0,
     marginBottom: spacing[3],
   },
   title: {
@@ -144,86 +150,52 @@ const styles = StyleSheet.create({
     color: colors.text.tertiary,
   },
   scrollContent: {
-    paddingHorizontal: spacing[6],
-    gap: spacing[2],
+    paddingHorizontal: 0,
+    gap: spacing[3],
   },
-  slot: {
-    width: 64,
-    paddingVertical: spacing[3],
+  slotCard: {
+    width: 72,
+    paddingTop: spacing[3],
+    paddingBottom: spacing[3],
     paddingHorizontal: spacing[2],
-    borderRadius: borderRadius.xl,
-    backgroundColor: colors.slate[50],
+    borderRadius: borderRadius["2xl"],
     alignItems: "center",
-    borderWidth: 2,
-    borderColor: "transparent",
-  },
-  slotNow: {
-    backgroundColor: colors.slate[100],
-    borderColor: colors.slate[300],
+    justifyContent: "center",
+    backgroundColor: colors.background.card,
+    borderWidth: 1,
+    borderColor: colors.border.light,
+    // Subtle shadow
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    elevation: 2,
   },
   slotOptimal: {
-    borderColor: colors.risk.low.primary,
-    backgroundColor: colors.risk.low.light,
+    borderColor: colors.brand.secondary,
+    borderWidth: 2,
+    backgroundColor: "#F8F7FF", // Very subtle brand tint
   },
   timeLabel: {
     fontSize: typography.size.xs,
     fontWeight: typography.weight.semibold,
     color: colors.text.secondary,
     marginBottom: spacing[2],
+    letterSpacing: typography.tracking.wide,
   },
   timeLabelNow: {
-    color: colors.text.primary,
+    color: colors.brand.secondary,
     fontWeight: typography.weight.bold,
   },
   riskIndicator: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    alignItems: "center",
-    justifyContent: "center",
+    width: 10,
+    height: 10,
+    borderRadius: 5,
     marginBottom: spacing[2],
   },
-  riskDot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-  },
   scoreText: {
-    fontSize: typography.size.lg,
+    fontSize: typography.size["2xl"],
     fontWeight: typography.weight.bold,
-  },
-  optimalBadge: {
-    position: "absolute",
-    top: -8,
-    backgroundColor: colors.risk.low.primary,
-    paddingHorizontal: spacing[2],
-    paddingVertical: 2,
-    borderRadius: borderRadius.sm,
-  },
-  optimalText: {
-    fontSize: 9,
-    fontWeight: typography.weight.bold,
-    color: colors.text.inverse,
-    letterSpacing: 0.5,
-  },
-  legend: {
-    flexDirection: "row",
-    justifyContent: "center",
-    marginTop: spacing[4],
-    gap: spacing[6],
-  },
-  legendItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing[1],
-  },
-  legendDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-  },
-  legendText: {
-    fontSize: typography.size.xs,
-    color: colors.text.tertiary,
+    fontFamily: "JetBrainsMono_700Bold",
   },
 });

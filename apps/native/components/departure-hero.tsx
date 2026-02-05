@@ -1,25 +1,29 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect } from "react";
 import { View, Text, StyleSheet } from "react-native";
+import Svg, { Path, Circle } from "react-native-svg";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
+  useAnimatedProps,
   withTiming,
   withSpring,
   withSequence,
-  interpolateColor,
   Easing,
 } from "react-native-reanimated";
 import { riskLevelHaptic } from "@/lib/haptics";
-import { colors, spacing, borderRadius, typography } from "@/lib/design-tokens";
+import { colors, spacing, typography } from "@/lib/design-tokens";
+
+const AnimatedPath = Animated.createAnimatedComponent(Path);
+const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
 type Classification = "low" | "medium" | "high";
 
 type DepartureHeroProps = {
-  optimalDepartureMinutes: number; // Minutes from now (0 = leave now, 15 = leave in 15 min)
-  optimalTime: string; // e.g., "6:45 PM"
+  optimalDepartureMinutes: number;
+  optimalTime: string;
   classification: Classification;
   currentScore: number;
-  reason: string; // e.g., "Rain clears soon. Traffic easing."
+  reason: string;
   isOptimalNow: boolean;
 };
 
@@ -28,6 +32,104 @@ const COLORS = {
   medium: colors.risk.medium.primary,
   high: colors.risk.high.primary,
 };
+
+// Gauge dimensions
+const GAUGE_SIZE = 200;
+const STROKE_WIDTH = 10;
+const RADIUS = (GAUGE_SIZE - STROKE_WIDTH) / 2;
+const CENTER = GAUGE_SIZE / 2;
+
+// Semi-ring gauge with indicator dot
+type GaugeProps = {
+  score: number;
+  classification: Classification;
+};
+
+function AnimatedGauge({ score, classification }: GaugeProps) {
+  const progress = useSharedValue(0);
+
+  useEffect(() => {
+    progress.value = withTiming(score / 100, {
+      duration: 900,
+      easing: Easing.out(Easing.cubic),
+    });
+  }, [score]);
+
+  // Arc from 135° to 405° (225° sweep = 62.5% of circle, leaving bottom open)
+  // This creates a gauge that opens at the bottom
+  const startAngle = 135;
+  const endAngle = 405;
+  const sweepAngle = endAngle - startAngle; // 270 degrees
+
+  const polarToCartesian = (angle: number) => {
+    const rad = (angle * Math.PI) / 180;
+    return {
+      x: CENTER + RADIUS * Math.cos(rad),
+      y: CENTER + RADIUS * Math.sin(rad),
+    };
+  };
+
+  const start = polarToCartesian(startAngle);
+  const end = polarToCartesian(endAngle);
+
+  // Track path (full arc)
+  const trackPath = `M ${start.x} ${start.y} A ${RADIUS} ${RADIUS} 0 1 1 ${end.x} ${end.y}`;
+
+  // Animated progress arc
+  const animatedPathProps = useAnimatedProps(() => {
+    const currentAngle = startAngle + sweepAngle * progress.value;
+    const rad = (currentAngle * Math.PI) / 180;
+    const endX = CENTER + RADIUS * Math.cos(rad);
+    const endY = CENTER + RADIUS * Math.sin(rad);
+
+    const largeArc = progress.value > 0.5 ? 1 : 0;
+
+    return {
+      d: progress.value > 0.01
+        ? `M ${start.x} ${start.y} A ${RADIUS} ${RADIUS} 0 ${largeArc} 1 ${endX} ${endY}`
+        : "",
+    };
+  });
+
+  // Animated indicator dot position
+  const animatedDotProps = useAnimatedProps(() => {
+    const currentAngle = startAngle + sweepAngle * progress.value;
+    const rad = (currentAngle * Math.PI) / 180;
+    return {
+      cx: CENTER + RADIUS * Math.cos(rad),
+      cy: CENTER + RADIUS * Math.sin(rad),
+    };
+  });
+
+  return (
+    <Svg width={GAUGE_SIZE} height={GAUGE_SIZE * 0.65} viewBox={`0 0 ${GAUGE_SIZE} ${GAUGE_SIZE * 0.75}`}>
+      {/* Track */}
+      <Path
+        d={trackPath}
+        stroke={colors.slate[200]}
+        strokeWidth={STROKE_WIDTH}
+        strokeLinecap="round"
+        fill="none"
+      />
+      {/* Progress */}
+      <AnimatedPath
+        animatedProps={animatedPathProps}
+        stroke={COLORS[classification]}
+        strokeWidth={STROKE_WIDTH}
+        strokeLinecap="round"
+        fill="none"
+      />
+      {/* Indicator dot */}
+      <AnimatedCircle
+        animatedProps={animatedDotProps}
+        r={7}
+        fill={COLORS[classification]}
+        stroke="#FFFFFF"
+        strokeWidth={3}
+      />
+    </Svg>
+  );
+}
 
 export function DepartureHero({
   optimalDepartureMinutes,
@@ -38,7 +140,6 @@ export function DepartureHero({
   isOptimalNow,
 }: DepartureHeroProps) {
   const pulseScale = useSharedValue(1);
-  const colorProgress = useSharedValue(0);
 
   // Pulse animation for "Leave Now"
   useEffect(() => {
@@ -48,29 +149,12 @@ export function DepartureHero({
         withSpring(1, { damping: 15 })
       );
     }
-  }, [isOptimalNow]);
-
-  // Color animation
-  useEffect(() => {
-    const targetValue = classification === "low" ? 0 : classification === "medium" ? 0.5 : 1;
-    colorProgress.value = withTiming(targetValue, {
-      duration: 600,
-      easing: Easing.out(Easing.cubic),
-    });
     riskLevelHaptic(classification);
-  }, [classification]);
+  }, [isOptimalNow, classification]);
 
-  const heroStyle = useAnimatedStyle(() => {
-    const backgroundColor = interpolateColor(
-      colorProgress.value,
-      [0, 0.5, 1],
-      [COLORS.low, COLORS.medium, COLORS.high]
-    );
-    return {
-      backgroundColor,
-      transform: [{ scale: pulseScale.value }],
-    };
-  });
+  const containerStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: pulseScale.value }],
+  }));
 
   const getMainMessage = () => {
     if (isOptimalNow) {
@@ -92,23 +176,24 @@ export function DepartureHero({
 
   return (
     <View style={styles.container}>
-      <Animated.View style={[styles.heroCircle, heroStyle]}>
-        <View style={styles.innerCircle}>
+      <Animated.View style={[styles.heroContainer, containerStyle]}>
+        {/* Gauge arc behind content */}
+        <View style={styles.gaugeWrapper}>
+          <AnimatedGauge score={currentScore} classification={classification} />
+        </View>
+
+        {/* Content centered inside gauge */}
+        <View style={styles.contentArea}>
           <Text style={styles.topText}>{message.top}</Text>
-          <Text style={styles.mainText}>{message.bottom}</Text>
+          <Text style={[styles.mainText, { color: COLORS[classification] }]}>
+            {message.bottom}
+          </Text>
+          <Text style={styles.scoreNumber}>{currentScore}</Text>
           <Text style={styles.timeText}>
             {isOptimalNow ? "Conditions are optimal" : `Best at ${optimalTime}`}
           </Text>
         </View>
       </Animated.View>
-
-      {/* Risk Score Badge - Secondary info */}
-      <View style={[styles.scoreBadge, { backgroundColor: `${COLORS[classification]}15` }]}>
-        <View style={[styles.scoreDot, { backgroundColor: COLORS[classification] }]} />
-        <Text style={[styles.scoreText, { color: COLORS[classification] }]}>
-          Score: {currentScore}
-        </Text>
-      </View>
 
       {/* Reason */}
       <Text style={styles.reasonText}>{reason}</Text>
@@ -119,65 +204,49 @@ export function DepartureHero({
 const styles = StyleSheet.create({
   container: {
     alignItems: "center",
-    paddingVertical: spacing[4],
+    paddingVertical: spacing[2],
   },
-  heroCircle: {
-    width: 220,
-    height: 220,
-    borderRadius: 110,
+  heroContainer: {
+    width: GAUGE_SIZE,
+    height: GAUGE_SIZE * 0.65,
+    alignItems: "center",
+    justifyContent: "flex-start",
+  },
+  gaugeWrapper: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+  },
+  contentArea: {
     alignItems: "center",
     justifyContent: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.15,
-    shadowRadius: 24,
-    elevation: 12,
-  },
-  innerCircle: {
-    width: 190,
-    height: 190,
-    borderRadius: 95,
-    backgroundColor: colors.slate[900],
-    alignItems: "center",
-    justifyContent: "center",
+    paddingTop: spacing[6],
   },
   topText: {
     fontSize: typography.size.sm,
     fontWeight: typography.weight.bold,
-    color: colors.slate[400],
+    color: colors.text.tertiary,
     letterSpacing: typography.tracking.wider,
   },
   mainText: {
-    fontSize: 42,
+    fontSize: 36,
     fontWeight: typography.weight.extrabold,
-    color: colors.text.inverse,
     letterSpacing: typography.tracking.tight,
+    marginTop: spacing[1],
+  },
+  scoreNumber: {
+    fontSize: typography.size["5xl"],
+    fontWeight: typography.weight.bold,
+    fontFamily: "JetBrainsMono_700Bold",
+    color: colors.text.primary,
     marginTop: spacing[1],
   },
   timeText: {
     fontSize: typography.size.sm,
     fontWeight: typography.weight.medium,
-    color: colors.slate[400],
+    color: colors.text.secondary,
     marginTop: spacing[2],
-  },
-  scoreBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: spacing[4],
-    paddingVertical: spacing[2],
-    borderRadius: borderRadius.full,
-    marginTop: spacing[4],
-    gap: spacing[2],
-  },
-  scoreDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-  },
-  scoreText: {
-    fontSize: typography.size.sm,
-    fontWeight: typography.weight.bold,
-    letterSpacing: typography.tracking.wide,
   },
   reasonText: {
     fontSize: typography.size.base,
@@ -185,6 +254,6 @@ const styles = StyleSheet.create({
     textAlign: "center",
     lineHeight: 22,
     paddingHorizontal: spacing[8],
-    marginTop: spacing[3],
+    marginTop: spacing[4],
   },
 });

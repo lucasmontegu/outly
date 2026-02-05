@@ -156,8 +156,8 @@ export function AlertsSection({
 
 const styles = StyleSheet.create({
   container: {
-    marginTop: spacing[6],
-    paddingHorizontal: spacing[6],
+    marginTop: 0,
+    paddingHorizontal: 0,
   },
   header: {
     flexDirection: "row",

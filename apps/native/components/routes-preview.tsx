@@ -4,7 +4,7 @@ import { HugeiconsIcon } from "@hugeicons/react-native";
 import {
   Home01Icon,
   Building01Icon,
-  Running01Icon,
+  UserIcon,
   ArrowRight01Icon,
   Clock01Icon,
 } from "@hugeicons/core-free-icons";
@@ -36,7 +36,7 @@ type RoutesPreviewProps = {
 const ICONS = {
   home: Home01Icon,
   building: Building01Icon,
-  running: Running01Icon,
+  running: UserIcon,
 };
 
 const CLASSIFICATION_COLORS = {
@@ -151,8 +151,8 @@ export function RoutesPreview({
 
 const styles = StyleSheet.create({
   container: {
-    marginTop: spacing[6],
-    paddingHorizontal: spacing[6],
+    marginTop: 0,
+    paddingHorizontal: 0,
   },
   header: {
     flexDirection: "row",
