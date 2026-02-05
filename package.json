@@ -16,6 +16,7 @@
     "dev:setup": "turbo -F @outia/backend dev:setup"
   },
   "dependencies": {
+    "@ai-sdk/openai": "^2.0.50",
     "@outia/env": "*",
     "dotenv": "^17.2.2",
     "zod": "^4.1.13"

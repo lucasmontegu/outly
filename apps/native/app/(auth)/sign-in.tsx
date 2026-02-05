@@ -11,12 +11,12 @@ import {
   TouchableOpacity,
   KeyboardAvoidingView,
   Platform,
-  Image,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Button } from "heroui-native";
 import { Mail01Icon, LockIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react-native";
+import { Ionicons } from "@expo/vector-icons";
 import * as WebBrowser from "expo-web-browser";
 import * as AuthSession from "expo-auth-session";
 import { colors, spacing, borderRadius, typography, shadows } from "@/lib/design-tokens";
@@ -101,6 +101,11 @@ export default function SignInScreen() {
         style={styles.keyboardView}
       >
         <View style={styles.content}>
+          {/* Logo */}
+          <View style={styles.logoContainer}>
+            <Text style={styles.logoText}>outia</Text>
+          </View>
+
           {/* Header */}
           <View style={styles.header}>
             <Text style={styles.title}>Welcome back</Text>
@@ -119,34 +124,28 @@ export default function SignInScreen() {
 
             {/* Apple Sign In */}
             <TouchableOpacity
-              style={styles.socialButton}
+              style={styles.appleButton}
               onPress={() => onSocialSignIn("oauth_apple")}
               disabled={isSocialLoading !== null}
               accessibilityLabel="Continue with Apple"
               accessibilityRole="button"
             >
-              <Image
-                source={{ uri: "https://cdn.jsdelivr.net/npm/simple-icons@v9/icons/apple.svg" }}
-                style={styles.socialIconApple}
-              />
-              <Text style={styles.socialButtonText}>
+              <Ionicons name="logo-apple" size={22} color="#FFFFFF" />
+              <Text style={styles.appleButtonText}>
                 {isSocialLoading === "apple" ? "Signing in…" : "Continue with Apple"}
               </Text>
             </TouchableOpacity>
 
             {/* Google Sign In */}
             <TouchableOpacity
-              style={[styles.socialButton, styles.googleButton]}
+              style={styles.googleButton}
               onPress={() => onSocialSignIn("oauth_google")}
               disabled={isSocialLoading !== null}
               accessibilityLabel="Continue with Google"
               accessibilityRole="button"
             >
-              <Image
-                source={{ uri: "https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" }}
-                style={styles.socialIcon}
-              />
-              <Text style={[styles.socialButtonText, styles.googleButtonText]}>
+              <Ionicons name="logo-google" size={20} color="#000000" />
+              <Text style={styles.googleButtonText}>
                 {isSocialLoading === "google" ? "Signing in…" : "Continue with Google"}
               </Text>
             </TouchableOpacity>
@@ -237,6 +236,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing[6],
     justifyContent: "center",
   },
+  logoContainer: {
+    alignItems: "center",
+    marginBottom: spacing[8],
+  },
+  logoText: {
+    fontSize: typography.size["4xl"],
+    fontWeight: typography.weight.bold,
+    color: colors.brand.primary,
+    letterSpacing: typography.tracking.tight,
+  },
   header: {
     marginBottom: spacing[8],
   },
@@ -262,36 +271,35 @@ const styles = StyleSheet.create({
     fontSize: typography.size.base,
     color: colors.state.error,
   },
-  socialButton: {
+  appleButton: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: colors.slate[950],
+    backgroundColor: "#000000",
     height: 52,
     borderRadius: borderRadius.lg,
     gap: spacing[3],
   },
-  googleButton: {
-    backgroundColor: colors.background.primary,
-    borderWidth: 1,
-    borderColor: colors.border.light,
-  },
-  socialIcon: {
-    width: 20,
-    height: 20,
-  },
-  socialIconApple: {
-    width: 20,
-    height: 20,
-    tintColor: colors.text.inverse,
-  },
-  socialButtonText: {
+  appleButtonText: {
     fontSize: typography.size.md,
     fontWeight: typography.weight.semibold,
-    color: colors.text.inverse,
+    color: "#FFFFFF",
+  },
+  googleButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#FFFFFF",
+    height: 52,
+    borderRadius: borderRadius.lg,
+    borderWidth: 1,
+    borderColor: colors.border.light,
+    gap: spacing[3],
   },
   googleButtonText: {
-    color: colors.text.primary,
+    fontSize: typography.size.md,
+    fontWeight: typography.weight.semibold,
+    color: "#000000",
   },
   divider: {
     flexDirection: "row",

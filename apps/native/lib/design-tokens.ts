@@ -4,17 +4,17 @@
  * Centralized design system for consistent visual identity.
  * Based on brand analysis: Trustworthy, Modern, Safety-First.
  *
- * Typography: Inter (headings) + System (body) + JetBrains Mono (scores)
- * Primary: Slate Blue + Electric Teal
+ * Typography: System (body) + JetBrains Mono (data/scores)
+ * Primary: Deep Indigo + Indigo Blue
  * Risk States: Jade Green / Warm Amber / Coral Red
  */
 
 export const colors = {
   // Brand Primary
   brand: {
-    primary: '#2D3B5F',      // Slate Blue - trust, stability
-    secondary: '#00B4D8',    // Electric Teal - modern, tech
-    dark: '#1A2332',         // Deep Navy - depth
+    primary: '#1A1464',      // Deep Indigo - trust, stability
+    secondary: '#4B3BF5',    // Indigo Blue - modern, tech
+    dark: '#0D0B26',         // Dark Indigo - depth
   },
 
   // Risk States (Sofisticados)
@@ -137,6 +137,20 @@ export const borderRadius = {
   '3xl': 24,
   '4xl': 32,
   full: 9999,
+} as const;
+
+export const fontFamily = {
+  // System font is used as the default via HeroUI Native --font-normal/medium/semibold
+  // It renders as SF Pro on iOS and Roboto on Android
+  sans: undefined as unknown as string, // System default (let RN handle it)
+
+  // JetBrains Mono for numeric data, risk scores, and code-like content
+  mono: {
+    regular: 'JetBrainsMono_400Regular',
+    medium: 'JetBrainsMono_500Medium',
+    semibold: 'JetBrainsMono_600SemiBold',
+    bold: 'JetBrainsMono_700Bold',
+  },
 } as const;
 
 export const typography = {

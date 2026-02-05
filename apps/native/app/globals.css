@@ -13,73 +13,96 @@
 @theme {
   /* Global values (same for light/dark) */
   --radius: 0.25rem;
-  --field-radius: 0.75rem;
+  --field-radius: 0.5rem;
+
+  /* Font variables - using system fonts */
+  --font-normal: 'System';
+  --font-medium: 'System';
+  --font-semibold: 'System';
 }
 
 @layer theme {
   @variant light {
-    /* Custom accent color - dark teal */
-    --accent: oklch(0.3243 0.0564 167.45);
+    /* Custom accent color - indigo/blue */
+    --accent: oklch(0.2956 0.1945 265.03);
     --accent-foreground: oklch(0.9911 0 0);
 
     /* Background and foreground */
-    --background: oklch(0.9702 0.0018 167.45);
-    --foreground: oklch(0.2103 0.0059 167.45);
+    --background: oklch(0.9702 0.0065 265.03);
+    --foreground: oklch(0.2103 0.0059 265.03);
 
     /* Surface colors */
-    --surface: oklch(1 0.0009 167.45);
-    --surface-foreground: oklch(0.2103 0.0059 167.45);
+    --surface: oklch(1.0000 0.0032 265.03);
+    --surface-foreground: oklch(0.2103 0.0059 265.03);
 
     /* Default colors (secondary buttons) */
-    --default: oklch(0.94 0.0018 167.45);
-    --default-foreground: oklch(0.2103 0.0059 167.45);
+    --default: oklch(0.9400 0.0065 265.03);
+    --default-foreground: oklch(0.2103 0.0059 265.03);
+
+    /* Field colors */
+    --field-background: oklch(1.0000 0.0032 265.03);
+    --field-foreground: oklch(0.2103 0.0059 265.03);
+    --field-placeholder: oklch(0.5517 0.0130 265.03);
 
     /* Status colors */
-    --success: oklch(0.7329 0.1942 140.44);
-    --success-foreground: oklch(0.2103 0.0059 140.44);
-    --warning: oklch(0.7819 0.1591 61.96);
-    --warning-foreground: oklch(0.2103 0.0059 61.96);
-    --danger: oklch(0.6532 0.2336 15.37);
+    --success: oklch(0.7329 0.1960 152.15);
+    --success-foreground: oklch(0.2103 0.0059 152.15);
+    --warning: oklch(0.7819 0.1606 73.67);
+    --warning-foreground: oklch(0.2103 0.0059 73.67);
+    --danger: oklch(0.6532 0.2358 27.08);
     --danger-foreground: oklch(0.9911 0 0);
 
     /* Other colors */
-    --muted: oklch(0.5517 0.0036 167.45);
-    --focus: oklch(0.3243 0.0564 167.45);
-    --divider: oklch(0.92 0.0018 167.45);
-    --overlay: oklch(1 0.0005 167.45);
-    --overlay-foreground: oklch(0.2103 0.0059 167.45);
+    --muted: oklch(0.5517 0.0130 265.03);
+    --focus: oklch(0.2956 0.1945 265.03);
+    --border: oklch(0.9000 0.0065 265.03);
+    --separator: oklch(0.9200 0.0065 265.03);
+    --overlay: oklch(1.0000 0.0019 265.03);
+    --overlay-foreground: oklch(0.2103 0.0059 265.03);
+    --scrollbar: oklch(0.8710 0.0065 265.03);
+    --segment: oklch(1.0000 0.0065 265.03);
+    --segment-foreground: oklch(0.2103 0.0059 265.03);
   }
 
   @variant dark {
-    /* Custom accent color - same in dark */
-    --accent: oklch(0.3243 0.0564 167.45);
+    /* Custom accent color - indigo/blue */
+    --accent: oklch(0.2956 0.1945 265.03);
     --accent-foreground: oklch(0.9911 0 0);
 
     /* Background and foreground */
-    --background: oklch(0.12 0.0018 167.45);
+    --background: oklch(0.1200 0.0065 265.03);
     --foreground: oklch(0.9911 0 0);
 
     /* Surface colors */
-    --surface: oklch(0.2103 0.0036 167.45);
+    --surface: oklch(0.2103 0.0130 265.03);
     --surface-foreground: oklch(0.9911 0 0);
 
     /* Default colors */
-    --default: oklch(0.274 0.0018 167.45);
+    --default: oklch(0.2740 0.0065 265.03);
     --default-foreground: oklch(0.9911 0 0);
 
+    /* Field colors */
+    --field-background: oklch(0.2103 0.0130 265.03);
+    --field-foreground: oklch(0.9911 0 0);
+    --field-placeholder: oklch(0.7050 0.0130 265.03);
+
     /* Status colors */
-    --success: oklch(0.7329 0.1942 140.44);
-    --success-foreground: oklch(0.2103 0.0059 140.44);
-    --warning: oklch(0.8203 0.1393 65.97);
-    --warning-foreground: oklch(0.2103 0.0059 65.97);
-    --danger: oklch(0.594 0.1974 14.26);
+    --success: oklch(0.7329 0.1960 152.15);
+    --success-foreground: oklch(0.2103 0.0059 152.15);
+    --warning: oklch(0.8203 0.1406 77.68);
+    --warning-foreground: oklch(0.2103 0.0059 77.68);
+    --danger: oklch(0.5940 0.1993 25.97);
     --danger-foreground: oklch(0.9911 0 0);
 
     /* Other colors */
-    --muted: oklch(0.705 0.0036 167.45);
-    --focus: oklch(0.3243 0.0564 167.45);
-    --divider: oklch(0.25 0.0018 167.45);
-    --overlay: oklch(0.2103 0.0036 167.45);
+    --muted: oklch(0.7050 0.0130 265.03);
+    --focus: oklch(0.2956 0.1945 265.03);
+    --border: oklch(0.2800 0.0065 265.03);
+    --separator: oklch(0.2500 0.0065 265.03);
+    --overlay: oklch(0.2103 0.0130 265.03);
     --overlay-foreground: oklch(0.9911 0 0);
+    --scrollbar: oklch(0.7050 0.0065 265.03);
+    --segment: oklch(0.3964 0.0065 265.03);
+    --segment-foreground: oklch(0.9911 0 0);
   }
 }

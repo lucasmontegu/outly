@@ -6,18 +6,28 @@ import { env } from "@outia/env/native";
 import { DarkTheme, DefaultTheme, type Theme, ThemeProvider } from "@react-navigation/native";
 import { ConvexProviderWithClerk } from "convex/react-clerk";
 import { ConvexReactClient } from "convex/react";
+import { useFonts } from "expo-font";
 import { Stack } from "expo-router";
+import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
-import React, { useRef } from "react";
+import React, { useEffect, useRef } from "react";
 import { Platform, StyleSheet } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { HeroUINativeProvider } from "heroui-native";
+import {
+  JetBrainsMono_400Regular,
+  JetBrainsMono_500Medium,
+  JetBrainsMono_600SemiBold,
+  JetBrainsMono_700Bold,
+} from "@expo-google-fonts/jetbrains-mono";
 
 import { setAndroidNavigationBar } from "@/lib/android-navigation-bar";
 import { NAV_THEME } from "@/lib/constants";
 import { useColorScheme } from "@/lib/use-color-scheme";
 import { ToastProvider } from "@/components/ui/toast";
 import { RevenueCatProvider } from "@/providers/RevenueCatProvider";
+
+SplashScreen.preventAutoHideAsync();
 
 const LIGHT_THEME: Theme = {
   ...DefaultTheme,
@@ -50,6 +60,13 @@ export default function RootLayout() {
   const { colorScheme, isDarkColorScheme } = useColorScheme();
   const [isColorSchemeLoaded, setIsColorSchemeLoaded] = React.useState(false);
 
+  const [fontsLoaded, fontError] = useFonts({
+    JetBrainsMono_400Regular,
+    JetBrainsMono_500Medium,
+    JetBrainsMono_600SemiBold,
+    JetBrainsMono_700Bold,
+  });
+
   useIsomorphicLayoutEffect(() => {
     if (hasMounted.current) {
       return;
@@ -59,7 +76,13 @@ export default function RootLayout() {
     hasMounted.current = true;
   }, []);
 
-  if (!isColorSchemeLoaded) {
+  useEffect(() => {
+    if ((fontsLoaded || fontError) && isColorSchemeLoaded) {
+      SplashScreen.hideAsync();
+    }
+  }, [fontsLoaded, fontError, isColorSchemeLoaded]);
+
+  if (!isColorSchemeLoaded || (!fontsLoaded && !fontError)) {
     return null;
   }
 
