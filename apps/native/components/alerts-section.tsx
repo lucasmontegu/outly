@@ -19,6 +19,8 @@ type Alert = {
   severity: number;
   title: string;
   timeAgo: string;
+  count?: number;      // Number of reports for this alert type
+  distanceKm?: number; // Distance from user in kilometers
 };
 
 type AlertsSectionProps = {
@@ -37,6 +39,32 @@ function getSeverityBg(severity: number): string {
   if (severity >= 4) return colors.risk.high.light;
   if (severity >= 3) return colors.risk.medium.light;
   return `${colors.brand.secondary}15`;
+}
+
+function formatDistance(distanceKm: number): string {
+  if (distanceKm < 1) {
+    const meters = Math.round(distanceKm * 1000);
+    return `${meters}m away`;
+  }
+  return `${distanceKm.toFixed(1)}km away`;
+}
+
+function formatAlertMeta(
+  type: "weather" | "traffic",
+  count?: number,
+  distanceKm?: number
+): string {
+  const typeLabel = type === "weather" ? "Weather" : "Traffic";
+
+  if (count !== undefined && distanceKm !== undefined) {
+    if (count > 1) {
+      return `${count} reports · ${formatDistance(distanceKm)}`;
+    }
+    return `${typeLabel} · ${formatDistance(distanceKm)}`;
+  }
+
+  // Fallback if data is missing
+  return typeLabel;
 }
 
 export function AlertsSection({
@@ -125,9 +153,20 @@ export function AlertsSection({
                   />
                 </View>
                 <View style={styles.alertContent}>
-                  <Text style={styles.alertTitle}>{alert.title}</Text>
+                  <View style={styles.alertTitleRow}>
+                    <Text style={styles.alertTitle}>{alert.title}</Text>
+                    {alert.distanceKm !== undefined && (
+                      <View style={styles.distanceBadge}>
+                        <Text style={styles.distanceBadgeText}>
+                          {alert.distanceKm < 1
+                            ? `${Math.round(alert.distanceKm * 1000)}m`
+                            : `${alert.distanceKm.toFixed(1)}km`}
+                        </Text>
+                      </View>
+                    )}
+                  </View>
                   <Text style={styles.alertMeta}>
-                    {alert.type === "weather" ? "Weather" : "Traffic"} · {alert.timeAgo}
+                    {formatAlertMeta(alert.type, alert.count, alert.distanceKm)}
                   </Text>
                 </View>
                 <HugeiconsIcon
@@ -249,10 +288,27 @@ const styles = StyleSheet.create({
   alertContent: {
     flex: 1,
   },
+  alertTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing[2],
+  },
   alertTitle: {
     fontSize: typography.size.base,
     fontWeight: typography.weight.semibold,
     color: colors.text.primary,
+    flex: 1,
+  },
+  distanceBadge: {
+    backgroundColor: colors.slate[100],
+    paddingHorizontal: spacing[2],
+    paddingVertical: 2,
+    borderRadius: borderRadius.sm,
+  },
+  distanceBadgeText: {
+    fontSize: typography.size.xs,
+    fontWeight: typography.weight.medium,
+    color: colors.text.secondary,
   },
   alertMeta: {
     fontSize: typography.size.sm,

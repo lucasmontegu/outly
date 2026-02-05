@@ -51,6 +51,17 @@ const CLASSIFICATION_BG = {
   high: colors.risk.high.light,
 };
 
+function formatLocationName(name: string): string {
+  // If it has a comma, take only the first part (e.g., "123 Main St, City" -> "123 Main St")
+  if (name.includes(',')) {
+    return name.split(',')[0].trim();
+  }
+
+  // If it looks like a full address with numbers, try to abbreviate
+  // e.g., "124 Avenida Siempre Viva" -> keep as is (we'll truncate in UI if needed)
+  return name;
+}
+
 export function RoutesPreview({
   routes,
   onRoutePress,
@@ -79,71 +90,82 @@ export function RoutesPreview({
       </TouchableOpacity>
 
       <View style={styles.routesList}>
-        {routes.slice(0, 2).map((route, index) => (
-          <Animated.View
-            key={route._id}
-            entering={FadeInDown.duration(300).delay(index * 100)}
-          >
-            <TouchableOpacity
-              style={styles.routeCard}
-              onPress={() => {
-                lightHaptic();
-                onRoutePress(route);
-              }}
-              activeOpacity={0.7}
-              accessibilityLabel={`${route.name}: ${route.isOptimalNow ? "Leave now" : `Best time ${route.optimalTime}`}`}
+        {routes.slice(0, 2).map((route, index) => {
+          const formattedFrom = formatLocationName(route.fromName);
+          const formattedTo = formatLocationName(route.toName);
+          const displayRouteName = `${formattedFrom} → ${formattedTo}`;
+          const showSubtitle = route.name && route.name !== displayRouteName;
+
+          return (
+            <Animated.View
+              key={route._id}
+              entering={FadeInDown.duration(300).delay(index * 100)}
             >
-              <View
-                style={[
-                  styles.iconContainer,
-                  { backgroundColor: CLASSIFICATION_BG[route.classification] },
-                ]}
+              <TouchableOpacity
+                style={styles.routeCard}
+                onPress={() => {
+                  lightHaptic();
+                  onRoutePress(route);
+                }}
+                activeOpacity={0.7}
+                accessibilityLabel={`${displayRouteName}: ${route.isOptimalNow ? "Leave now" : `Best time ${route.optimalTime}`}`}
               >
-                <HugeiconsIcon
-                  icon={ICONS[route.icon]}
-                  size={20}
-                  color={CLASSIFICATION_COLORS[route.classification]}
-                />
-              </View>
+                <View
+                  style={[
+                    styles.iconContainer,
+                    { backgroundColor: CLASSIFICATION_BG[route.classification] },
+                  ]}
+                >
+                  <HugeiconsIcon
+                    icon={ICONS[route.icon]}
+                    size={20}
+                    color={CLASSIFICATION_COLORS[route.classification]}
+                  />
+                </View>
 
-              <View style={styles.routeContent}>
-                <Text style={styles.routeName}>{route.name}</Text>
-                <Text style={styles.routeDestination} numberOfLines={1}>
-                  {route.fromName} to {route.toName}
-                </Text>
-              </View>
+                <View style={styles.routeContent}>
+                  <Text style={styles.routeName} numberOfLines={1}>
+                    {displayRouteName}
+                  </Text>
+                  {showSubtitle && (
+                    <Text style={styles.routeSubtitle} numberOfLines={1}>
+                      {route.name}
+                    </Text>
+                  )}
+                </View>
 
-              <View style={styles.departureInfo}>
-                {route.isOptimalNow ? (
-                  <View
-                    style={[
-                      styles.departureBadge,
-                      { backgroundColor: CLASSIFICATION_BG[route.classification] },
-                    ]}
-                  >
-                    <Text
+                <View style={styles.departureInfo}>
+                  {route.isOptimalNow ? (
+                    <View
                       style={[
-                        styles.departureText,
-                        { color: CLASSIFICATION_COLORS[route.classification] },
+                        styles.departureBadge,
+                        { backgroundColor: CLASSIFICATION_BG[route.classification] },
                       ]}
                     >
-                      Go Now
-                    </Text>
-                  </View>
-                ) : (
-                  <View style={styles.departureTime}>
-                    <HugeiconsIcon
-                      icon={Clock01Icon}
-                      size={14}
-                      color={colors.text.tertiary}
-                    />
-                    <Text style={styles.timeText}>{route.optimalTime}</Text>
-                  </View>
-                )}
-              </View>
-            </TouchableOpacity>
-          </Animated.View>
-        ))}
+                      <Text
+                        style={[
+                          styles.departureText,
+                          { color: CLASSIFICATION_COLORS[route.classification] },
+                        ]}
+                      >
+                        {route.classification === "low" ? "Go Now" : "Best Now"}
+                      </Text>
+                    </View>
+                  ) : (
+                    <View style={styles.departureTime}>
+                      <HugeiconsIcon
+                        icon={Clock01Icon}
+                        size={14}
+                        color={colors.text.tertiary}
+                      />
+                      <Text style={styles.timeText}>{route.optimalTime}</Text>
+                    </View>
+                  )}
+                </View>
+              </TouchableOpacity>
+            </Animated.View>
+          );
+        })}
       </View>
     </View>
   );
@@ -204,7 +226,7 @@ const styles = StyleSheet.create({
     fontWeight: typography.weight.semibold,
     color: colors.text.primary,
   },
-  routeDestination: {
+  routeSubtitle: {
     fontSize: typography.size.sm,
     color: colors.text.tertiary,
     marginTop: 2,

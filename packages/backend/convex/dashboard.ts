@@ -19,6 +19,7 @@ const timeSlotSchema = v.object({
   classification: v.union(v.literal("low"), v.literal("medium"), v.literal("high")),
   isNow: v.boolean(),
   isOptimal: v.boolean(),
+  reason: v.string(), // NEW: brief explanation of why the score is what it is
 });
 
 // Route preview schema
@@ -35,13 +36,15 @@ const routePreviewSchema = v.object({
   isOptimalNow: v.boolean(),
 });
 
-// Nearby event schema (slim)
+// Nearby event schema (slim) with deduplication and distance
 const nearbyEventSchema = v.object({
   _id: v.id("events"),
   type: v.union(v.literal("weather"), v.literal("traffic")),
   subtype: v.string(),
   severity: v.number(),
   confidenceScore: v.number(),
+  count: v.number(),        // Number of events of this subtype
+  distanceKm: v.number(),   // Distance from user location
 });
 
 /**
@@ -195,6 +198,7 @@ export const getDashboardData = query({
       classification: "low" | "medium" | "high";
       isNow: boolean;
       isOptimal: boolean;
+      reason: string;
     }[] = [];
 
     for (let i = 0; i < 8; i++) {
@@ -213,6 +217,16 @@ export const getDashboardData = query({
       const slotClassification: "low" | "medium" | "high" =
         slotScore < 34 ? "low" : slotScore < 67 ? "medium" : "high";
 
+      // Generate reason based on primary score contributor
+      const reason = getSlotReason(
+        predictedWeatherScore,
+        predictedTrafficScore,
+        slotHour,
+        i === 0,
+        weatherScore,
+        trafficScore
+      );
+
       slots.push({
         time: slotTime.toISOString(),
         label,
@@ -220,6 +234,7 @@ export const getDashboardData = query({
         classification: slotClassification,
         isNow: i === 0,
         isOptimal: false,
+        reason,
       });
     }
 
@@ -236,7 +251,7 @@ export const getDashboardData = query({
 
     // ========== ROUTES (max 3 for home screen) ==========
     const routesData: {
-      _id: typeof routePreviewSchema._type["_id"];
+      _id: typeof routePreviewSchema.type["_id"];
       name: string;
       fromName: string;
       toName: string;
@@ -330,6 +345,61 @@ export const getDashboardData = query({
       }
     }
 
+    // ========== DEDUPLICATE AND ADD DISTANCE TO NEARBY EVENTS ==========
+    // Group events by type+subtype, keep highest severity, add count and distance
+    const eventGroups = new Map<string, {
+      events: typeof nearbyEvents;
+      highestSeverity: number;
+      closestDistance: number;
+    }>();
+
+    for (const event of nearbyEvents) {
+      const key = `${event.type}:${event.subtype}`;
+      const distance = haversineDistance(args.lat, args.lng, event.location.lat, event.location.lng);
+
+      const existing = eventGroups.get(key);
+      if (!existing) {
+        eventGroups.set(key, {
+          events: [event],
+          highestSeverity: event.severity,
+          closestDistance: distance,
+        });
+      } else {
+        existing.events.push(event);
+        if (event.severity > existing.highestSeverity) {
+          existing.highestSeverity = event.severity;
+        }
+        if (distance < existing.closestDistance) {
+          existing.closestDistance = distance;
+        }
+      }
+    }
+
+    // Convert groups to deduplicated events with count and distance
+    const deduplicatedEvents = Array.from(eventGroups.values())
+      .map((group) => {
+        // Find the event with highest severity in this group
+        const representative = group.events.reduce((max, e) =>
+          e.severity > max.severity ? e : max
+        , group.events[0]);
+
+        return {
+          _id: representative._id,
+          type: representative.type,
+          subtype: representative.subtype,
+          severity: representative.severity,
+          confidenceScore: representative.confidenceScore,
+          count: group.events.length,
+          distanceKm: Math.round(group.closestDistance * 10) / 10, // Round to 1 decimal
+        };
+      })
+      .sort((a, b) => {
+        // Sort by severity desc, then distance asc
+        if (b.severity !== a.severity) return b.severity - a.severity;
+        return a.distanceKm - b.distanceKm;
+      })
+      .slice(0, 10); // Keep top 10
+
     return {
       user,
       risk: {
@@ -337,13 +407,7 @@ export const getDashboardData = query({
         classification,
         breakdown: { weatherScore, trafficScore, eventScore },
         description,
-        nearbyEvents: nearbyEvents.slice(0, 10).map((e) => ({
-          _id: e._id,
-          type: e.type,
-          subtype: e.subtype,
-          severity: e.severity,
-          confidenceScore: e.confidenceScore,
-        })),
+        nearbyEvents: deduplicatedEvents,
       },
       forecast: {
         slots,
@@ -358,6 +422,49 @@ export const getDashboardData = query({
 // ============================================================================
 // HELPER FUNCTIONS
 // ============================================================================
+
+/**
+ * Generate reason based on primary score contributor
+ */
+function getSlotReason(
+  weatherScore: number,
+  trafficScore: number,
+  hour: number,
+  isNow: boolean,
+  originalWeatherScore: number,
+  originalTrafficScore: number
+): string {
+  if (isNow) {
+    // Current conditions - explain what's happening now
+    if (weatherScore > 60 && trafficScore > 60) return "Storm + rush hour";
+    if (weatherScore > 60) return "Severe weather";
+    if (trafficScore > 60) return "Heavy traffic";
+    if (weatherScore > 30 && trafficScore > 30) return "Rain + congestion";
+    if (weatherScore > 30) return "Light rain";
+    if (trafficScore > 30) return "Moderate traffic";
+    return "Clear conditions";
+  }
+
+  // Future slots - explain what changes
+  // Check if weather is clearing
+  const weatherClearing = originalWeatherScore > 40 && weatherScore < originalWeatherScore * 0.7;
+
+  // Rush hour analysis
+  if (hour >= 7 && hour < 9) return "Rush hour peak";
+  if (hour >= 17 && hour < 19) return "Evening rush";
+
+  // Weather-driven
+  if (weatherClearing && weatherScore > 20) return "Rain clearing";
+  if (weatherScore > 40) return "Weather improving";
+
+  // Traffic-driven
+  if (hour >= 9 && hour < 12) return "Traffic easing";
+  if (hour >= 19 && hour < 21) return "Traffic clearing";
+  if (trafficScore < 20) return "Roads clear";
+
+  // General improvement
+  return "Conditions improving";
+}
 
 function getTrafficModifier(hour: number): number {
   if (hour >= 7 && hour < 9) return 1.4;

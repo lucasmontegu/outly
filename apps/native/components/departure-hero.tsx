@@ -25,6 +25,7 @@ type DepartureHeroProps = {
   currentScore: number;
   reason: string;
   isOptimalNow: boolean;
+  currentDelayMinutes?: number; // Estimated extra time if leaving now instead of waiting
 };
 
 const COLORS = {
@@ -138,6 +139,7 @@ export function DepartureHero({
   currentScore,
   reason,
   isOptimalNow,
+  currentDelayMinutes,
 }: DepartureHeroProps) {
   const pulseScale = useSharedValue(1);
 
@@ -158,21 +160,42 @@ export function DepartureHero({
 
   const getMainMessage = () => {
     if (isOptimalNow) {
-      return { top: "LEAVE", bottom: "NOW" };
+      return { top: "LEAVE NOW", bottom: null };
     }
-    if (optimalDepartureMinutes <= 5) {
-      return { top: "LEAVE IN", bottom: `${optimalDepartureMinutes} MIN` };
+    if (optimalDepartureMinutes <= 30) {
+      return { top: "BEST WINDOW", bottom: optimalTime };
     }
-    if (optimalDepartureMinutes <= 60) {
-      return { top: "LEAVE IN", bottom: `${optimalDepartureMinutes} MIN` };
+    // Later than 30 minutes
+    return { top: "WAIT UNTIL", bottom: optimalTime };
+  };
+
+  const getTopTextColor = () => {
+    if (isOptimalNow) {
+      // Use risk color for "LEAVE NOW"
+      return COLORS[classification];
     }
-    // More than 1 hour
-    const hours = Math.floor(optimalDepartureMinutes / 60);
-    const mins = optimalDepartureMinutes % 60;
-    return { top: "LEAVE IN", bottom: mins > 0 ? `${hours}H ${mins}M` : `${hours} HOUR${hours > 1 ? "S" : ""}` };
+    // Use amber/red for "WAIT UNTIL"
+    return optimalDepartureMinutes > 30 ? colors.risk.medium.primary : colors.text.tertiary;
+  };
+
+  const getTimeDescription = () => {
+    if (isOptimalNow) {
+      return "Clear skies and light traffic right now";
+    }
+    return reason;
+  };
+
+  const getTradeOffMessage = () => {
+    if (isOptimalNow || !currentDelayMinutes || currentDelayMinutes <= 0) {
+      return null;
+    }
+    return `If you leave now: +${currentDelayMinutes} min delay`;
   };
 
   const message = getMainMessage();
+  const topTextColor = getTopTextColor();
+  const timeDescription = getTimeDescription();
+  const tradeOffMessage = getTradeOffMessage();
 
   return (
     <View style={styles.container}>
@@ -184,19 +207,27 @@ export function DepartureHero({
 
         {/* Content centered inside gauge */}
         <View style={styles.contentArea}>
-          <Text style={styles.topText}>{message.top}</Text>
-          <Text style={[styles.mainText, { color: COLORS[classification] }]}>
-            {message.bottom}
+          <Text style={[styles.topText, { color: topTextColor }]}>
+            {message.top}
           </Text>
-          <Text style={styles.scoreNumber}>{currentScore}</Text>
+          {message.bottom && (
+            <Text style={[styles.mainText, { color: COLORS[classification] }]}>
+              {message.bottom}
+            </Text>
+          )}
+          {!message.bottom && (
+            <Text style={styles.scoreNumber}>{currentScore}</Text>
+          )}
           <Text style={styles.timeText}>
-            {isOptimalNow ? "Conditions are optimal" : `Best at ${optimalTime}`}
+            {timeDescription}
           </Text>
         </View>
       </Animated.View>
 
-      {/* Reason */}
-      <Text style={styles.reasonText}>{reason}</Text>
+      {/* Trade-off context (decision aid) */}
+      {tradeOffMessage && (
+        <Text style={styles.tradeOffText}>{tradeOffMessage}</Text>
+      )}
     </View>
   );
 }
@@ -226,7 +257,6 @@ const styles = StyleSheet.create({
   topText: {
     fontSize: typography.size.sm,
     fontWeight: typography.weight.bold,
-    color: colors.text.tertiary,
     letterSpacing: typography.tracking.wider,
   },
   mainText: {
@@ -248,11 +278,11 @@ const styles = StyleSheet.create({
     color: colors.text.secondary,
     marginTop: spacing[2],
   },
-  reasonText: {
+  tradeOffText: {
     fontSize: typography.size.base,
-    color: colors.text.secondary,
+    fontWeight: typography.weight.semibold,
+    color: colors.risk.high.primary,
     textAlign: "center",
-    lineHeight: 22,
     paddingHorizontal: spacing[8],
     marginTop: spacing[4],
   },

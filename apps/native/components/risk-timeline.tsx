@@ -13,6 +13,7 @@ type TimeSlot = {
   classification: Classification;
   isNow?: boolean;
   isOptimal?: boolean;
+  reason?: string; // NEW: brief explanation of why the score is what it is
 };
 
 type RiskTimelineProps = {
@@ -73,7 +74,7 @@ function TimeSlotCard({ slot, index, onPress }: TimeSlotCardProps) {
         onPressOut={handlePressOut}
         onPress={handlePress}
         activeOpacity={1}
-        accessibilityLabel={`${slot.label}: Risk score ${slot.score}, ${slot.classification} risk`}
+        accessibilityLabel={`${slot.label}: Risk score ${slot.score}, ${slot.classification} risk${slot.reason ? `, ${slot.reason}` : ""}`}
       >
         {/* Time Label */}
         <Text style={[styles.timeLabel, slot.isNow && styles.timeLabelNow]}>
@@ -98,17 +99,30 @@ function TimeSlotCard({ slot, index, onPress }: TimeSlotCardProps) {
           {slot.score}
         </Text>
 
+        {/* Reason Label - NEW */}
+        {slot.reason && (
+          <Text style={styles.reasonText} numberOfLines={2}>
+            {slot.reason}
+          </Text>
+        )}
+
       </TouchableOpacity>
     </Animated.View>
   );
 }
 
 export function RiskTimeline({ slots, onSlotPress }: RiskTimelineProps) {
+  // Find the optimal slot label for subtitle
+  const optimalSlot = slots.find(slot => slot.isOptimal);
+  const optimalLabel = optimalSlot ? optimalSlot.label : null;
+
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>Next 2 Hours</Text>
-        <Text style={styles.subtitle}>Tap for details</Text>
+        <Text style={styles.title}>Your Next 2 Hours</Text>
+        {optimalLabel && (
+          <Text style={styles.subtitle}>Best at {optimalLabel}</Text>
+        )}
       </View>
 
       <ScrollView
@@ -197,5 +211,13 @@ const styles = StyleSheet.create({
     fontSize: typography.size["2xl"],
     fontWeight: typography.weight.bold,
     fontFamily: "JetBrainsMono_700Bold",
+  },
+  reasonText: {
+    fontSize: 11,
+    color: colors.text.tertiary,
+    marginTop: spacing[1],
+    textAlign: "center",
+    fontStyle: "italic",
+    lineHeight: 13,
   },
 });

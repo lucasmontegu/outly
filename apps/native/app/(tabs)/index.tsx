@@ -142,6 +142,9 @@ export default function OverviewScreen() {
         optimalTime: "",
         isOptimalNow: true,
         reason: "Loading…",
+        currentDelayMinutes: 0,
+        weatherTrend: "stable" as const,
+        trafficTrend: "stable" as const,
         timelineSlots: [],
         alerts: [],
         weatherStatus: { status: "Clear", detail: "Loading…" },
@@ -163,6 +166,16 @@ export default function OverviewScreen() {
     const optimalSlot = timelineSlots[forecast.optimalSlotIndex];
     const isOptimalNow = forecast.optimalSlotIndex === 0;
 
+    // Estimate delay if leaving now vs optimal time (rough: score difference → minutes)
+    const optimalScore = optimalSlot?.score ?? currentScore;
+    const scoreDiff = currentScore - optimalScore;
+    const currentDelayMinutes = scoreDiff > 5 ? Math.round(scoreDiff * 0.4) : 0;
+
+    // Derive weather/traffic trends by comparing current to 30-min-out slot
+    const futureSlot = timelineSlots[2]; // ~30 min from now
+    const weatherTrend = deriveTrend(weatherScore, futureSlot?.score ?? weatherScore);
+    const trafficTrend = deriveTrend(trafficScore, futureSlot?.score ?? trafficScore);
+
     // Generate reason based on conditions
     const reason = generateReason(weatherScore, trafficScore, isOptimalNow, optimalDepartureMinutes);
 
@@ -170,7 +183,7 @@ export default function OverviewScreen() {
     const weatherStatus = getWeatherDetails(weatherScore);
     const trafficStatus = getTrafficDetails(trafficScore);
 
-    // Format alerts from nearby events
+    // Format alerts from nearby events with count and distance
     const alerts = (risk.nearbyEvents || []).map((event) => ({
       id: event._id,
       type: event.type,
@@ -178,6 +191,8 @@ export default function OverviewScreen() {
       severity: event.severity,
       title: formatEventSubtype(event.subtype),
       timeAgo: "Recent", // Simplified since we don't have _creationTime in slim events
+      count: event.count,
+      distanceKm: event.distanceKm,
     }));
 
     return {
@@ -189,6 +204,9 @@ export default function OverviewScreen() {
       optimalTime: optimalSlot?.label ?? "",
       isOptimalNow,
       reason,
+      currentDelayMinutes,
+      weatherTrend,
+      trafficTrend,
       timelineSlots,
       alerts,
       weatherStatus,
@@ -275,6 +293,7 @@ export default function OverviewScreen() {
               currentScore={derivedData.currentScore}
               reason={derivedData.reason}
               isOptimalNow={derivedData.isOptimalNow}
+              currentDelayMinutes={derivedData.currentDelayMinutes}
             />
           </SectionCard>
         )}
@@ -321,11 +340,13 @@ export default function OverviewScreen() {
                 status: derivedData.weatherStatus.status,
                 detail: derivedData.weatherStatus.detail,
                 score: derivedData.weatherScore,
+                trend: derivedData.weatherTrend,
               }}
               traffic={{
                 status: derivedData.trafficStatus.status,
                 detail: derivedData.trafficStatus.detail,
                 score: derivedData.trafficScore,
+                trend: derivedData.trafficTrend,
               }}
             />
           </SectionCard>
@@ -364,6 +385,13 @@ export default function OverviewScreen() {
 }
 
 // Helper functions
+
+function deriveTrend(currentScore: number, futureScore: number): 'improving' | 'worsening' | 'stable' {
+  const diff = futureScore - currentScore;
+  if (diff <= -10) return 'improving';
+  if (diff >= 10) return 'worsening';
+  return 'stable';
+}
 
 function generateReason(
   weatherScore: number,

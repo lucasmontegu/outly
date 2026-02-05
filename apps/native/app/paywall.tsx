@@ -41,18 +41,18 @@ type PricingPlan = "monthly" | "yearly";
 const features = [
   {
     icon: SparklesIcon,
-    title: "Smart Departure Advisor",
-    description: "Leave at the perfect time",
+    title: "Smart Departure Alerts",
+    description: "Get notified at the perfect time to leave",
   },
   {
     icon: Calendar02Icon,
-    title: "7-Day Risk Forecast",
-    description: "Plan ahead with predictions",
+    title: "Unlimited Routes",
+    description: "Monitor all your daily commutes at once",
   },
   {
     icon: ShieldKeyIcon,
-    title: "Priority Safety Alerts",
-    description: "Instant critical notifications",
+    title: "ETA Impact & History",
+    description: "See delay in minutes + time saved weekly",
   },
 ];
 
@@ -209,14 +209,13 @@ export default function PaywallScreen() {
         <Animated.View entering={FadeInUp.delay(150)}>
           <Text style={styles.headline}>Never Miss the{"\n"}Perfect Window</Text>
           <Text style={styles.subheadline}>
-            Join 2,400+ commuters who save time and stress every day
+            Save 30+ minutes per week by leaving at the right time
           </Text>
         </Animated.View>
 
-        {/* Social Proof */}
-        <Animated.View entering={FadeInUp.delay(200)} style={styles.socialProof}>
-          <Text style={styles.stars}>⭐⭐⭐⭐⭐</Text>
-          <Text style={styles.socialProofText}>4.9 from 2,400+ users</Text>
+        {/* Value Proposition */}
+        <Animated.View entering={FadeInUp.delay(200)} style={styles.valueProposition}>
+          <Text style={styles.valuePropositionText}>Try free for 7 days. Cancel anytime.</Text>
         </Animated.View>
 
         {/* Features */}
@@ -470,20 +469,13 @@ const styles = StyleSheet.create({
     lineHeight: 22,
   },
 
-  // Social Proof
-  socialProof: {
-    flexDirection: "row",
+  // Value Proposition
+  valueProposition: {
     alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
     marginTop: spacing[3],
     marginBottom: spacing[5],
   },
-  stars: {
-    fontSize: 14,
-    letterSpacing: 1,
-  },
-  socialProofText: {
+  valuePropositionText: {
     fontSize: typography.size.sm,
     fontWeight: typography.weight.medium,
     color: colors.text.tertiary,
