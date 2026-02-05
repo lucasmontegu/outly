@@ -594,6 +594,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing[6],
     paddingTop: spacing[4],
     paddingBottom: spacing[2],
+    backgroundColor: `${colors.brand.primary}06`,
   },
   headerLeft: {
     flex: 1,
@@ -638,7 +639,7 @@ const styles = StyleSheet.create({
     padding: spacing[5],
     shadowColor: colors.brand.primary,
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
+    shadowOpacity: 0.10,
     shadowRadius: 12,
     elevation: 3,
   },

@@ -1,7 +1,7 @@
 import React from "react";
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from "react-native";
 import Animated, { FadeInDown, useAnimatedStyle, useSharedValue, withSpring } from "react-native-reanimated";
-import { colors, spacing, borderRadius, typography } from "@/lib/design-tokens";
+import { colors, spacing, borderRadius, typography, shadows } from "@/lib/design-tokens";
 import { lightHaptic } from "@/lib/haptics";
 
 type Classification = "low" | "medium" | "high";
@@ -60,6 +60,12 @@ function TimeSlotCard({ slot, index, onPress }: TimeSlotCardProps) {
     onPress?.(slot);
   };
 
+  // Dynamic background tint based on classification
+  const backgroundTint = `${RISK_COLORS[slot.classification]}08`;
+
+  // Dynamic glow shadow for NOW chip
+  const glowShadow = slot.isNow ? shadows.glow[slot.classification] : {};
+
   return (
     <Animated.View
       entering={FadeInDown.duration(400).delay(index * 80)}
@@ -69,6 +75,8 @@ function TimeSlotCard({ slot, index, onPress }: TimeSlotCardProps) {
         style={[
           styles.slotCard,
           slot.isOptimal && styles.slotOptimal,
+          { backgroundColor: backgroundTint },
+          glowShadow,
         ]}
         onPressIn={handlePressIn}
         onPressOut={handlePressOut}
@@ -168,7 +176,7 @@ const styles = StyleSheet.create({
     gap: spacing[3],
   },
   slotCard: {
-    width: 72,
+    width: 84,
     paddingTop: spacing[3],
     paddingBottom: spacing[3],
     paddingHorizontal: spacing[2],
@@ -188,7 +196,6 @@ const styles = StyleSheet.create({
   slotOptimal: {
     borderColor: colors.brand.secondary,
     borderWidth: 2,
-    backgroundColor: "#F8F7FF", // Very subtle brand tint
   },
   timeLabel: {
     fontSize: typography.size.xs,
@@ -208,7 +215,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing[2],
   },
   scoreText: {
-    fontSize: typography.size["2xl"],
+    fontSize: typography.size["3xl"],
     fontWeight: typography.weight.bold,
     fontFamily: "JetBrainsMono_700Bold",
   },

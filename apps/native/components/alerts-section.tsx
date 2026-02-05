@@ -41,6 +41,16 @@ function getSeverityBg(severity: number): string {
   return `${colors.brand.secondary}15`;
 }
 
+function getCardBackground(severity: number): string {
+  if (severity >= 4) return colors.risk.high.light;
+  if (severity >= 3) return colors.risk.medium.light;
+  return colors.background.card;
+}
+
+function getAccentWidth(severity: number): number {
+  return severity >= 4 ? 5 : 4;
+}
+
 function formatDistance(distanceKm: number): string {
   if (distanceKm < 1) {
     const meters = Math.round(distanceKm * 1000);
@@ -127,7 +137,13 @@ export function AlertsSection({
               layout={Layout.springify().damping(20)}
             >
               <TouchableOpacity
-                style={styles.alertCard}
+                style={[
+                  styles.alertCard,
+                  {
+                    backgroundColor: getCardBackground(alert.severity),
+                    ...(index === 0 ? shadows.md : shadows.sm),
+                  },
+                ]}
                 onPress={() => {
                   lightHaptic();
                   onAlertPress(alert);
@@ -137,7 +153,10 @@ export function AlertsSection({
                 <View
                   style={[
                     styles.alertIndicator,
-                    { backgroundColor: getSeverityColor(alert.severity) },
+                    {
+                      backgroundColor: getSeverityColor(alert.severity),
+                      width: getAccentWidth(alert.severity),
+                    },
                   ]}
                 />
                 <View
@@ -262,13 +281,11 @@ const styles = StyleSheet.create({
   alertCard: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: colors.background.card,
     borderRadius: borderRadius.lg,
     borderWidth: 1,
     borderColor: colors.border.light,
     padding: spacing[3],
     gap: spacing[3],
-    ...shadows.sm,
   },
   alertIndicator: {
     width: 4,

@@ -7,6 +7,8 @@ import Animated, {
   withTiming,
   useSharedValue,
   Easing,
+  withSpring,
+  withSequence,
 } from "react-native-reanimated";
 import { HugeiconsIcon } from "@hugeicons/react-native";
 import {
@@ -16,6 +18,7 @@ import {
   Settings02Icon,
 } from "@hugeicons/core-free-icons";
 import { colors } from "@/lib/design-tokens";
+import { lightHaptic } from "@/lib/haptics";
 
 const { width } = Dimensions.get("window");
 const TAB_BAR_WIDTH = width - 48; // 24px margin on each side
@@ -39,6 +42,14 @@ export function CustomTabBar({ state, navigation }: CustomTabBarProps) {
   const insets = useSafeAreaInsets();
   const indicatorPosition = useSharedValue(0);
   const isMapTab = state.index === 1; // Map tab is at index 1
+
+  // Create scale shared values for each tab's bounce animation
+  const scales = [
+    useSharedValue(1),
+    useSharedValue(1),
+    useSharedValue(1),
+    useSharedValue(1),
+  ];
 
   React.useEffect(() => {
     indicatorPosition.value = withTiming(
@@ -80,9 +91,23 @@ export function CustomTabBar({ state, navigation }: CustomTabBarProps) {
               });
 
               if (!isFocused && !event.defaultPrevented) {
+                // Trigger haptic feedback
+                lightHaptic();
+
+                // Trigger bounce animation
+                scales[index].value = withSequence(
+                  withSpring(1.15, { damping: 12, stiffness: 500 }),
+                  withSpring(1, { damping: 15, stiffness: 400 })
+                );
+
                 navigation.navigate(route.name);
               }
             };
+
+            // Animated style for icon bounce
+            const iconStyle = useAnimatedStyle(() => ({
+              transform: [{ scale: scales[index].value }],
+            }));
 
             return (
               <TouchableOpacity
@@ -95,12 +120,13 @@ export function CustomTabBar({ state, navigation }: CustomTabBarProps) {
                 activeOpacity={0.7}
               >
                 <View style={styles.tabContent}>
-                  <HugeiconsIcon
-                    icon={tab.icon}
-                    size={24}
-                    color={isFocused ? colors.brand.primary : colors.slate[400]}
-                    strokeWidth={isFocused ? 2 : 1.5}
-                  />
+                  <Animated.View style={iconStyle}>
+                    <HugeiconsIcon
+                      icon={tab.icon}
+                      size={24}
+                      color={isFocused ? colors.brand.secondary : colors.slate[400]}
+                    />
+                  </Animated.View>
                   <Animated.Text
                     style={[
                       styles.label,
@@ -153,8 +179,9 @@ const styles = StyleSheet.create({
   indicator: {
     position: "absolute",
     top: 8,
+    width: INDICATOR_WIDTH,
     height: 56,
-    backgroundColor: colors.brand.primary,
+    backgroundColor: colors.brand.secondary,
     opacity: 0.08,
     borderRadius: 16,
   },
@@ -179,7 +206,7 @@ const styles = StyleSheet.create({
     letterSpacing: 0.2,
   },
   labelActive: {
-    color: colors.brand.primary,
+    color: colors.brand.secondary,
     fontWeight: "600",
   },
 });

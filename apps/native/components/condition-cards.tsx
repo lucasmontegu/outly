@@ -47,6 +47,16 @@ function getTrendColor(trend?: 'improving' | 'worsening' | 'stable'): string {
   return colors.text.tertiary;
 }
 
+function getCardBackgroundTint(score: number, type: 'weather' | 'traffic'): string | undefined {
+  if (score <= 30) return undefined;
+
+  if (type === 'weather') {
+    return `${colors.state.info}06`; // Very subtle blue tint
+  } else {
+    return `${colors.risk.medium.primary}06`; // Very subtle amber tint
+  }
+}
+
 export function ConditionCards({ weather, traffic }: ConditionCardsProps) {
   return (
     <View style={styles.container}>
@@ -60,7 +70,14 @@ export function ConditionCards({ weather, traffic }: ConditionCardsProps) {
           entering={FadeInDown.duration(300).delay(100)}
           style={styles.cardWrapper}
         >
-          <Card style={[styles.card, { borderLeftWidth: 3, borderLeftColor: getStatusColor(weather.score) }]}>
+          <Card style={[
+            styles.card,
+            {
+              borderLeftWidth: 3,
+              borderLeftColor: getStatusColor(weather.score),
+              backgroundColor: getCardBackgroundTint(weather.score, 'weather') || colors.background.card
+            }
+          ]}>
             <Card.Body style={styles.cardBody}>
               <View style={styles.cardHeader}>
                 <View
@@ -75,37 +92,30 @@ export function ConditionCards({ weather, traffic }: ConditionCardsProps) {
                     color={getStatusColor(weather.score)}
                   />
                 </View>
-                <View style={styles.badgeRow}>
-                  <View
+                {weather.trend && (
+                  <Text
                     style={[
-                      styles.statusBadge,
-                      { backgroundColor: getStatusBg(weather.score) },
+                      styles.trendIndicator,
+                      { color: getTrendColor(weather.trend) },
                     ]}
                   >
-                    <Text
-                      style={[
-                        styles.statusBadgeText,
-                        { color: getStatusColor(weather.score) },
-                      ]}
-                    >
-                      {weather.score}
-                    </Text>
-                  </View>
-                  {weather.trend && (
-                    <Text
-                      style={[
-                        styles.trendIndicator,
-                        { color: getTrendColor(weather.trend) },
-                      ]}
-                    >
-                      {getTrendIcon(weather.trend)}
-                    </Text>
-                  )}
-                </View>
+                    {getTrendIcon(weather.trend)}
+                  </Text>
+                )}
               </View>
 
               <Text style={styles.cardLabel}>DRIVE CONDITIONS</Text>
-              <Text style={styles.cardStatus}>{weather.status}</Text>
+              <View style={styles.statusRow}>
+                <Text style={styles.cardStatus}>{weather.status}</Text>
+                <View
+                  style={[
+                    styles.scorePill,
+                    { backgroundColor: getStatusColor(weather.score) },
+                  ]}
+                >
+                  <Text style={styles.scorePillText}>{weather.score}</Text>
+                </View>
+              </View>
               <Text style={styles.cardDetail} numberOfLines={2}>
                 {weather.detail}
               </Text>
@@ -118,7 +128,14 @@ export function ConditionCards({ weather, traffic }: ConditionCardsProps) {
           entering={FadeInDown.duration(300).delay(200)}
           style={styles.cardWrapper}
         >
-          <Card style={[styles.card, { borderLeftWidth: 3, borderLeftColor: getStatusColor(traffic.score) }]}>
+          <Card style={[
+            styles.card,
+            {
+              borderLeftWidth: 3,
+              borderLeftColor: getStatusColor(traffic.score),
+              backgroundColor: getCardBackgroundTint(traffic.score, 'traffic') || colors.background.card
+            }
+          ]}>
             <Card.Body style={styles.cardBody}>
               <View style={styles.cardHeader}>
                 <View
@@ -133,37 +150,30 @@ export function ConditionCards({ weather, traffic }: ConditionCardsProps) {
                     color={getStatusColor(traffic.score)}
                   />
                 </View>
-                <View style={styles.badgeRow}>
-                  <View
+                {traffic.trend && (
+                  <Text
                     style={[
-                      styles.statusBadge,
-                      { backgroundColor: getStatusBg(traffic.score) },
+                      styles.trendIndicator,
+                      { color: getTrendColor(traffic.trend) },
                     ]}
                   >
-                    <Text
-                      style={[
-                        styles.statusBadgeText,
-                        { color: getStatusColor(traffic.score) },
-                      ]}
-                    >
-                      {traffic.score}
-                    </Text>
-                  </View>
-                  {traffic.trend && (
-                    <Text
-                      style={[
-                        styles.trendIndicator,
-                        { color: getTrendColor(traffic.trend) },
-                      ]}
-                    >
-                      {getTrendIcon(traffic.trend)}
-                    </Text>
-                  )}
-                </View>
+                    {getTrendIcon(traffic.trend)}
+                  </Text>
+                )}
               </View>
 
               <Text style={styles.cardLabel}>ROAD STATUS</Text>
-              <Text style={styles.cardStatus}>{traffic.status}</Text>
+              <View style={styles.statusRow}>
+                <Text style={styles.cardStatus}>{traffic.status}</Text>
+                <View
+                  style={[
+                    styles.scorePill,
+                    { backgroundColor: getStatusColor(traffic.score) },
+                  ]}
+                >
+                  <Text style={styles.scorePillText}>{traffic.score}</Text>
+                </View>
+              </View>
               <Text style={styles.cardDetail} numberOfLines={2}>
                 {traffic.detail}
               </Text>
@@ -196,7 +206,6 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   card: {
-    backgroundColor: colors.background.card,
     borderRadius: borderRadius.xl,
     borderWidth: 1,
     borderColor: colors.border.light,
@@ -218,20 +227,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  badgeRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing[1],
-  },
-  statusBadge: {
-    paddingHorizontal: spacing[2],
-    paddingVertical: spacing[1],
-    borderRadius: borderRadius.md,
-  },
-  statusBadgeText: {
-    fontSize: typography.size.xs,
-    fontWeight: typography.weight.bold,
-  },
   trendIndicator: {
     fontSize: typography.size.lg,
     fontWeight: typography.weight.bold,
@@ -243,11 +238,29 @@ const styles = StyleSheet.create({
     color: colors.text.secondary,
     letterSpacing: typography.tracking.wide,
   },
+  statusRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing[2],
+    marginTop: spacing[1],
+  },
   cardStatus: {
     fontSize: typography.size.xl,
     fontWeight: typography.weight.bold,
     color: colors.text.primary,
-    marginTop: spacing[1],
+  },
+  scorePill: {
+    minWidth: 24,
+    height: 20,
+    paddingHorizontal: spacing[1],
+    borderRadius: borderRadius.full,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  scorePillText: {
+    fontSize: 11,
+    fontWeight: typography.weight.bold,
+    color: "#FFFFFF",
   },
   cardDetail: {
     fontSize: typography.size.sm,
