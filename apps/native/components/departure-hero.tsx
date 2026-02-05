@@ -25,6 +25,7 @@ type DepartureHeroProps = {
   reason: string;
   isOptimalNow: boolean;
   currentDelayMinutes?: number;
+  onCtaPress?: () => void;
 };
 
 const COLORS = {
@@ -43,6 +44,7 @@ export function DepartureHero({
   reason,
   isOptimalNow,
   currentDelayMinutes,
+  onCtaPress,
 }: DepartureHeroProps) {
   const pulseScale = useSharedValue(1);
   const scoreOpacity = useSharedValue(0);
@@ -110,7 +112,7 @@ export function DepartureHero({
 
   const handleCtaPress = () => {
     lightHaptic();
-    // TODO: Wire up navigation or alarm setting
+    onCtaPress?.();
   };
 
   const estimatedTravelTime = 25; // TODO: Replace with actual calculation

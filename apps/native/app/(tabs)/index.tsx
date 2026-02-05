@@ -339,6 +339,19 @@ export default function OverviewScreen() {
               reason={derivedData.reason}
               isOptimalNow={derivedData.isOptimalNow}
               currentDelayMinutes={derivedData.currentDelayMinutes}
+              onCtaPress={() => {
+                router.push({
+                  pathname: "/smart-departure",
+                  params: {
+                    optimalTime: derivedData.optimalTime,
+                    optimalMinutes: String(derivedData.optimalDepartureMinutes),
+                    score: String(derivedData.currentScore),
+                    classification: derivedData.classification,
+                    reason: derivedData.reason,
+                    isOptimalNow: derivedData.isOptimalNow ? "1" : "0",
+                  },
+                });
+              }}
             />
           </SectionCard>
         )}
@@ -352,7 +365,17 @@ export default function OverviewScreen() {
               classification={derivedData.classification}
               onSetAlert={() => {
                 lightHaptic();
-                router.push("/smart-departure");
+                router.push({
+                  pathname: "/smart-departure",
+                  params: {
+                    optimalTime: derivedData.optimalTime,
+                    optimalMinutes: String(derivedData.optimalDepartureMinutes),
+                    score: String(derivedData.currentScore),
+                    classification: derivedData.classification,
+                    reason: derivedData.reason,
+                    isOptimalNow: derivedData.isOptimalNow ? "1" : "0",
+                  },
+                });
               }}
             />
           </SectionCard>
