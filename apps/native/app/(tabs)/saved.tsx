@@ -49,6 +49,36 @@ const DAYS = ["M", "T", "W", "T", "F", "S", "S"];
 
 type RouteIcon = "building" | "running" | "home";
 
+// Helper function to format relative time
+function formatRelativeTime(timestamp: number): string {
+  const now = Date.now();
+  const diffMs = now - timestamp;
+  const diffMinutes = Math.floor(diffMs / (1000 * 60));
+
+  if (diffMinutes < 1) return "Updated just now";
+  if (diffMinutes < 60) return `Updated ${diffMinutes} min ago`;
+
+  const diffHours = Math.floor(diffMinutes / 60);
+  if (diffHours < 24) return `Updated ${diffHours}h ago`;
+
+  const diffDays = Math.floor(diffHours / 24);
+  return `Updated ${diffDays}d ago`;
+}
+
+// Helper function to get risk color based on classification
+function getRiskColor(classification?: string): string {
+  switch (classification) {
+    case "low":
+      return colors.risk.low.primary;
+    case "medium":
+      return colors.risk.medium.primary;
+    case "high":
+      return colors.risk.high.primary;
+    default:
+      return colors.text.tertiary;
+  }
+}
+
 // Empty state component
 function EmptyRoutes({ onAdd }: { onAdd: () => void }) {
   return (
@@ -167,7 +197,20 @@ function RouteCard({
               <HugeiconsIcon icon={ArrowDown01Icon} size={14} color={colors.text.tertiary} />
             </View>
             <Text style={styles.routeTo}>{route.toName}</Text>
+            {route.cachedAt && (
+              <Text style={styles.updatedText}>
+                {formatRelativeTime(route.cachedAt)}
+              </Text>
+            )}
+            {!route.cachedAt && (
+              <Text style={styles.updatedText}>Not checked yet</Text>
+            )}
           </View>
+          {route.cachedScore != null && (
+            <View style={[styles.riskBadge, { backgroundColor: getRiskColor(route.cachedClassification) }]}>
+              <Text style={styles.riskBadgeText}>{route.cachedScore}</Text>
+            </View>
+          )}
           <TouchableOpacity style={styles.routeMenu} onPress={onEdit}>
             <HugeiconsIcon icon={MoreVerticalIcon} size={20} color={colors.text.tertiary} />
           </TouchableOpacity>
@@ -266,13 +309,14 @@ function RouteCard({
 
           {/* Actions */}
           <View style={styles.actions}>
-            <Button
-              className="flex-1 h-12 rounded-xl"
-              onPress={onSaveChanges}
-              isDisabled={!hasChanges}
-            >
-              {hasChanges ? "Save Changes" : "No Changes"}
-            </Button>
+            {hasChanges && (
+              <Button
+                className="flex-1 h-12 rounded-xl"
+                onPress={onSaveChanges}
+              >
+                Save Changes
+              </Button>
+            )}
             <TouchableOpacity style={styles.deleteButton} onPress={onDelete}>
               <HugeiconsIcon icon={Delete02Icon} size={20} color={colors.risk.high.primary} />
             </TouchableOpacity>
@@ -622,6 +666,25 @@ const styles = StyleSheet.create({
     fontSize: typography.size.base,
     fontWeight: typography.weight.semibold,
     color: colors.text.primary,
+  },
+  updatedText: {
+    fontSize: typography.size.xs,
+    color: colors.text.tertiary,
+    marginTop: spacing[1],
+  },
+  riskBadge: {
+    minWidth: 40,
+    height: 32,
+    borderRadius: borderRadius.full,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: spacing[3],
+    marginLeft: spacing[2],
+  },
+  riskBadgeText: {
+    fontSize: typography.size.sm,
+    fontWeight: typography.weight.bold,
+    color: colors.text.inverse,
   },
   routeMenu: {
     width: 36,

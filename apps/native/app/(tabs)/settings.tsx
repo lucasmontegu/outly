@@ -145,6 +145,12 @@ export default function SettingsScreen() {
     api.users.getCurrentUser,
     isScreenFocused ? {} : "skip"
   );
+
+  const userStats = useQuery(
+    api.gamification.getMyStats,
+    isScreenFocused ? {} : "skip"
+  );
+
   const { presentCustomerCenter } = useCustomerCenter();
 
   const handleSubscriptionPress = async () => {
@@ -185,13 +191,29 @@ export default function SettingsScreen() {
         {/* Profile Card */}
         <ProfileCard user={user} isPro={isPro} />
 
+        {/* Upgrade Banner for free users */}
+        {!isPro && (
+          <TouchableOpacity style={styles.upgradeBanner} onPress={() => router.push("/paywall")} activeOpacity={0.8}>
+            <View style={styles.upgradeBannerContent}>
+              <View style={styles.upgradeBannerIcon}>
+                <HugeiconsIcon icon={CrownIcon} size={24} color={colors.text.inverse} />
+              </View>
+              <View style={styles.upgradeBannerText}>
+                <Text style={styles.upgradeBannerTitle}>Unlock Smart Alerts</Text>
+                <Text style={styles.upgradeBannerSubtitle}>Get departure notifications at the perfect time</Text>
+              </View>
+            </View>
+            <HugeiconsIcon icon={ArrowRight01Icon} size={18} color={colors.text.inverse} />
+          </TouchableOpacity>
+        )}
+
         {/* Account Section */}
         <SettingsSection title="ACCOUNT">
           <SettingsItem
             icon={Award02Icon}
             iconColor={colors.gamification.gold}
             label="My Impact"
-            sublabel="Badges, levels & contributions"
+            sublabel={userStats ? `Level ${userStats.level} · ${userStats.totalPoints.toLocaleString()} pts · ${userStats.accuracyPercent}% accuracy` : "Loading stats..."}
             onPress={() => router.push("/my-impact")}
           />
           <SettingsItem
@@ -210,7 +232,7 @@ export default function SettingsScreen() {
             icon={Notification01Icon}
             iconColor={colors.state.info}
             label="Notifications"
-            sublabel="Alerts, timing & preferences"
+            sublabel={currentUser?.preferences?.alertAdvanceMinutes ? `Active · ${currentUser.preferences.alertAdvanceMinutes} min before departure` : "Alerts, timing & preferences"}
             onPress={() => router.push("/notifications")}
           />
           <SettingsItem
@@ -424,5 +446,48 @@ const styles = StyleSheet.create({
     color: colors.text.tertiary,
     textAlign: "center",
     marginTop: spacing[6],
+  },
+  // Upgrade Banner
+  upgradeBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: colors.brand.primary,
+    marginHorizontal: spacing[4],
+    marginBottom: spacing[6],
+    padding: spacing[4],
+    borderRadius: borderRadius.xl,
+    shadowColor: colors.brand.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 12,
+    elevation: 4,
+  },
+  upgradeBannerContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    flex: 1,
+    gap: spacing[3],
+  },
+  upgradeBannerIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: borderRadius.full,
+    backgroundColor: "rgba(255,255,255,0.2)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  upgradeBannerText: {
+    flex: 1,
+  },
+  upgradeBannerTitle: {
+    fontSize: typography.size.base,
+    fontWeight: typography.weight.bold,
+    color: colors.text.inverse,
+  },
+  upgradeBannerSubtitle: {
+    fontSize: typography.size.sm,
+    color: "rgba(255,255,255,0.8)",
+    marginTop: 2,
   },
 });

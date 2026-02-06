@@ -211,4 +211,25 @@ export default defineSchema({
   })
     .index("by_query_date", ["queryName", "date"])
     .index("by_date", ["date"]),
+
+  // Departure analytics — tracks when users follow recommendations
+  departureAnalytics: defineTable({
+    userId: v.string(),
+    routeId: v.id("routes"),
+    // When the user opened the app and saw the recommendation
+    viewedAt: v.number(),
+    // The recommended departure time
+    recommendedDepartureTime: v.string(),
+    // Whether the user followed the recommendation (left within ±10 min of recommended time)
+    followedRecommendation: v.boolean(),
+    // Estimated time saved in minutes (positive = saved, negative = lost)
+    estimatedTimeSaved: v.number(),
+    // Risk score at time of departure
+    riskScoreAtDeparture: v.number(),
+    // Week identifier for aggregation (e.g., "2026-W05")
+    weekId: v.string(),
+  })
+    .index("by_user", ["userId"])
+    .index("by_user_week", ["userId", "weekId"])
+    .index("by_route", ["routeId"]),
 });
