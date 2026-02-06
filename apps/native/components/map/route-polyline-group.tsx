@@ -16,6 +16,16 @@ type RouteData = {
   icon: "building" | "running" | "home";
   monitorDays: boolean[];
   isActive: boolean;
+  // Road-following polyline from HERE Routing API
+  polyline?: { lat: number; lng: number }[];
+  // Alternative routes with traffic data
+  alternatives?: Array<{
+    polyline: { lat: number; lng: number }[];
+    distance: number;
+    duration: number;
+    typicalDuration: number;
+    trafficDelay: number;
+  }>;
 };
 
 type Props = {
@@ -36,20 +46,48 @@ export function RoutePolylineGroup({ route, isSelected, onPress }: Props) {
 
   const RouteIcon = getRouteIcon(route.icon);
 
+  // Use road-following polyline if available, otherwise fallback to straight line
+  const coordinates = route.polyline && route.polyline.length > 0
+    ? route.polyline.map(point => ({
+        latitude: point.lat,
+        longitude: point.lng,
+      }))
+    : [
+        {
+          latitude: route.fromLocation.lat,
+          longitude: route.fromLocation.lng,
+        },
+        {
+          latitude: route.toLocation.lat,
+          longitude: route.toLocation.lng,
+        },
+      ];
+
+  // Show alternative routes if selected and available
+  const showAlternatives = isSelected && route.alternatives && route.alternatives.length > 1;
+
   return (
     <Fragment>
-      {/* Route polyline */}
+      {/* Alternative routes (shown in background when selected) */}
+      {showAlternatives && route.alternatives!.slice(1).map((alt, index) => (
+        <Polyline
+          key={`alt-${index}`}
+          coordinates={alt.polyline.map(point => ({
+            latitude: point.lat,
+            longitude: point.lng,
+          }))}
+          strokeColor={colors.slate[300]}
+          strokeWidth={3}
+          lineCap="round"
+          lineJoin="round"
+          lineDashPattern={[5, 5]}
+          zIndex={49}
+        />
+      ))}
+
+      {/* Primary route polyline */}
       <Polyline
-        coordinates={[
-          {
-            latitude: route.fromLocation.lat,
-            longitude: route.fromLocation.lng,
-          },
-          {
-            latitude: route.toLocation.lat,
-            longitude: route.toLocation.lng,
-          },
-        ]}
+        coordinates={coordinates}
         strokeColor={isSelected ? colors.brand.primary : colors.slate[400]}
         strokeWidth={isSelected ? 6 : 4}
         lineCap="round"

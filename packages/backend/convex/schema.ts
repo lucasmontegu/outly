@@ -143,6 +143,34 @@ export default defineSchema({
       v.union(v.literal("low"), v.literal("medium"), v.literal("high"))
     ),
     cachedAt: v.optional(v.number()),
+    // Route geometry (polyline coordinates from HERE Routing API)
+    polyline: v.optional(
+      v.array(
+        v.object({
+          lat: v.number(),
+          lng: v.number(),
+        })
+      )
+    ),
+    // Route alternatives (up to 3 routes with traffic data)
+    alternatives: v.optional(
+      v.array(
+        v.object({
+          polyline: v.array(
+            v.object({
+              lat: v.number(),
+              lng: v.number(),
+            })
+          ),
+          distance: v.number(), // meters
+          duration: v.number(), // seconds
+          typicalDuration: v.number(), // seconds
+          trafficDelay: v.number(), // seconds
+        })
+      )
+    ),
+    // When polylines were last fetched (TTL: 24 hours)
+    polylineFetchedAt: v.optional(v.number()),
   })
     .index("by_user", ["userId"])
     .index("by_user_active", ["userId", "isActive"]),
