@@ -26,6 +26,8 @@ import type * as riskScore from "../riskScore.js";
 import type * as routes from "../routes.js";
 import type * as scheduled_dataFetcher from "../scheduled/dataFetcher.js";
 import type * as scheduled_dataFetcherQueries from "../scheduled/dataFetcherQueries.js";
+import type * as scheduled_departureAlertQueries from "../scheduled/departureAlertQueries.js";
+import type * as scheduled_departureAlerts from "../scheduled/departureAlerts.js";
 import type * as subscriptions from "../subscriptions.js";
 import type * as userLocations from "../userLocations.js";
 import type * as users from "../users.js";
@@ -55,6 +57,8 @@ declare const fullApi: ApiFromModules<{
   routes: typeof routes;
   "scheduled/dataFetcher": typeof scheduled_dataFetcher;
   "scheduled/dataFetcherQueries": typeof scheduled_dataFetcherQueries;
+  "scheduled/departureAlertQueries": typeof scheduled_departureAlertQueries;
+  "scheduled/departureAlerts": typeof scheduled_departureAlerts;
   subscriptions: typeof subscriptions;
   userLocations: typeof userLocations;
   users: typeof users;

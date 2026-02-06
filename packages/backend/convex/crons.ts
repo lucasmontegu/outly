@@ -37,4 +37,14 @@ crons.weekly(
   internal.monitoring.cleanOldMetrics
 );
 
+// ============================================================================
+// DEPARTURE ALERTS - Smart notification scheduling
+// ============================================================================
+// Checks every 5 minutes if any routes need departure notifications sent
+crons.interval(
+  "check departure alerts",
+  { minutes: 5 },
+  internal.scheduled.departureAlerts.checkDepartureAlerts
+);
+
 export default crons;

@@ -20,12 +20,19 @@ import {
   JetBrainsMono_600SemiBold,
   JetBrainsMono_700Bold,
 } from "@expo-google-fonts/jetbrains-mono";
+import * as Notifications from "expo-notifications";
+import { useMutation } from "convex/react";
+import { api } from "@outia/backend/convex/_generated/api";
 
 import { setAndroidNavigationBar } from "@/lib/android-navigation-bar";
 import { NAV_THEME } from "@/lib/constants";
 import { useColorScheme } from "@/lib/use-color-scheme";
 import { ToastProvider } from "@/components/ui/toast";
 import { RevenueCatProvider } from "@/providers/RevenueCatProvider";
+import {
+  registerForPushNotificationsAsync,
+  handleNotificationResponse,
+} from "@/lib/notifications";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -54,6 +61,30 @@ const styles = StyleSheet.create({
     flex: 1,
   },
 });
+
+function NotificationInitializer() {
+  const savePushToken = useMutation(api.users.savePushToken);
+
+  useEffect(() => {
+    // Register for push notifications
+    registerForPushNotificationsAsync().then((token) => {
+      if (token) {
+        savePushToken({ expoPushToken: token }).catch((err) =>
+          console.warn("Failed to save push token:", err)
+        );
+      }
+    });
+
+    // Handle notification taps
+    const subscription = Notifications.addNotificationResponseReceivedListener(
+      handleNotificationResponse
+    );
+
+    return () => subscription.remove();
+  }, [savePushToken]);
+
+  return null;
+}
 
 export default function RootLayout() {
   const hasMounted = useRef(false);
@@ -90,6 +121,7 @@ export default function RootLayout() {
     <ClerkProvider tokenCache={tokenCache} publishableKey={env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY}>
       <ConvexProviderWithClerk client={convex} useAuth={useAuth}>
         <RevenueCatProvider>
+          <NotificationInitializer />
           <ThemeProvider value={isDarkColorScheme ? DARK_THEME : LIGHT_THEME}>
             <StatusBar style={isDarkColorScheme ? "light" : "dark"} />
             <GestureHandlerRootView style={styles.container}>

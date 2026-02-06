@@ -35,9 +35,12 @@ export default defineSchema({
         alertAdvanceMinutes: v.optional(v.number()),
       })
     ),
+    // Expo push notification token for server-side notifications
+    expoPushToken: v.optional(v.string()),
   })
     .index("by_clerk_id", ["clerkId"])
-    .index("by_email", ["email"]),
+    .index("by_email", ["email"])
+    .index("by_push_token", ["expoPushToken"]),
 
   // Weather and traffic events from APIs and users
   events: defineTable({

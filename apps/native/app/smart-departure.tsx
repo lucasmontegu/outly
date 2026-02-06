@@ -22,6 +22,7 @@ import * as Notifications from "expo-notifications";
 import Animated, { FadeIn, FadeInDown } from "react-native-reanimated";
 import { colors, spacing, borderRadius, typography, shadows } from "@/lib/design-tokens";
 import { lightHaptic, riskLevelHaptic } from "@/lib/haptics";
+import { useCustomerInfo } from "@/hooks/useSubscription";
 
 export default function SmartDepartureScreen() {
   const router = useRouter();
@@ -36,6 +37,8 @@ export default function SmartDepartureScreen() {
 
   const [alertScheduled, setAlertScheduled] = useState(false);
   const [scheduling, setScheduling] = useState(false);
+  const { isPro } = useCustomerInfo();
+  const [showUpgradePrompt, setShowUpgradePrompt] = useState(false);
 
   // Parse params with fallbacks
   const optimalTime = params.optimalTime || "7:45";
@@ -66,6 +69,20 @@ export default function SmartDepartureScreen() {
   const scheduleAlert = async () => {
     setScheduling(true);
     lightHaptic();
+
+    // Check if free user has already scheduled an alert today
+    if (!isPro) {
+      const scheduled = await Notifications.getAllScheduledNotificationsAsync();
+      const departureAlerts = scheduled.filter(
+        (n) => n.content.data?.type === "departure_alert"
+      );
+
+      if (departureAlerts.length >= 1) {
+        setScheduling(false);
+        setShowUpgradePrompt(true);
+        return;
+      }
+    }
 
     try {
       // Request permission
@@ -138,7 +155,13 @@ export default function SmartDepartureScreen() {
           <HugeiconsIcon icon={ArrowLeft01Icon} size={24} color={colors.text.primary} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Smart Departure</Text>
-        <View style={styles.headerButton} />
+        <View style={styles.headerButton}>
+          {isPro && (
+            <View style={styles.proPill}>
+              <Text style={styles.proPillText}>PRO</Text>
+            </View>
+          )}
+        </View>
       </View>
 
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
@@ -216,6 +239,35 @@ export default function SmartDepartureScreen() {
                   : "We'll send a push notification when it's time"}
               </Text>
             </View>
+          </Animated.View>
+        )}
+
+        {/* PRO Upgrade Prompt */}
+        {showUpgradePrompt && (
+          <Animated.View entering={FadeIn.duration(300)} style={styles.upgradeCard}>
+            <View style={styles.upgradeHeader}>
+              <HugeiconsIcon icon={Alert02Icon} size={24} color={colors.state.warning} />
+              <Text style={styles.upgradeTitle}>Free Plan Limit</Text>
+            </View>
+            <Text style={styles.upgradeText}>
+              Free accounts can set 1 departure alert per day. Upgrade to Pro for unlimited alerts on all routes.
+            </Text>
+            <TouchableOpacity
+              style={styles.upgradeButton}
+              onPress={() => {
+                lightHaptic();
+                router.push("/paywall");
+              }}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.upgradeButtonText}>Upgrade to Pro</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.dismissButton}
+              onPress={() => setShowUpgradePrompt(false)}
+            >
+              <Text style={styles.dismissButtonText}>Maybe later</Text>
+            </TouchableOpacity>
           </Animated.View>
         )}
       </ScrollView>
@@ -472,5 +524,62 @@ const styles = StyleSheet.create({
     fontSize: typography.size.base,
     fontWeight: typography.weight.bold,
     color: colors.text.inverse,
+  },
+  proPill: {
+    backgroundColor: colors.state.warning,
+    paddingHorizontal: spacing[2],
+    paddingVertical: spacing[1],
+    borderRadius: borderRadius.sm,
+  },
+  proPillText: {
+    fontSize: 10,
+    fontWeight: typography.weight.bold,
+    color: colors.text.inverse,
+    letterSpacing: 0.5,
+  },
+  upgradeCard: {
+    backgroundColor: colors.state.warning + "10",
+    borderRadius: borderRadius.xl,
+    padding: spacing[5],
+    borderWidth: 1,
+    borderColor: colors.state.warning + "30",
+    marginBottom: spacing[4],
+  },
+  upgradeHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing[3],
+    marginBottom: spacing[3],
+  },
+  upgradeTitle: {
+    fontSize: typography.size.lg,
+    fontWeight: typography.weight.bold,
+    color: colors.text.primary,
+  },
+  upgradeText: {
+    fontSize: typography.size.base,
+    color: colors.text.secondary,
+    lineHeight: 22,
+    marginBottom: spacing[4],
+  },
+  upgradeButton: {
+    backgroundColor: colors.brand.secondary,
+    paddingVertical: spacing[4],
+    borderRadius: borderRadius.xl,
+    alignItems: "center",
+    marginBottom: spacing[3],
+  },
+  upgradeButtonText: {
+    fontSize: typography.size.base,
+    fontWeight: typography.weight.bold,
+    color: colors.text.inverse,
+  },
+  dismissButton: {
+    alignItems: "center",
+    paddingVertical: spacing[2],
+  },
+  dismissButtonText: {
+    fontSize: typography.size.sm,
+    color: colors.text.tertiary,
   },
 });
