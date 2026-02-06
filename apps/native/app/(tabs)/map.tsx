@@ -23,6 +23,7 @@ import {
   TextInput,
   Keyboard,
   Platform,
+  Linking,
 } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { BlurView } from "expo-blur";
@@ -48,6 +49,7 @@ import { TieredEventMarker } from "@/components/map/tiered-event-marker";
 import { TrafficPolyline } from "@/components/map/traffic-polyline";
 import { ClusterMarker } from "@/components/map/cluster-marker";
 import { clusterEvents } from "@/lib/cluster-utils";
+import { FilterChips, type FilterMode } from "@/components/map/filter-chips";
 
 // Round timestamp to nearest minute for better Convex cache hits
 function getRoundedTimestamp(): number {
@@ -195,16 +197,22 @@ function EventDetailSheet({
   myVote,
   isVoting,
   justVoted,
+  voteCounts,
+  affectedRoute,
   onVote,
   onClose,
+  onNavigate,
   bottomOffset = 120,
 }: {
   event: EventType;
   myVote: { vote: string } | null | undefined;
   isVoting: boolean;
   justVoted: boolean;
+  voteCounts?: { stillActive: number; cleared: number; notExists: number; total: number };
+  affectedRoute?: { name: string } | null;
   onVote: (voteType: "still_active" | "cleared" | "not_exists") => void;
   onClose: () => void;
+  onNavigate?: () => void;
   bottomOffset?: number;
 }) {
   const getTimeRemaining = (ttl: number): string => {
@@ -246,6 +254,16 @@ function EventDetailSheet({
   };
 
   const EventIcon = event.type === "weather" ? CloudIcon : Car01Icon;
+
+  const handleNavigate = () => {
+    const { lat, lng } = event.location;
+    const mapUrl = Platform.OS === 'ios'
+      ? `maps://app?daddr=${lat},${lng}`
+      : `geo:${lat},${lng}?q=${lat},${lng}`;
+
+    Linking.openURL(mapUrl);
+    onNavigate?.();
+  };
 
   return (
     <Animated.View
@@ -298,9 +316,22 @@ function EventDetailSheet({
                   <Text style={styles.eventTitle}>
                     {formatSubtype(event.subtype)}
                   </Text>
-                  <Text style={styles.eventMeta}>
-                    Reported {getTimeAgo(event._creationTime)}
-                  </Text>
+                  <View style={styles.metaRow}>
+                    <Text style={styles.eventMeta}>
+                      Reported {getTimeAgo(event._creationTime)}
+                    </Text>
+                    <Text style={styles.eventMetaDot}> · </Text>
+                    <Text style={styles.eventMeta}>
+                      {event.confidenceScore >= 80 ? "Official source" : "Reported by community"}
+                    </Text>
+                  </View>
+                  {affectedRoute && (
+                    <View style={styles.affectedRoutePill}>
+                      <Text style={styles.affectedRouteText}>
+                        Affects: {affectedRoute.name}
+                      </Text>
+                    </View>
+                  )}
                 </View>
                 <TouchableOpacity
                   style={styles.closeSheetButton}
@@ -328,6 +359,30 @@ function EventDetailSheet({
                   Expires {getTimeRemaining(event.ttl)}
                 </Text>
               </View>
+
+              {/* Vote Tally Section */}
+              {voteCounts && voteCounts.total > 0 && (
+                <View style={styles.voteTallySection}>
+                  <View style={styles.voteTallyRow}>
+                    <Text style={styles.voteTallyText}>
+                      {voteCounts.stillActive} confirm active · {voteCounts.cleared + voteCounts.notExists} say cleared
+                    </Text>
+                  </View>
+                  <View style={styles.voteProgressBar}>
+                    <View
+                      style={[
+                        styles.voteProgressFill,
+                        {
+                          width: `${(voteCounts.stillActive / voteCounts.total) * 100}%`,
+                        },
+                      ]}
+                    />
+                  </View>
+                  <Text style={styles.voteCountText}>
+                    {voteCounts.total} {voteCounts.total === 1 ? 'driver' : 'drivers'} confirmed this report
+                  </Text>
+                </View>
+              )}
 
               {/* Voting section */}
               {myVote === null ? (
@@ -376,6 +431,22 @@ function EventDetailSheet({
                     <Text style={styles.changeVoteText}>Change</Text>
                   </TouchableOpacity>
                 </View>
+              )}
+
+              {/* Navigate Button */}
+              {onNavigate && (
+                <TouchableOpacity
+                  style={styles.navigateButton}
+                  onPress={handleNavigate}
+                  activeOpacity={0.7}
+                  accessibilityLabel={event.type === 'weather' ? 'Open in Maps' : 'Navigate around'}
+                  accessibilityRole="button"
+                >
+                  <HugeiconsIcon icon={Navigation03Icon} size={20} color={colors.brand.secondary} />
+                  <Text style={styles.navigateButtonText}>
+                    {event.type === 'weather' ? 'Open in Maps' : 'Navigate Around'}
+                  </Text>
+                </TouchableOpacity>
               )}
             </>
           )}
@@ -430,6 +501,7 @@ export default function MapScreen() {
   const [bottomView, setBottomView] = useState<'sheet' | 'carousel'>('sheet');
   const [justVoted, setJustVoted] = useState(false);
   const [isVoting, setIsVoting] = useState(false);
+  const [filterMode, setFilterMode] = useState<FilterMode>("nearby");
   const [isScreenFocused, setIsScreenFocused] = useState(true);
   const [timestamp, setTimestamp] = useState(getRoundedTimestamp);
   const { eventId: eventIdParam } = useLocalSearchParams<{ eventId?: string }>();
@@ -485,29 +557,47 @@ export default function MapScreen() {
     );
   }, [userRoutes]);
 
-  // Partition events by type and tier for different rendering strategies
-  const { weatherEvents, trafficEvents, tier3Events } = useMemo(() => {
-    if (!events || !location) return { weatherEvents: [] as TieredEvent[], trafficEvents: [] as TieredEvent[], tier3Events: [] as TieredEvent[] };
+  // Assign tiers to all events
+  const tieredEvents = useMemo(() => {
+    if (!events || !location) return [] as TieredEvent[];
+    return events.map((event) => ({
+      ...event,
+      tier: calculateEventTier(event, location, activeRoutes),
+    })) as TieredEvent[];
+  }, [events, location, activeRoutes]);
 
+  // Filter counts for chips
+  const filterCounts = useMemo(() => {
+    const onRoute = tieredEvents.filter(e => e.tier === 1).length;
+    const nearby = tieredEvents.filter(e => e.tier <= 2).length;
+    return { onRoute, nearby, total: tieredEvents.length };
+  }, [tieredEvents]);
+
+  // Apply active filter
+  const filteredEvents = useMemo(() => {
+    if (filterMode === "on_route") return tieredEvents.filter(e => e.tier === 1);
+    if (filterMode === "nearby") return tieredEvents.filter(e => e.tier <= 2);
+    return tieredEvents; // "all"
+  }, [tieredEvents, filterMode]);
+
+  // Partition filtered events by type and tier for rendering
+  const { weatherEvents, trafficEvents, tier3Events } = useMemo(() => {
     const weather: TieredEvent[] = [];
     const traffic: TieredEvent[] = [];
     const tier3: TieredEvent[] = [];
 
-    events.forEach((event) => {
-      const tier = calculateEventTier(event, location, activeRoutes);
-      const tieredEvent = { ...event, tier } as TieredEvent;
-
-      if (tier === 3) {
-        tier3.push(tieredEvent);
+    filteredEvents.forEach((event) => {
+      if (event.tier === 3) {
+        tier3.push(event);
       } else if (event.type === "weather") {
-        weather.push(tieredEvent);
+        weather.push(event);
       } else {
-        traffic.push(tieredEvent);
+        traffic.push(event);
       }
     });
 
     return { weatherEvents: weather, trafficEvents: traffic, tier3Events: tier3 };
-  }, [events, location, activeRoutes]);
+  }, [filteredEvents]);
 
   // Cluster Tier 3 events into count badges (reduces visual clutter)
   const { clusters: tier3Clusters, singles: tier3Singles } = useMemo(
@@ -521,6 +611,31 @@ export default function MapScreen() {
     api.confirmations.getMyVote,
     selectedEventId ? { eventId: selectedEventId } : "skip"
   );
+
+  // Vote counts for the selected event
+  const eventVotes = useQuery(
+    api.confirmations.listForEvent,
+    selectedEventId ? { eventId: selectedEventId } : "skip"
+  );
+
+  const voteCounts = useMemo(() => {
+    if (!eventVotes || eventVotes.length === 0) return undefined;
+    const stillActive = eventVotes.filter(v => v.vote === "still_active").length;
+    const cleared = eventVotes.filter(v => v.vote === "cleared").length;
+    const notExists = eventVotes.filter(v => v.vote === "not_exists").length;
+    return { stillActive, cleared, notExists, total: eventVotes.length };
+  }, [eventVotes]);
+
+  // Check if selected event affects any saved route
+  const affectedRoute = useMemo(() => {
+    if (!selectedEvent || !activeRoutes.length) return null;
+    for (const route of activeRoutes) {
+      if (isPointNearRoute(selectedEvent.location, route.fromLocation, route.toLocation, 1.5)) {
+        return { name: route.name };
+      }
+    }
+    return null;
+  }, [selectedEvent, activeRoutes]);
 
   const vote = useMutation(api.confirmations.vote);
 
@@ -862,6 +977,19 @@ export default function MapScreen() {
           )}
         </SafeAreaView>
 
+        {/* Filter Chips */}
+        {location && events && events.length > 0 && (
+          <View style={styles.filterChipsWrapper}>
+            <FilterChips
+              activeFilter={filterMode}
+              onFilterChange={setFilterMode}
+              onRouteCount={filterCounts.onRoute}
+              nearbyCount={filterCounts.nearby}
+              totalCount={filterCounts.total}
+            />
+          </View>
+        )}
+
         {/* My Location Button */}
         {location && (
           <TouchableOpacity
@@ -931,8 +1059,11 @@ export default function MapScreen() {
           myVote={myVote}
           isVoting={isVoting}
           justVoted={justVoted}
+          voteCounts={voteCounts}
+          affectedRoute={affectedRoute}
           onVote={handleVote}
           onClose={() => setSelectedEventId(null)}
+          onNavigate={() => lightHaptic()}
           bottomOffset={tabBarHeight + 16}
         />
       )}
@@ -1055,11 +1186,20 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
 
+  // Filter chips
+  filterChipsWrapper: {
+    position: "absolute",
+    top: 110,
+    left: spacing[4],
+    right: spacing[4],
+    zIndex: 9,
+  },
+
   // Map controls
   myLocationButton: {
     position: "absolute",
     right: spacing[4],
-    top: 140,
+    top: 165,
     width: 48,
     height: 48,
     borderRadius: borderRadius.full,
@@ -1075,7 +1215,7 @@ const styles = StyleSheet.create({
   eventsBadge: {
     position: "absolute",
     left: spacing[4],
-    top: 140,
+    top: 165,
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: colors.background.primary,
@@ -1153,6 +1293,28 @@ const styles = StyleSheet.create({
     color: colors.text.secondary,
     marginTop: 2,
   },
+  metaRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 2,
+  },
+  eventMetaDot: {
+    fontSize: typography.size.sm + 1,
+    color: colors.text.tertiary,
+  },
+  affectedRoutePill: {
+    backgroundColor: `${colors.brand.secondary}10`,
+    paddingHorizontal: spacing[2],
+    paddingVertical: spacing[1],
+    borderRadius: borderRadius.full,
+    marginTop: spacing[2],
+    alignSelf: "flex-start",
+  },
+  affectedRouteText: {
+    fontSize: typography.size.xs,
+    fontWeight: typography.weight.medium,
+    color: colors.brand.secondary,
+  },
   closeSheetButton: {
     width: 36,
     height: 36,
@@ -1197,6 +1359,41 @@ const styles = StyleSheet.create({
     color: colors.state.warning,
     fontWeight: typography.weight.medium,
     marginLeft: "auto",
+  },
+
+  // Vote Tally Section
+  voteTallySection: {
+    marginTop: spacing[4],
+    paddingVertical: spacing[3],
+    paddingHorizontal: spacing[4],
+    backgroundColor: colors.slate[50],
+    borderRadius: borderRadius.lg,
+    gap: spacing[2],
+  },
+  voteTallyRow: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  voteTallyText: {
+    fontSize: typography.size.sm,
+    fontWeight: typography.weight.medium,
+    color: colors.text.secondary,
+  },
+  voteProgressBar: {
+    height: 6,
+    backgroundColor: colors.slate[200],
+    borderRadius: borderRadius.full,
+    overflow: "hidden",
+  },
+  voteProgressFill: {
+    height: "100%",
+    backgroundColor: colors.brand.secondary,
+    borderRadius: borderRadius.full,
+  },
+  voteCountText: {
+    fontSize: typography.size.xs,
+    color: colors.text.tertiary,
+    fontWeight: typography.weight.medium,
   },
 
   // Voting section
@@ -1318,6 +1515,25 @@ const styles = StyleSheet.create({
   },
   changeVoteText: {
     fontSize: typography.size.sm,
+    fontWeight: typography.weight.semibold,
+    color: colors.brand.secondary,
+  },
+
+  // Navigate Button
+  navigateButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: spacing[4],
+    paddingVertical: spacing[3] + 2,
+    borderRadius: borderRadius.full,
+    borderWidth: 1.5,
+    borderColor: colors.brand.secondary,
+    backgroundColor: "transparent",
+    gap: spacing[2],
+  },
+  navigateButtonText: {
+    fontSize: typography.size.base,
     fontWeight: typography.weight.semibold,
     color: colors.brand.secondary,
   },
