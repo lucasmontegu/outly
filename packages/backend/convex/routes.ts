@@ -28,6 +28,11 @@ const routeDoc = v.object({
   alertThreshold: v.number(),
   alertTime: v.string(),
   isActive: v.boolean(),
+  cachedScore: v.optional(v.number()),
+  cachedClassification: v.optional(
+    v.union(v.literal("low"), v.literal("medium"), v.literal("high"))
+  ),
+  cachedAt: v.optional(v.number()),
 });
 
 // Get all routes for current user
