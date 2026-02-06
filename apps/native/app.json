@@ -14,7 +14,11 @@
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "Outia needs your location to calculate real-time risk scores for your area based on weather and traffic conditions.",
         "NSLocationAlwaysAndWhenInUseUsageDescription": "Outia needs background location access to send you departure alerts and risk notifications for your saved routes.",
-        "UIBackgroundModes": ["location", "fetch", "remote-notification"]
+        "UIBackgroundModes": [
+          "location",
+          "fetch",
+          "remote-notification"
+        ]
       }
     },
     "android": {
@@ -52,7 +56,8 @@
             "backgroundColor": "#000000"
           }
         }
-      ]
+      ],
+      "expo-font"
     ],
     "experiments": {
       "typedRoutes": true,

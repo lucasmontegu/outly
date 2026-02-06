@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { View, Text, StyleSheet } from "react-native";
+import { View, Text, StyleSheet, Platform } from "react-native";
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -30,16 +30,19 @@ type RiskCircleProps = {
   enableHaptic?: boolean;
 };
 
+import { colors, getRiskLabel } from "@/lib/design-tokens";
+
+// Use brand-consistent risk colors
 const COLORS = {
-  low: "#22c55e",      // green-500
-  medium: "#eab308",   // yellow-500
-  high: "#ef4444",     // red-500
+  low: colors.risk.low.primary,      // Jade Green #00C896
+  medium: colors.risk.medium.primary, // Warm Amber #F4A261
+  high: colors.risk.high.primary,     // Coral Red #E63946
 };
 
 const LABELS = {
-  low: "Bajo",
-  medium: "Medio",
-  high: "Alto",
+  low: "Low Risk",
+  medium: "Medium Risk",
+  high: "High Risk",
 };
 
 export function RiskCircle({

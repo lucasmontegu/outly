@@ -35,9 +35,20 @@ export default defineSchema({
         alertAdvanceMinutes: v.optional(v.number()),
       })
     ),
+    // Expo push notification token for server-side notifications
+    expoPushToken: v.optional(v.string()),
+    // One-time departure alert set from smart-departure screen
+    pendingDepartureAlert: v.optional(
+      v.object({
+        alertAt: v.number(), // Unix timestamp when to send
+        message: v.string(),
+        reason: v.string(),
+      })
+    ),
   })
     .index("by_clerk_id", ["clerkId"])
-    .index("by_email", ["email"]),
+    .index("by_email", ["email"])
+    .index("by_push_token", ["expoPushToken"]),
 
   // Weather and traffic events from APIs and users
   events: defineTable({
@@ -47,6 +58,9 @@ export default defineSchema({
       lat: v.number(),
       lng: v.number(),
     }),
+    // Geospatial grid cell for efficient location queries (e.g., "45.5_-73.5")
+    // ~50km cells - calculated as floor(lat/0.5)*0.5 + "_" + floor(lng/0.5)*0.5
+    gridCell: v.optional(v.string()),
     // Route points for drawing polylines (traffic events)
     routePoints: v.optional(
       v.array(
@@ -69,7 +83,8 @@ export default defineSchema({
     rawData: v.optional(v.any()),
   })
     .index("by_type", ["type"])
-    .index("by_ttl", ["ttl"]),
+    .index("by_ttl", ["ttl"])
+    .index("by_grid_ttl", ["gridCell", "ttl"]),
 
   // User saved locations (home, work, etc.)
   userLocations: defineTable({
@@ -79,11 +94,14 @@ export default defineSchema({
       lat: v.number(),
       lng: v.number(),
     }),
+    // Geospatial grid cell for efficient cron job grouping
+    gridCell: v.optional(v.string()),
     address: v.optional(v.string()),
     isDefault: v.boolean(),
     pushToken: v.optional(v.string()),
   })
-    .index("by_user", ["userId"]),
+    .index("by_user", ["userId"])
+    .index("by_grid", ["gridCell"]),
 
   // Community votes on events
   confirmations: defineTable({
@@ -119,7 +137,15 @@ export default defineSchema({
     alertThreshold: v.number(),
     alertTime: v.string(),
     isActive: v.boolean(),
-  }).index("by_user", ["userId"]),
+    // Pre-computed route scores (updated by cron job, 15-min TTL)
+    cachedScore: v.optional(v.number()),
+    cachedClassification: v.optional(
+      v.union(v.literal("low"), v.literal("medium"), v.literal("high"))
+    ),
+    cachedAt: v.optional(v.number()),
+  })
+    .index("by_user", ["userId"])
+    .index("by_user_active", ["userId", "isActive"]),
 
   // Calculated risk scores per location
   riskSnapshots: defineTable({
@@ -184,4 +210,37 @@ export default defineSchema({
     .index("by_user", ["userId"])
     .index("by_badge", ["badgeId"])
     .index("by_user_badge", ["userId", "badgeId"]),
+
+  // Bandwidth monitoring metrics
+  // Tracks query execution statistics for performance optimization
+  bandwidthMetrics: defineTable({
+    queryName: v.string(),
+    date: v.string(), // ISO date string (YYYY-MM-DD)
+    totalBytes: v.number(),
+    callCount: v.number(),
+    totalDocuments: v.number(),
+  })
+    .index("by_query_date", ["queryName", "date"])
+    .index("by_date", ["date"]),
+
+  // Departure analytics — tracks when users follow recommendations
+  departureAnalytics: defineTable({
+    userId: v.string(),
+    routeId: v.id("routes"),
+    // When the user opened the app and saw the recommendation
+    viewedAt: v.number(),
+    // The recommended departure time
+    recommendedDepartureTime: v.string(),
+    // Whether the user followed the recommendation (left within ±10 min of recommended time)
+    followedRecommendation: v.boolean(),
+    // Estimated time saved in minutes (positive = saved, negative = lost)
+    estimatedTimeSaved: v.number(),
+    // Risk score at time of departure
+    riskScoreAtDeparture: v.number(),
+    // Week identifier for aggregation (e.g., "2026-W05")
+    weekId: v.string(),
+  })
+    .index("by_user", ["userId"])
+    .index("by_user_week", ["userId", "weekId"])
+    .index("by_route", ["routeId"]),
 });

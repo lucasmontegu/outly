@@ -4,11 +4,14 @@ import { api } from "@outia/backend/convex/_generated/api";
 import { Id } from "@outia/backend/convex/_generated/dataModel";
 import {
   Building02Icon,
-  ArrowRight01Icon,
+  ArrowDown01Icon,
   Add01Icon,
   Delete02Icon,
   WorkoutRunIcon,
   Home01Icon,
+  MoreVerticalIcon,
+  Route01Icon,
+  AlertCircleIcon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react-native";
 import {
@@ -17,26 +20,28 @@ import {
   StyleSheet,
   ScrollView,
   Alert,
+  TouchableOpacity,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Card, Button } from "heroui-native";
+import { Button } from "heroui-native";
 import { useState, useCallback } from "react";
 import { LinearGradient } from "expo-linear-gradient";
 import Animated, {
   FadeIn,
-  FadeInDown,
   FadeOut,
-  Layout,
+  FadeInDown,
   useSharedValue,
   useAnimatedStyle,
   withSpring,
 } from "react-native-reanimated";
 import { Pressable } from "react-native";
 
-import { AnimatedIconButton, AnimatedCard } from "@/components/ui/animated-pressable";
+import { useFocusEffect } from "@react-navigation/native";
+import { AnimatedIconButton } from "@/components/ui/animated-pressable";
 import { RouteCardSkeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/components/ui/toast";
 import { lightHaptic, mediumHaptic, successHaptic, errorHaptic, warningHaptic } from "@/lib/haptics";
+import { colors, spacing, borderRadius, typography, shadows } from "@/lib/design-tokens";
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
@@ -44,20 +49,100 @@ const DAYS = ["M", "T", "W", "T", "F", "S", "S"];
 
 type RouteIcon = "building" | "running" | "home";
 
-export default function SavedScreen() {
-  const router = useRouter();
-  const toast = useToast();
-  const [expandedRoute, setExpandedRoute] = useState<string | null>(null);
-  const [pendingChanges, setPendingChanges] = useState<Record<string, {
-    monitorDays?: boolean[];
-    alertThreshold?: number;
-  }>>({});
+// Helper function to format relative time
+function formatRelativeTime(timestamp: number): string {
+  const now = Date.now();
+  const diffMs = now - timestamp;
+  const diffMinutes = Math.floor(diffMs / (1000 * 60));
 
-  // Query routes from Convex
-  const routes = useQuery(api.routes.getUserRoutes);
-  const updateRoute = useMutation(api.routes.updateRoute);
-  const deleteRoute = useMutation(api.routes.deleteRoute);
+  if (diffMinutes < 1) return "Updated just now";
+  if (diffMinutes < 60) return `Updated ${diffMinutes} min ago`;
 
+  const diffHours = Math.floor(diffMinutes / 60);
+  if (diffHours < 24) return `Updated ${diffHours}h ago`;
+
+  const diffDays = Math.floor(diffHours / 24);
+  return `Updated ${diffDays}d ago`;
+}
+
+// Helper function to get risk color based on classification
+function getRiskColor(classification?: string): string {
+  switch (classification) {
+    case "low":
+      return colors.risk.low.primary;
+    case "medium":
+      return colors.risk.medium.primary;
+    case "high":
+      return colors.risk.high.primary;
+    default:
+      return colors.text.tertiary;
+  }
+}
+
+// Empty state component
+function EmptyRoutes({ onAdd }: { onAdd: () => void }) {
+  return (
+    <Animated.View
+      entering={FadeIn.duration(400).delay(200)}
+      style={styles.emptyState}
+    >
+      <View style={styles.emptyIcon}>
+        <HugeiconsIcon icon={Route01Icon} size={48} color={colors.text.tertiary} />
+      </View>
+      <Text style={styles.emptyTitle}>No routes yet</Text>
+      <Text style={styles.emptySubtitle}>
+        Add your daily commute to get personalized departure alerts
+      </Text>
+      <TouchableOpacity style={styles.emptyButton} onPress={onAdd}>
+        <Text style={styles.emptyButtonText}>Add Your First Route</Text>
+      </TouchableOpacity>
+    </Animated.View>
+  );
+}
+
+// Header component
+function SavedHeader({ onAdd }: { onAdd: () => void }) {
+  return (
+    <View style={styles.savedHeader}>
+      <View>
+        <Text style={styles.savedTitle}>Saved Routes</Text>
+        <Text style={styles.savedSubtitle}>Monitor your daily commutes</Text>
+      </View>
+      <TouchableOpacity style={styles.addButton} onPress={onAdd}>
+        <HugeiconsIcon icon={Add01Icon} size={24} color="#FFFFFF" />
+      </TouchableOpacity>
+    </View>
+  );
+}
+
+// Route card component
+function RouteCard({
+  route,
+  isExpanded,
+  onPress,
+  onEdit,
+  onDelete,
+  onSaveChanges,
+  pendingChanges,
+  onToggleDay,
+  hasChanges,
+  getEffectiveDays,
+  getEffectiveThreshold,
+  getThresholdLabel,
+}: {
+  route: any;
+  isExpanded: boolean;
+  onPress: () => void;
+  onEdit: () => void;
+  onDelete: () => void;
+  onSaveChanges: () => void;
+  pendingChanges: any;
+  onToggleDay: (dayIndex: number) => void;
+  hasChanges: boolean;
+  getEffectiveDays: () => boolean[];
+  getEffectiveThreshold: () => number;
+  getThresholdLabel: (threshold: number) => string;
+}) {
   const getRouteIcon = (icon: RouteIcon) => {
     switch (icon) {
       case "building":
@@ -74,28 +159,240 @@ export default function SavedScreen() {
   const getIconColor = (icon: RouteIcon): string => {
     switch (icon) {
       case "building":
-        return "#3B82F6";
+        return colors.brand.primary;
       case "running":
-        return "#F97316";
+        return colors.risk.medium.primary;
       case "home":
-        return "#10B981";
+        return colors.state.success;
       default:
-        return "#3B82F6";
+        return colors.brand.primary;
     }
   };
 
-  const getIconBgColor = (icon: RouteIcon): string => {
-    switch (icon) {
-      case "building":
-        return "#DBEAFE";
-      case "running":
-        return "#FED7AA";
-      case "home":
-        return "#D1FAE5";
-      default:
-        return "#DBEAFE";
-    }
-  };
+  const effectiveDays = getEffectiveDays();
+  const effectiveThreshold = getEffectiveThreshold();
+
+  return (
+    <Animated.View
+      entering={FadeInDown.duration(300)}
+      style={[styles.routeCard, isExpanded && styles.routeCardExpanded]}
+    >
+      <TouchableOpacity
+        style={styles.routeCardTouchable}
+        onPress={onPress}
+        activeOpacity={0.7}
+      >
+        {/* Route Header */}
+        <View style={styles.routeHeader}>
+          <View style={styles.routeIconContainer}>
+            <HugeiconsIcon
+              icon={getRouteIcon(route.icon)}
+              size={24}
+              color={getIconColor(route.icon)}
+            />
+          </View>
+          <View style={styles.routeInfo}>
+            <Text style={styles.routeFrom}>{route.fromName}</Text>
+            <View style={styles.routeArrow}>
+              <HugeiconsIcon icon={ArrowDown01Icon} size={14} color={colors.text.tertiary} />
+            </View>
+            <Text style={styles.routeTo}>{route.toName}</Text>
+            {route.cachedAt && (
+              <Text style={styles.updatedText}>
+                {formatRelativeTime(route.cachedAt)}
+              </Text>
+            )}
+            {!route.cachedAt && (
+              <Text style={styles.updatedText}>Not checked yet</Text>
+            )}
+          </View>
+          {route.cachedScore != null && (
+            <View style={[styles.riskBadge, { backgroundColor: getRiskColor(route.cachedClassification) }]}>
+              <Text style={styles.riskBadgeText}>{route.cachedScore}</Text>
+            </View>
+          )}
+          <TouchableOpacity style={styles.routeMenu} onPress={onEdit}>
+            <HugeiconsIcon icon={MoreVerticalIcon} size={20} color={colors.text.tertiary} />
+          </TouchableOpacity>
+        </View>
+
+        {/* Day Selector - Always visible */}
+        <View style={styles.daySelector}>
+          {DAYS.map((day, index) => (
+            <View
+              key={index}
+              style={[
+                styles.dayPill,
+                effectiveDays[index] && styles.dayPillActive
+              ]}
+            >
+              <Text style={[
+                styles.dayText,
+                effectiveDays[index] && styles.dayTextActive
+              ]}>
+                {day}
+              </Text>
+            </View>
+          ))}
+        </View>
+
+        {/* Alert Threshold */}
+        <View style={styles.thresholdRow}>
+          <View style={styles.thresholdLabelRow}>
+            <HugeiconsIcon icon={AlertCircleIcon} size={14} color={colors.text.tertiary} />
+            <Text style={styles.thresholdLabel}>Alert when risk is above</Text>
+          </View>
+          <View style={styles.thresholdBadge}>
+            <Text style={styles.thresholdValue}>{effectiveThreshold}</Text>
+          </View>
+        </View>
+      </TouchableOpacity>
+
+      {/* Expanded Content */}
+      {isExpanded && (
+        <Animated.View entering={FadeIn.duration(200)} style={styles.expandedContent}>
+          {/* Divider */}
+          <View style={styles.divider} />
+
+          {/* Monitor Days - Interactive */}
+          <View style={styles.section}>
+            <Text style={styles.sectionLabel}>MONITOR DAYS</Text>
+            <View style={styles.daysRow}>
+              {DAYS.map((day, dayIndex) => (
+                <DayButton
+                  key={dayIndex}
+                  day={day}
+                  isActive={effectiveDays[dayIndex]}
+                  onPress={() => onToggleDay(dayIndex)}
+                />
+              ))}
+            </View>
+          </View>
+
+          {/* Alert Threshold Slider */}
+          <View style={styles.section}>
+            <View style={styles.thresholdHeader}>
+              <Text style={styles.sectionLabel}>ALERT THRESHOLD</Text>
+              <Text style={styles.thresholdValueLabel}>
+                {getThresholdLabel(effectiveThreshold)} (&gt;{effectiveThreshold})
+              </Text>
+            </View>
+            <View style={styles.sliderContainer}>
+              <Text style={styles.sliderLabel}>All</Text>
+              <View style={styles.sliderTrack}>
+                <LinearGradient
+                  colors={[colors.risk.low.primary, colors.risk.medium.primary, colors.risk.high.primary]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.sliderGradient}
+                />
+                <View
+                  style={[
+                    styles.sliderThumb,
+                    { left: `${effectiveThreshold}%` },
+                  ]}
+                />
+              </View>
+              <Text style={styles.sliderLabelRight}>Critical</Text>
+            </View>
+          </View>
+
+          {/* Alert Info */}
+          <View style={styles.alertInfo}>
+            <Text style={styles.alertInfoText}>
+              You will be notified at{" "}
+              <Text style={styles.alertInfoBold}>{route.alertTime}</Text> only if
+              risk score exceeds{" "}
+              <Text style={styles.alertInfoBold}>{effectiveThreshold}</Text>
+            </Text>
+          </View>
+
+          {/* Actions */}
+          <View style={styles.actions}>
+            {hasChanges && (
+              <Button
+                className="flex-1 h-12 rounded-xl"
+                onPress={onSaveChanges}
+              >
+                Save Changes
+              </Button>
+            )}
+            <TouchableOpacity style={styles.deleteButton} onPress={onDelete}>
+              <HugeiconsIcon icon={Delete02Icon} size={20} color={colors.risk.high.primary} />
+            </TouchableOpacity>
+          </View>
+        </Animated.View>
+      )}
+    </Animated.View>
+  );
+}
+
+// Animated Day Button component
+function DayButton({
+  day,
+  isActive,
+  onPress,
+}: {
+  day: string;
+  isActive: boolean;
+  onPress: () => void;
+}) {
+  const scale = useSharedValue(1);
+
+  const handlePressIn = useCallback(() => {
+    scale.value = withSpring(0.9, { damping: 15, stiffness: 400 });
+  }, []);
+
+  const handlePressOut = useCallback(() => {
+    scale.value = withSpring(1, { damping: 15, stiffness: 400 });
+  }, []);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+
+  return (
+    <AnimatedPressable
+      style={[
+        styles.dayButtonInteractive,
+        isActive && styles.dayButtonActiveInteractive,
+        animatedStyle,
+      ]}
+      onPress={onPress}
+      onPressIn={handlePressIn}
+      onPressOut={handlePressOut}
+    >
+      <Text style={[styles.dayTextInteractive, isActive && styles.dayTextActiveInteractive]}>
+        {day}
+      </Text>
+    </AnimatedPressable>
+  );
+}
+
+export default function SavedScreen() {
+  const router = useRouter();
+  const toast = useToast();
+  const [expandedRoute, setExpandedRoute] = useState<string | null>(null);
+  const [pendingChanges, setPendingChanges] = useState<Record<string, {
+    monitorDays?: boolean[];
+    alertThreshold?: number;
+  }>>({});
+
+  const [isScreenFocused, setIsScreenFocused] = useState(true);
+
+  useFocusEffect(
+    useCallback(() => {
+      setIsScreenFocused(true);
+      return () => setIsScreenFocused(false);
+    }, [])
+  );
+
+  const routes = useQuery(
+    api.routes.getUserRoutes,
+    isScreenFocused ? {} : "skip"
+  );
+  const updateRoute = useMutation(api.routes.updateRoute);
+  const deleteRoute = useMutation(api.routes.deleteRoute);
 
   const toggleDay = useCallback((routeId: string, dayIndex: number, currentDays: boolean[]) => {
     lightHaptic();
@@ -108,14 +405,6 @@ export default function SavedScreen() {
     });
   }, [pendingChanges]);
 
-  const updateThreshold = (routeId: string, threshold: number) => {
-    const currentPending = pendingChanges[routeId] || {};
-    setPendingChanges({
-      ...pendingChanges,
-      [routeId]: { ...currentPending, alertThreshold: threshold },
-    });
-  };
-
   const handleSaveChanges = useCallback(async (routeId: Id<"routes">) => {
     const changes = pendingChanges[routeId];
     if (!changes) return;
@@ -127,7 +416,6 @@ export default function SavedScreen() {
         ...(changes.alertThreshold !== undefined && { alertThreshold: changes.alertThreshold }),
       });
 
-      // Clear pending changes for this route
       const { [routeId]: _, ...rest } = pendingChanges;
       setPendingChanges(rest);
 
@@ -182,15 +470,15 @@ export default function SavedScreen() {
     return "High Risk";
   };
 
+  const handleAddRoute = () => {
+    mediumHaptic();
+    router.push("/add-route");
+  };
+
   if (routes === undefined) {
     return (
       <SafeAreaView style={styles.container} edges={["top"]}>
-        {/* Header */}
-        <Animated.View entering={FadeIn.duration(300)} style={styles.header}>
-          <View style={styles.headerSpacer} />
-          <Text style={styles.headerTitle}>My Routes</Text>
-          <View style={styles.headerSpacer} />
-        </Animated.View>
+        <SavedHeader onAdd={handleAddRoute} />
         <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
           <RouteCardSkeleton />
           <View style={{ height: 16 }} />
@@ -204,204 +492,35 @@ export default function SavedScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
-      {/* Header */}
-      <Animated.View entering={FadeInDown.duration(300)} style={styles.header}>
-        <View style={styles.headerSpacer} />
-        <Text style={styles.headerTitle}>My Routes</Text>
-        <AnimatedIconButton
-          style={styles.addButton}
-          onPress={() => router.push("/add-route")}
-        >
-          <HugeiconsIcon icon={Add01Icon} size={24} color="#3B82F6" />
-        </AnimatedIconButton>
-      </Animated.View>
+      <SavedHeader onAdd={handleAddRoute} />
 
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
       >
         {routes.length === 0 ? (
-          <Animated.View
-            entering={FadeIn.duration(400).delay(200)}
-            style={styles.emptyContainer}
-          >
-            <Text style={styles.emptyTitle}>No routes saved</Text>
-            <Text style={styles.emptyText}>
-              Add your first route to start monitoring conditions
-            </Text>
-            <Button
-              className="px-6 h-12 rounded-xl"
-              onPress={() => router.push("/add-route")}
-            >
-              Add Route
-            </Button>
-          </Animated.View>
+          <EmptyRoutes onAdd={handleAddRoute} />
         ) : (
           routes.map((route, index) => (
-            <Animated.View
+            <RouteCard
               key={route._id}
-              entering={FadeInDown.delay(index * 80).duration(350).springify().damping(20)}
-              exiting={FadeOut.duration(200)}
-              layout={Layout.springify().damping(20)}
-            >
-              <AnimatedCard
-                style={[
-                  styles.routeCard,
-                  expandedRoute === route._id && styles.routeCardExpanded,
-                ]}
-                onPress={() => {
-                  mediumHaptic();
-                  setExpandedRoute(expandedRoute === route._id ? null : route._id);
-                }}
-              >
-                <Card.Body style={styles.routeCardBody}>
-                  {/* Route Header */}
-                  <View style={styles.routeHeader}>
-                    <View
-                      style={[
-                        styles.routeIcon,
-                        { backgroundColor: getIconBgColor(route.icon) },
-                      ]}
-                    >
-                      <HugeiconsIcon
-                        icon={getRouteIcon(route.icon)}
-                        size={20}
-                        color={getIconColor(route.icon)}
-                      />
-                    </View>
-                    <View style={styles.routeInfo}>
-                      <Text style={styles.routeName}>{route.name}</Text>
-                      <View style={styles.routePath}>
-                        <Text style={styles.routePathText}>{route.fromName}</Text>
-                        <HugeiconsIcon
-                          icon={ArrowRight01Icon}
-                          size={14}
-                          color="#9CA3AF"
-                        />
-                        <Text style={styles.routePathText}>{route.toName}</Text>
-                      </View>
-                    </View>
-                    {route.isActive && (
-                      <View style={styles.activeBadge}>
-                        <Text style={styles.activeText}>Active</Text>
-                      </View>
-                    )}
-                  </View>
-
-                  {/* Expanded Content */}
-                  {expandedRoute === route._id && (
-                    <Animated.View entering={FadeIn.duration(250)}>
-                      {/* Map Preview */}
-                      <Animated.View
-                        entering={FadeInDown.duration(300).delay(50)}
-                        style={styles.mapPreview}
-                      >
-                        <LinearGradient
-                          colors={["#E2E8F0", "#CBD5E1"]}
-                          style={styles.mapGradient}
-                        >
-                          <AnimatedPressable
-                            style={styles.editPathButton}
-                            onPress={() => lightHaptic()}
-                          >
-                            <Text style={styles.editPathText}>Edit Path</Text>
-                          </AnimatedPressable>
-                        </LinearGradient>
-                      </Animated.View>
-
-                      {/* Monitor Days */}
-                      <Animated.View
-                        entering={FadeInDown.duration(300).delay(100)}
-                        style={styles.section}
-                      >
-                        <Text style={styles.sectionLabel}>MONITOR DAYS</Text>
-                        <View style={styles.daysRow}>
-                          {DAYS.map((day, dayIndex) => {
-                            const effectiveDays = getEffectiveDays(route._id, route.monitorDays);
-                            return (
-                              <DayButton
-                                key={dayIndex}
-                                day={day}
-                                isActive={effectiveDays[dayIndex]}
-                                onPress={() => toggleDay(route._id, dayIndex, route.monitorDays)}
-                              />
-                            );
-                          })}
-                        </View>
-                      </Animated.View>
-
-                      {/* Alert Threshold */}
-                      <Animated.View
-                        entering={FadeInDown.duration(300).delay(150)}
-                        style={styles.section}
-                      >
-                        <View style={styles.thresholdHeader}>
-                          <Text style={styles.sectionLabel}>ALERT THRESHOLD</Text>
-                          <Text style={styles.thresholdValue}>
-                            {getThresholdLabel(getEffectiveThreshold(route._id, route.alertThreshold))} (&gt;{getEffectiveThreshold(route._id, route.alertThreshold)})
-                          </Text>
-                        </View>
-                        <View style={styles.sliderContainer}>
-                          <Text style={styles.sliderLabel}>All</Text>
-                          <View style={styles.sliderTrack}>
-                            <LinearGradient
-                              colors={["#10B981", "#F59E0B", "#EF4444"]}
-                              start={{ x: 0, y: 0 }}
-                              end={{ x: 1, y: 0 }}
-                              style={styles.sliderGradient}
-                            />
-                            <View
-                              style={[
-                                styles.sliderThumb,
-                                { left: `${getEffectiveThreshold(route._id, route.alertThreshold)}%` },
-                              ]}
-                            />
-                          </View>
-                          <Text style={styles.sliderLabel}>Critical Only</Text>
-                        </View>
-                      </Animated.View>
-
-                      {/* Alert Info */}
-                      <Animated.View
-                        entering={FadeInDown.duration(300).delay(200)}
-                        style={styles.alertInfo}
-                      >
-                        <Text style={styles.alertInfoIcon}>ℹ️</Text>
-                        <Text style={styles.alertInfoText}>
-                          You will be notified at{" "}
-                          <Text style={styles.alertInfoBold}>{route.alertTime}</Text> only if
-                          risk score exceeds{" "}
-                          <Text style={styles.alertInfoBold}>
-                            {getEffectiveThreshold(route._id, route.alertThreshold)}
-                          </Text>{" "}
-                          (Rain, Congestion, or Accidents).
-                        </Text>
-                      </Animated.View>
-
-                      {/* Actions */}
-                      <Animated.View
-                        entering={FadeInDown.duration(300).delay(250)}
-                        style={styles.actions}
-                      >
-                        <Button
-                          className="flex-1 h-12 rounded-xl"
-                          onPress={() => handleSaveChanges(route._id)}
-                          isDisabled={!hasChanges(route._id)}
-                        >
-                          {hasChanges(route._id) ? "Save Changes" : "No Changes"}
-                        </Button>
-                        <AnimatedIconButton
-                          style={styles.deleteButton}
-                          onPress={() => handleDeleteRoute(route._id, route.name)}
-                        >
-                          <HugeiconsIcon icon={Delete02Icon} size={20} color="#9CA3AF" />
-                        </AnimatedIconButton>
-                      </Animated.View>
-                    </Animated.View>
-                  )}
-                </Card.Body>
-              </AnimatedCard>
-            </Animated.View>
+              route={route}
+              isExpanded={expandedRoute === route._id}
+              onPress={() => {
+                mediumHaptic();
+                setExpandedRoute(expandedRoute === route._id ? null : route._id);
+              }}
+              onEdit={() => lightHaptic()}
+              onDelete={() => handleDeleteRoute(route._id, route.name)}
+              onSaveChanges={() => handleSaveChanges(route._id)}
+              pendingChanges={pendingChanges[route._id]}
+              onToggleDay={(dayIndex) => toggleDay(route._id, dayIndex, route.monitorDays)}
+              hasChanges={hasChanges(route._id)}
+              getEffectiveDays={() => getEffectiveDays(route._id, route.monitorDays)}
+              getEffectiveThreshold={() => getEffectiveThreshold(route._id, route.alertThreshold)}
+              getThresholdLabel={getThresholdLabel}
+            />
           ))
         )}
       </ScrollView>
@@ -409,243 +528,305 @@ export default function SavedScreen() {
   );
 }
 
-// Animated Day Button component
-function DayButton({
-  day,
-  isActive,
-  onPress,
-}: {
-  day: string;
-  isActive: boolean;
-  onPress: () => void;
-}) {
-  const scale = useSharedValue(1);
-
-  const handlePressIn = useCallback(() => {
-    scale.value = withSpring(0.9, { damping: 15, stiffness: 400 });
-  }, []);
-
-  const handlePressOut = useCallback(() => {
-    scale.value = withSpring(1, { damping: 15, stiffness: 400 });
-  }, []);
-
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
-  }));
-
-  return (
-    <AnimatedPressable
-      style={[
-        styles.dayButton,
-        isActive && styles.dayButtonActive,
-        animatedStyle,
-      ]}
-      onPress={onPress}
-      onPressIn={handlePressIn}
-      onPressOut={handlePressOut}
-    >
-      <Text style={[styles.dayText, isActive && styles.dayTextActive]}>
-        {day}
-      </Text>
-    </AnimatedPressable>
-  );
-}
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#F9FAFB",
-  },
-  loadingContainer: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 12,
-  },
-  loadingText: {
-    fontSize: 14,
-    color: "#6B7280",
-  },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: "#fff",
-    borderBottomWidth: 1,
-    borderBottomColor: "#E5E7EB",
-  },
-  headerSpacer: {
-    width: 40,
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: "#111827",
-  },
-  addButton: {
-    width: 40,
-    height: 40,
-    alignItems: "center",
-    justifyContent: "center",
+    backgroundColor: colors.background.secondary,
   },
   scrollView: {
     flex: 1,
   },
   scrollContent: {
-    padding: 16,
-    gap: 16,
+    padding: spacing[4],
+    paddingBottom: 120, // Extra padding for floating tab bar
+    gap: spacing[4],
   },
-  emptyContainer: {
+
+  // Header
+  savedHeader: {
+    flexDirection: "row",
     alignItems: "center",
-    paddingTop: 60,
-    paddingHorizontal: 40,
+    justifyContent: "space-between",
+    paddingHorizontal: spacing[5],
+    paddingVertical: spacing[4],
+    backgroundColor: colors.background.primary,
+  },
+  savedTitle: {
+    fontSize: typography.size['2xl'],
+    fontWeight: typography.weight.bold,
+    color: colors.text.primary,
+  },
+  savedSubtitle: {
+    fontSize: typography.size.sm,
+    color: colors.text.secondary,
+    marginTop: 2,
+  },
+  addButton: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: colors.brand.primary,
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: colors.brand.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+
+  // Empty state
+  emptyState: {
+    alignItems: "center",
+    paddingTop: 80,
+    paddingHorizontal: spacing[6],
+  },
+  emptyIcon: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: colors.background.tertiary,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: spacing[6],
   },
   emptyTitle: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: "#111827",
-    marginBottom: 8,
+    fontSize: typography.size.xl,
+    fontWeight: typography.weight.bold,
+    color: colors.text.primary,
+    marginBottom: spacing[2],
   },
-  emptyText: {
-    fontSize: 14,
-    color: "#6B7280",
+  emptySubtitle: {
+    fontSize: typography.size.base,
+    color: colors.text.secondary,
     textAlign: "center",
-    lineHeight: 20,
-    marginBottom: 24,
+    lineHeight: 22,
+    marginBottom: spacing[6],
   },
+  emptyButton: {
+    backgroundColor: colors.brand.primary,
+    paddingHorizontal: spacing[6],
+    paddingVertical: spacing[4],
+    borderRadius: borderRadius.xl,
+    shadowColor: colors.brand.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  emptyButtonText: {
+    fontSize: typography.size.base,
+    fontWeight: typography.weight.semibold,
+    color: colors.text.inverse,
+  },
+
+  // Route card
   routeCard: {
-    backgroundColor: "#fff",
-    borderRadius: 20,
+    backgroundColor: colors.background.primary,
+    borderRadius: borderRadius['2xl'],
+    shadowColor: colors.brand.primary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 12,
+    elevation: 3,
     overflow: "hidden",
-    borderWidth: 1,
-    borderColor: "#E5E7EB",
   },
   routeCardExpanded: {
-    borderColor: "#3B82F6",
-    borderWidth: 2,
+    shadowOpacity: 0.1,
+    shadowRadius: 16,
   },
-  routeCardBody: {
-    padding: 16,
+  routeCardTouchable: {
+    padding: spacing[5],
   },
   routeHeader: {
     flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
+    alignItems: "flex-start",
+    gap: spacing[3],
   },
-  routeIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+  routeIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: borderRadius.xl,
+    backgroundColor: `${colors.brand.primary}10`,
     alignItems: "center",
     justifyContent: "center",
   },
   routeInfo: {
     flex: 1,
   },
-  routeName: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: "#111827",
+  routeFrom: {
+    fontSize: typography.size.base,
+    fontWeight: typography.weight.semibold,
+    color: colors.text.primary,
   },
-  routePath: {
-    flexDirection: "row",
+  routeArrow: {
+    paddingVertical: spacing[1],
+  },
+  routeTo: {
+    fontSize: typography.size.base,
+    fontWeight: typography.weight.semibold,
+    color: colors.text.primary,
+  },
+  updatedText: {
+    fontSize: typography.size.xs,
+    color: colors.text.tertiary,
+    marginTop: spacing[1],
+  },
+  riskBadge: {
+    minWidth: 40,
+    height: 32,
+    borderRadius: borderRadius.full,
     alignItems: "center",
-    gap: 4,
-    marginTop: 2,
+    justifyContent: "center",
+    paddingHorizontal: spacing[3],
+    marginLeft: spacing[2],
   },
-  routePathText: {
-    fontSize: 13,
-    color: "#6B7280",
+  riskBadgeText: {
+    fontSize: typography.size.sm,
+    fontWeight: typography.weight.bold,
+    color: colors.text.inverse,
   },
-  activeBadge: {
-    backgroundColor: "#D1FAE5",
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 6,
-  },
-  activeText: {
-    fontSize: 11,
-    fontWeight: "600",
-    color: "#059669",
-  },
-  mapPreview: {
-    height: 120,
-    marginTop: 16,
-    borderRadius: 12,
-    overflow: "hidden",
-  },
-  mapGradient: {
-    flex: 1,
-    alignItems: "flex-end",
-    justifyContent: "flex-end",
-    padding: 12,
-  },
-  editPathButton: {
-    backgroundColor: "#fff",
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 6,
-  },
-  editPathText: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: "#111827",
-  },
-  section: {
-    marginTop: 20,
-  },
-  sectionLabel: {
-    fontSize: 10,
-    fontWeight: "600",
-    color: "#9CA3AF",
-    letterSpacing: 0.5,
-    marginBottom: 12,
-  },
-  daysRow: {
-    flexDirection: "row",
-    gap: 8,
-  },
-  dayButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: "#F3F4F6",
+  routeMenu: {
+    width: 36,
+    height: 36,
+    borderRadius: borderRadius.full,
+    backgroundColor: colors.background.tertiary,
     alignItems: "center",
     justifyContent: "center",
   },
-  dayButtonActive: {
-    backgroundColor: "#111827",
+
+  // Day selector (compact view)
+  daySelector: {
+    flexDirection: "row",
+    gap: spacing[2],
+    marginTop: spacing[4],
+  },
+  dayPill: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: colors.background.tertiary,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  dayPillActive: {
+    backgroundColor: colors.brand.primary,
   },
   dayText: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#9CA3AF",
+    fontSize: typography.size.sm,
+    fontWeight: typography.weight.semibold,
+    color: colors.text.tertiary,
   },
   dayTextActive: {
-    color: "#fff",
+    color: colors.text.inverse,
   },
+
+  // Threshold row
+  thresholdRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginTop: spacing[4],
+    paddingTop: spacing[4],
+    borderTopWidth: 1,
+    borderTopColor: colors.slate[100],
+  },
+  thresholdLabelRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing[2],
+  },
+  thresholdLabel: {
+    fontSize: typography.size.sm,
+    color: colors.text.secondary,
+  },
+  thresholdBadge: {
+    backgroundColor: colors.risk.medium.light,
+    paddingHorizontal: spacing[3],
+    paddingVertical: spacing[1] + 2,
+    borderRadius: borderRadius.full,
+  },
+  thresholdValue: {
+    fontSize: typography.size.sm,
+    fontWeight: typography.weight.bold,
+    color: colors.risk.medium.dark,
+  },
+
+  // Expanded content
+  expandedContent: {
+    paddingHorizontal: spacing[5],
+    paddingBottom: spacing[5],
+  },
+  divider: {
+    height: 1,
+    backgroundColor: colors.slate[100],
+    marginBottom: spacing[4],
+  },
+
+  // Sections
+  section: {
+    marginBottom: spacing[5],
+  },
+  sectionLabel: {
+    fontSize: typography.size.xs - 1,
+    fontWeight: typography.weight.semibold,
+    color: colors.text.tertiary,
+    letterSpacing: typography.tracking.wide,
+    marginBottom: spacing[3],
+  },
+
+  // Interactive day buttons
+  daysRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+  },
+  dayButtonInteractive: {
+    width: 40,
+    height: 40,
+    borderRadius: borderRadius.full,
+    backgroundColor: colors.slate[100],
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  dayButtonActiveInteractive: {
+    backgroundColor: colors.brand.primary,
+  },
+  dayTextInteractive: {
+    fontSize: typography.size.base,
+    fontWeight: typography.weight.semibold,
+    color: colors.text.tertiary,
+  },
+  dayTextActiveInteractive: {
+    color: colors.text.inverse,
+  },
+
+  // Threshold slider
   thresholdHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 12,
+    marginBottom: spacing[3],
   },
-  thresholdValue: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: "#F59E0B",
+  thresholdValueLabel: {
+    fontSize: typography.size.sm,
+    fontWeight: typography.weight.semibold,
+    color: colors.state.warning,
   },
   sliderContainer: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
+    gap: spacing[3],
   },
   sliderLabel: {
-    fontSize: 11,
-    color: "#9CA3AF",
-    width: 60,
+    fontSize: typography.size.xs,
+    color: colors.text.tertiary,
+    width: 30,
+  },
+  sliderLabelRight: {
+    fontSize: typography.size.xs,
+    color: colors.text.tertiary,
+    width: 50,
+    textAlign: "right",
   },
   sliderTrack: {
     flex: 1,
@@ -661,45 +842,47 @@ const styles = StyleSheet.create({
   sliderThumb: {
     position: "absolute",
     top: -4,
-    width: 16,
-    height: 16,
-    borderRadius: 8,
-    backgroundColor: "#fff",
-    borderWidth: 2,
-    borderColor: "#111827",
-    marginLeft: -8,
+    width: spacing[4],
+    height: spacing[4],
+    borderRadius: borderRadius.full,
+    backgroundColor: colors.background.primary,
+    borderWidth: 3,
+    borderColor: colors.text.primary,
+    marginLeft: -spacing[2],
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 3,
   },
+
+  // Alert info
   alertInfo: {
-    flexDirection: "row",
-    backgroundColor: "#F9FAFB",
-    padding: 12,
-    borderRadius: 10,
-    marginTop: 16,
-    gap: 8,
-  },
-  alertInfoIcon: {
-    fontSize: 14,
+    backgroundColor: colors.slate[50],
+    padding: spacing[4],
+    borderRadius: borderRadius.lg,
+    marginBottom: spacing[4],
   },
   alertInfoText: {
-    flex: 1,
-    fontSize: 12,
-    color: "#6B7280",
-    lineHeight: 18,
+    fontSize: typography.size.sm,
+    color: colors.text.secondary,
+    lineHeight: 20,
   },
   alertInfoBold: {
-    fontWeight: "700",
-    color: "#111827",
+    fontWeight: typography.weight.bold,
+    color: colors.text.primary,
   },
+
+  // Actions
   actions: {
     flexDirection: "row",
-    gap: 12,
-    marginTop: 20,
+    gap: spacing[3],
   },
   deleteButton: {
     width: 48,
     height: 48,
-    borderRadius: 12,
-    backgroundColor: "#F3F4F6",
+    borderRadius: borderRadius.xl,
+    backgroundColor: colors.risk.high.light,
     alignItems: "center",
     justifyContent: "center",
   },

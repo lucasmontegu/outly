@@ -56,7 +56,7 @@ export function LocationSearchModal({
   visible,
   onClose,
   onSelect,
-  placeholder = "Search for a location...",
+  placeholder = "Search for a location…",
   initialQuery = "",
 }: Props) {
   const [query, setQuery] = useState(initialQuery);
@@ -150,7 +150,12 @@ export function LocationSearchModal({
       <SafeAreaView style={styles.container} edges={["top"]}>
         {/* Header */}
         <View style={styles.header}>
-          <TouchableOpacity style={styles.backButton} onPress={onClose}>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={onClose}
+            accessibilityLabel="Go back"
+            accessibilityRole="button"
+          >
             <HugeiconsIcon icon={ArrowLeft01Icon} size={24} color="#111827" />
           </TouchableOpacity>
           <View style={styles.searchContainer}>
@@ -165,9 +170,17 @@ export function LocationSearchModal({
               autoCorrect={false}
               autoCapitalize="none"
               returnKeyType="search"
+              autoComplete="street-address"
+              textContentType="fullStreetAddress"
+              accessibilityLabel="Search for a location"
             />
             {query.length > 0 && (
-              <TouchableOpacity onPress={clearQuery} style={styles.clearButton}>
+              <TouchableOpacity
+                onPress={clearQuery}
+                style={styles.clearButton}
+                accessibilityLabel="Clear search"
+                accessibilityRole="button"
+              >
                 <HugeiconsIcon icon={Cancel01Icon} size={18} color="#9CA3AF" />
               </TouchableOpacity>
             )}
@@ -179,7 +192,7 @@ export function LocationSearchModal({
           {isLoading ? (
             <View style={styles.loadingContainer}>
               <ActivityIndicator size="large" color="#3B82F6" />
-              <Text style={styles.loadingText}>Searching...</Text>
+              <Text style={styles.loadingText}>Searching…</Text>
             </View>
           ) : error ? (
             <View style={styles.errorContainer}>

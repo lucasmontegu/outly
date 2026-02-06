@@ -1,11 +1,10 @@
+import { useState } from "react";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import {
   ArrowLeft01Icon,
-  MoreHorizontalIcon,
-  SparklesIcon,
-  CloudIcon,
+  AlarmClockIcon,
   CheckmarkCircle02Icon,
-  Alert02Icon,
+  Navigation03Icon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react-native";
 import {
@@ -14,63 +13,100 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
+  Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Button } from "heroui-native";
-
-type ForecastItem = {
-  time: string;
-  riskScore: number;
-  riskLevel: "low" | "medium" | "high";
-  weather: string;
-  traffic: string;
-  isRecommended?: boolean;
-  insight?: string;
-};
-
-const mockForecast: ForecastItem[] = [
-  {
-    time: "Now (7:45 AM)",
-    riskScore: 78,
-    riskLevel: "high",
-    weather: "Storming",
-    traffic: "Congested",
-  },
-  {
-    time: "08:15 AM",
-    riskScore: 12,
-    riskLevel: "low",
-    weather: "Clearing Up",
-    traffic: "Traffic Flowing",
-    isRecommended: true,
-    insight: "Traffic clears up after the school run and the storm cell passes East.",
-  },
-  {
-    time: "09:00 AM",
-    riskScore: 45,
-    riskLevel: "medium",
-    weather: "Overcast",
-    traffic: "Road Work Starts",
-  },
-];
+import Animated, { FadeIn, FadeInDown } from "react-native-reanimated";
+import { useMutation } from "convex/react";
+import { api } from "@outia/backend/convex/_generated/api";
+import { colors, spacing, borderRadius, typography, shadows } from "@/lib/design-tokens";
+import { lightHaptic, riskLevelHaptic } from "@/lib/haptics";
+import { useCustomerInfo } from "@/hooks/useSubscription";
 
 export default function SmartDepartureScreen() {
   const router = useRouter();
-  const recommendedTime = "08:15";
-  const estimatedDuration = "32 min";
-  const timeSaved = "14 minutes";
+  const params = useLocalSearchParams<{
+    optimalTime?: string;
+    optimalMinutes?: string;
+    score?: string;
+    classification?: string;
+    reason?: string;
+    isOptimalNow?: string;
+  }>();
+
+  const [alertScheduled, setAlertScheduled] = useState(false);
+  const [scheduling, setScheduling] = useState(false);
+  const { isPro } = useCustomerInfo();
+  const setDepartureAlert = useMutation(api.users.setDepartureAlert);
+  const cancelDepartureAlert = useMutation(api.users.cancelDepartureAlert);
+
+  // Parse params with fallbacks
+  const optimalTime = params.optimalTime || "7:45";
+  const optimalMinutes = parseInt(params.optimalMinutes || "30", 10);
+  const currentScore = parseInt(params.score || "50", 10);
+  const classification = (params.classification || "medium") as "low" | "medium" | "high";
+  const reason = params.reason || "Conditions improving";
+  const isOptimalNow = params.isOptimalNow === "1";
 
   const getRiskColor = (level: string) => {
     switch (level) {
-      case "low":
-        return "#10B981";
-      case "medium":
-        return "#F59E0B";
-      case "high":
-        return "#EF4444";
-      default:
-        return "#6B7280";
+      case "low": return colors.risk.low.primary;
+      case "medium": return colors.risk.medium.primary;
+      case "high": return colors.risk.high.primary;
+      default: return colors.text.secondary;
     }
+  };
+
+  const getRiskBg = (level: string) => {
+    switch (level) {
+      case "low": return colors.risk.low.light;
+      case "medium": return colors.risk.medium.light;
+      case "high": return colors.risk.high.light;
+      default: return colors.slate[100];
+    }
+  };
+
+  const scheduleAlert = async () => {
+    setScheduling(true);
+    lightHaptic();
+
+    try {
+      if (isOptimalNow) {
+        // Optimal now — no need to schedule, just confirm
+        riskLevelHaptic("low");
+        setAlertScheduled(true);
+        setScheduling(false);
+        return;
+      }
+
+      // Calculate alert timestamp (now + optimalMinutes)
+      const alertAt = Date.now() + Math.max(1, optimalMinutes) * 60 * 1000;
+
+      // Save to server — cron will pick it up and send push notification
+      await setDepartureAlert({
+        alertAt,
+        message: `Conditions are best now. ${reason}`,
+        reason,
+      });
+
+      riskLevelHaptic("low");
+      setAlertScheduled(true);
+    } catch (error) {
+      console.error("Error scheduling notification:", error);
+      Alert.alert("Error", "Could not schedule the alert. Please try again.");
+    } finally {
+      setScheduling(false);
+    }
+  };
+
+  const cancelAlert = async () => {
+    lightHaptic();
+    try {
+      await cancelDepartureAlert();
+    } catch (error) {
+      console.error("Error cancelling alert:", error);
+    }
+    setAlertScheduled(false);
   };
 
   return (
@@ -81,172 +117,145 @@ export default function SmartDepartureScreen() {
           style={styles.headerButton}
           onPress={() => router.back()}
         >
-          <HugeiconsIcon icon={ArrowLeft01Icon} size={24} color="#111827" />
+          <HugeiconsIcon icon={ArrowLeft01Icon} size={24} color={colors.text.primary} />
         </TouchableOpacity>
-        <View style={styles.headerCenter}>
-          <Text style={styles.headerTitle}>Smart Departure</Text>
-          <Text style={styles.headerSubtitle}>TO DOWNTOWN OFFICE</Text>
+        <Text style={styles.headerTitle}>Smart Departure</Text>
+        <View style={styles.headerButton}>
+          {isPro && (
+            <View style={styles.proPill}>
+              <Text style={styles.proPillText}>PRO</Text>
+            </View>
+          )}
         </View>
-        <TouchableOpacity style={styles.headerButton}>
-          <HugeiconsIcon icon={MoreHorizontalIcon} size={24} color="#111827" />
-        </TouchableOpacity>
       </View>
 
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
         {/* Best Window Card */}
-        <View style={styles.bestWindowCard}>
-          <View style={styles.bestWindowHeader}>
-            <View style={styles.bestWindowBadge}>
-              <HugeiconsIcon icon={SparklesIcon} size={14} color="#059669" />
-              <Text style={styles.bestWindowBadgeText}>BEST WINDOW</Text>
-            </View>
-            <View style={styles.durationContainer}>
-              <Text style={styles.durationLabel}>Estimated Duration</Text>
-              <Text style={styles.durationValue}>{estimatedDuration}</Text>
-            </View>
-          </View>
-
-          <Text style={styles.recommendedTime}>{recommendedTime}</Text>
-          <Text style={styles.recommendedPeriod}>AM</Text>
-
-          <Text style={styles.savingsText}>
-            Leaving at {recommendedTime} AM saves you approx.{" "}
-            <Text style={styles.savingsHighlight}>{timeSaved}</Text> and avoids
-            the approaching storm front.
-          </Text>
-        </View>
-
-        {/* Forecast Section */}
-        <View style={styles.forecastSection}>
-          <Text style={styles.forecastTitle}>NEXT 6 HOURS FORECAST</Text>
-
-          <View style={styles.timeline}>
-            {mockForecast.map((item, index) => (
-              <View key={index} style={styles.timelineItem}>
-                {/* Timeline dot and line */}
-                <View style={styles.timelineDotContainer}>
-                  <View
-                    style={[
-                      styles.timelineDot,
-                      {
-                        backgroundColor: getRiskColor(item.riskLevel),
-                        width: item.isRecommended ? 16 : 12,
-                        height: item.isRecommended ? 16 : 12,
-                      },
-                    ]}
-                  />
-                  {index < mockForecast.length - 1 && (
-                    <View style={styles.timelineLine} />
-                  )}
-                </View>
-
-                {/* Content Card */}
-                <View
-                  style={[
-                    styles.forecastCard,
-                    item.isRecommended && styles.forecastCardRecommended,
-                  ]}
-                >
-                  <View style={styles.forecastHeader}>
-                    <Text
-                      style={[
-                        styles.forecastTime,
-                        item.riskLevel === "high" && styles.forecastTimeGray,
-                      ]}
-                    >
-                      {item.time}
-                    </Text>
-                    <View
-                      style={[
-                        styles.riskBadge,
-                        { backgroundColor: `${getRiskColor(item.riskLevel)}20` },
-                      ]}
-                    >
-                      <Text
-                        style={[
-                          styles.riskLabel,
-                          { color: getRiskColor(item.riskLevel) },
-                        ]}
-                      >
-                        {item.riskLevel === "low"
-                          ? "Lowest Risk"
-                          : item.riskLevel === "medium"
-                          ? "Med Risk"
-                          : "High Risk"}{" "}
-                        ({item.riskScore})
-                      </Text>
-                    </View>
-                  </View>
-
-                  <View style={styles.forecastDetails}>
-                    <View style={styles.detailItem}>
-                      <HugeiconsIcon
-                        icon={CloudIcon}
-                        size={14}
-                        color={item.riskLevel === "high" ? "#9CA3AF" : "#6B7280"}
-                      />
-                      <Text
-                        style={[
-                          styles.detailText,
-                          item.riskLevel === "high" && styles.detailTextGray,
-                        ]}
-                      >
-                        {item.weather}
-                      </Text>
-                    </View>
-                    <View style={styles.detailItem}>
-                      <HugeiconsIcon
-                        icon={
-                          item.riskLevel === "low"
-                            ? CheckmarkCircle02Icon
-                            : Alert02Icon
-                        }
-                        size={14}
-                        color={
-                          item.riskLevel === "low"
-                            ? "#10B981"
-                            : item.riskLevel === "high"
-                            ? "#9CA3AF"
-                            : "#F59E0B"
-                        }
-                      />
-                      <Text
-                        style={[
-                          styles.detailText,
-                          item.riskLevel === "high" && styles.detailTextGray,
-                        ]}
-                      >
-                        {item.traffic}
-                      </Text>
-                    </View>
-                  </View>
-
-                  {item.insight && (
-                    <View style={styles.insightBox}>
-                      <Text style={styles.insightIcon}>✨</Text>
-                      <Text style={styles.insightText}>{item.insight}</Text>
-                    </View>
-                  )}
-                </View>
+        <Animated.View entering={FadeInDown.duration(400)}>
+          <View style={styles.bestWindowCard}>
+            <View style={styles.bestWindowHeader}>
+              <View style={[styles.bestWindowBadge, { backgroundColor: getRiskBg(classification) }]}>
+                <Text style={[styles.bestWindowBadgeText, { color: getRiskColor(classification) }]}>
+                  {isOptimalNow ? "GO NOW" : "BEST WINDOW"}
+                </Text>
               </View>
-            ))}
+              <View style={[styles.scorePill, { backgroundColor: getRiskColor(classification) }]}>
+                <Text style={styles.scorePillText}>{currentScore}</Text>
+              </View>
+            </View>
+
+            <Text style={styles.recommendedTime}>
+              {isOptimalNow ? "NOW" : optimalTime}
+            </Text>
+
+            <Text style={styles.reasonText}>{reason}</Text>
+
+            {!isOptimalNow && optimalMinutes > 0 && (
+              <View style={styles.countdownRow}>
+                <HugeiconsIcon icon={AlarmClockIcon} size={16} color={colors.text.tertiary} />
+                <Text style={styles.countdownText}>
+                  In {optimalMinutes} min
+                </Text>
+              </View>
+            )}
           </View>
-        </View>
+        </Animated.View>
+
+        {/* What happens section */}
+        <Animated.View entering={FadeInDown.duration(400).delay(100)}>
+          <Text style={styles.sectionTitle}>What happens</Text>
+          <View style={styles.stepsContainer}>
+            <View style={styles.stepRow}>
+              <View style={[styles.stepDot, { backgroundColor: colors.brand.secondary }]} />
+              <Text style={styles.stepText}>
+                {isOptimalNow
+                  ? "Conditions are optimal right now"
+                  : `We'll notify you at ${optimalTime} when it's time to go`}
+              </Text>
+            </View>
+            <View style={styles.stepLine} />
+            <View style={styles.stepRow}>
+              <View style={[styles.stepDot, { backgroundColor: colors.brand.secondary }]} />
+              <Text style={styles.stepText}>
+                If conditions change, we'll update you with a new best time
+              </Text>
+            </View>
+            <View style={styles.stepLine} />
+            <View style={styles.stepRow}>
+              <View style={[styles.stepDot, { backgroundColor: colors.risk.low.primary }]} />
+              <Text style={styles.stepText}>
+                You leave at the best possible time and save minutes on your commute
+              </Text>
+            </View>
+          </View>
+        </Animated.View>
+
+        {/* Alert confirmed state */}
+        {alertScheduled && (
+          <Animated.View entering={FadeIn.duration(300)} style={styles.confirmedCard}>
+            <HugeiconsIcon icon={CheckmarkCircle02Icon} size={24} color={colors.risk.low.primary} />
+            <View style={styles.confirmedContent}>
+              <Text style={styles.confirmedTitle}>
+                {isOptimalNow ? "You're all set!" : `Alert set for ${optimalTime}`}
+              </Text>
+              <Text style={styles.confirmedSubtitle}>
+                {isOptimalNow
+                  ? "Go now for the best conditions"
+                  : "We'll send a push notification when it's time"}
+              </Text>
+            </View>
+          </Animated.View>
+        )}
+
       </ScrollView>
 
       {/* Bottom CTA */}
       <View style={styles.bottomCta}>
-        <Button
-          color="accent"
-          size="lg"
-          className="w-full h-14 rounded-xl"
-          onPress={() => {}}
-        >
-          <View style={styles.ctaContent}>
-            <Text style={styles.ctaIcon}>🔔</Text>
-            <Text style={styles.ctaText}>Set Alert for {recommendedTime} AM</Text>
+        {alertScheduled ? (
+          <View style={styles.bottomCtaRow}>
+            <TouchableOpacity
+              style={styles.cancelButton}
+              onPress={cancelAlert}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.cancelButtonText}>Cancel Alert</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.doneButton}
+              onPress={() => router.back()}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.doneButtonText}>Done</Text>
+            </TouchableOpacity>
           </View>
-        </Button>
+        ) : (
+          <TouchableOpacity
+            style={[
+              styles.setAlertButton,
+              {
+                backgroundColor: isOptimalNow
+                  ? colors.risk.low.primary
+                  : colors.brand.secondary,
+              },
+            ]}
+            onPress={scheduleAlert}
+            activeOpacity={0.8}
+            disabled={scheduling}
+          >
+            <HugeiconsIcon
+              icon={isOptimalNow ? Navigation03Icon : AlarmClockIcon}
+              size={20}
+              color={colors.text.inverse}
+            />
+            <Text style={styles.setAlertButtonText}>
+              {scheduling
+                ? "Setting up..."
+                : isOptimalNow
+                ? "Navigate Now"
+                : `Set Alert for ${optimalTime}`}
+            </Text>
+          </TouchableOpacity>
+        )}
       </View>
     </SafeAreaView>
   );
@@ -255,15 +264,15 @@ export default function SmartDepartureScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#fff",
+    backgroundColor: colors.background.primary,
   },
   header: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingHorizontal: spacing[4],
+    paddingVertical: spacing[3],
     borderBottomWidth: 1,
-    borderBottomColor: "#E5E7EB",
+    borderBottomColor: colors.border.light,
   },
   headerButton: {
     width: 40,
@@ -271,212 +280,198 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  headerCenter: {
-    flex: 1,
-    alignItems: "center",
-  },
   headerTitle: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: "#111827",
-  },
-  headerSubtitle: {
-    fontSize: 10,
-    fontWeight: "500",
-    color: "#9CA3AF",
-    letterSpacing: 0.5,
-    marginTop: 2,
+    flex: 1,
+    textAlign: "center",
+    fontSize: typography.size.lg,
+    fontWeight: typography.weight.bold,
+    color: colors.text.primary,
   },
   scrollView: {
     flex: 1,
   },
   scrollContent: {
-    padding: 16,
+    padding: spacing[5],
   },
   bestWindowCard: {
-    backgroundColor: "#fff",
-    borderRadius: 20,
-    padding: 24,
+    backgroundColor: colors.background.primary,
+    borderRadius: borderRadius["2xl"],
+    padding: spacing[6],
     borderWidth: 1,
-    borderColor: "#E5E7EB",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
+    borderColor: colors.border.light,
+    ...shadows.sm,
+    marginBottom: spacing[6],
   },
   bestWindowHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "flex-start",
-    marginBottom: 16,
+    alignItems: "center",
+    marginBottom: spacing[4],
   },
   bestWindowBadge: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#D1FAE5",
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 8,
-    gap: 6,
+    paddingHorizontal: spacing[3],
+    paddingVertical: spacing[1],
+    borderRadius: borderRadius.md,
   },
   bestWindowBadgeText: {
-    fontSize: 10,
-    fontWeight: "700",
-    color: "#059669",
-    letterSpacing: 0.5,
+    fontSize: typography.size.xs,
+    fontWeight: typography.weight.bold,
+    letterSpacing: typography.tracking.wide,
   },
-  durationContainer: {
-    alignItems: "flex-end",
+  scorePill: {
+    paddingHorizontal: spacing[3],
+    paddingVertical: spacing[1],
+    borderRadius: borderRadius.full,
+    minWidth: 42,
+    alignItems: "center",
   },
-  durationLabel: {
-    fontSize: 11,
-    color: "#9CA3AF",
-  },
-  durationValue: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: "#111827",
+  scorePillText: {
+    fontSize: typography.size.base,
+    fontWeight: typography.weight.bold,
+    fontFamily: "JetBrainsMono_700Bold",
+    color: colors.text.inverse,
   },
   recommendedTime: {
-    fontSize: 72,
-    fontWeight: "700",
-    color: "#111827",
-    lineHeight: 80,
+    fontSize: 64,
+    fontWeight: typography.weight.extrabold,
+    color: colors.text.primary,
+    letterSpacing: typography.tracking.tight,
   },
-  recommendedPeriod: {
-    fontSize: 24,
-    fontWeight: "500",
-    color: "#9CA3AF",
-    marginTop: -8,
-    marginLeft: 4,
-  },
-  savingsText: {
-    fontSize: 14,
-    color: "#6B7280",
+  reasonText: {
+    fontSize: typography.size.base,
+    color: colors.text.secondary,
+    marginTop: spacing[2],
     lineHeight: 22,
-    marginTop: 16,
   },
-  savingsHighlight: {
-    fontWeight: "700",
-    color: "#111827",
-  },
-  forecastSection: {
-    marginTop: 32,
-  },
-  forecastTitle: {
-    fontSize: 10,
-    fontWeight: "600",
-    color: "#9CA3AF",
-    letterSpacing: 0.5,
-    marginBottom: 16,
-  },
-  timeline: {
-    gap: 0,
-  },
-  timelineItem: {
+  countdownRow: {
     flexDirection: "row",
-    gap: 16,
-  },
-  timelineDotContainer: {
-    width: 24,
     alignItems: "center",
+    gap: spacing[2],
+    marginTop: spacing[3],
   },
-  timelineDot: {
-    borderRadius: 8,
-    marginTop: 20,
+  countdownText: {
+    fontSize: typography.size.sm,
+    color: colors.text.tertiary,
+    fontWeight: typography.weight.medium,
   },
-  timelineLine: {
+  sectionTitle: {
+    fontSize: typography.size.sm,
+    fontWeight: typography.weight.bold,
+    color: colors.text.tertiary,
+    letterSpacing: typography.tracking.wide,
+    textTransform: "uppercase",
+    marginBottom: spacing[4],
+  },
+  stepsContainer: {
+    marginBottom: spacing[6],
+  },
+  stepRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: spacing[3],
+  },
+  stepDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    marginTop: 5,
+  },
+  stepLine: {
     width: 2,
+    height: 20,
+    backgroundColor: colors.border.light,
+    marginLeft: 4,
+    marginVertical: spacing[1],
+  },
+  stepText: {
     flex: 1,
-    backgroundColor: "#E5E7EB",
-    marginTop: 8,
-    marginBottom: -16,
+    fontSize: typography.size.base,
+    color: colors.text.secondary,
+    lineHeight: 22,
   },
-  forecastCard: {
-    flex: 1,
-    backgroundColor: "#F9FAFB",
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 12,
-  },
-  forecastCardRecommended: {
-    backgroundColor: "#F0FDF4",
-    borderWidth: 2,
-    borderColor: "#10B981",
-  },
-  forecastHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 12,
-  },
-  forecastTime: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: "#111827",
-  },
-  forecastTimeGray: {
-    color: "#9CA3AF",
-  },
-  riskBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 6,
-  },
-  riskLabel: {
-    fontSize: 11,
-    fontWeight: "600",
-  },
-  forecastDetails: {
-    flexDirection: "row",
-    gap: 16,
-  },
-  detailItem: {
+  confirmedCard: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
+    gap: spacing[3],
+    backgroundColor: colors.risk.low.light,
+    borderRadius: borderRadius.xl,
+    padding: spacing[4],
+    borderWidth: 1,
+    borderColor: colors.risk.low.primary,
   },
-  detailText: {
-    fontSize: 13,
-    color: "#6B7280",
-  },
-  detailTextGray: {
-    color: "#9CA3AF",
-  },
-  insightBox: {
-    flexDirection: "row",
-    backgroundColor: "#FEF9C3",
-    padding: 12,
-    borderRadius: 10,
-    marginTop: 12,
-    gap: 8,
-  },
-  insightIcon: {
-    fontSize: 14,
-  },
-  insightText: {
+  confirmedContent: {
     flex: 1,
-    fontSize: 12,
-    color: "#92400E",
-    lineHeight: 18,
+  },
+  confirmedTitle: {
+    fontSize: typography.size.base,
+    fontWeight: typography.weight.bold,
+    color: colors.risk.low.dark,
+  },
+  confirmedSubtitle: {
+    fontSize: typography.size.sm,
+    color: colors.risk.low.dark,
+    marginTop: 2,
+    opacity: 0.8,
   },
   bottomCta: {
-    padding: 16,
+    padding: spacing[4],
     borderTopWidth: 1,
-    borderTopColor: "#E5E7EB",
+    borderTopColor: colors.border.light,
   },
-  ctaContent: {
+  setAlertButton: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
+    justifyContent: "center",
+    gap: spacing[2],
+    paddingVertical: spacing[4],
+    borderRadius: borderRadius.xl,
   },
-  ctaIcon: {
-    fontSize: 18,
+  setAlertButtonText: {
+    fontSize: typography.size.lg,
+    fontWeight: typography.weight.bold,
+    color: colors.text.inverse,
   },
-  ctaText: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#fff",
+  bottomCtaRow: {
+    flexDirection: "row",
+    gap: spacing[3],
+  },
+  cancelButton: {
+    flex: 1,
+    paddingVertical: spacing[4],
+    borderRadius: borderRadius.xl,
+    borderWidth: 1,
+    borderColor: colors.border.medium,
+    alignItems: "center",
+  },
+  cancelButtonText: {
+    fontSize: typography.size.base,
+    fontWeight: typography.weight.semibold,
+    color: colors.text.secondary,
+  },
+  doneButton: {
+    flex: 2,
+    paddingVertical: spacing[4],
+    borderRadius: borderRadius.xl,
+    backgroundColor: colors.brand.secondary,
+    alignItems: "center",
+  },
+  doneButtonText: {
+    fontSize: typography.size.base,
+    fontWeight: typography.weight.bold,
+    color: colors.text.inverse,
+  },
+  proPill: {
+    backgroundColor: colors.state.warning,
+    paddingHorizontal: spacing[2],
+    paddingVertical: spacing[1],
+    borderRadius: borderRadius.sm,
+  },
+  proPillText: {
+    fontSize: 10,
+    fontWeight: typography.weight.bold,
+    color: colors.text.inverse,
+    letterSpacing: 0.5,
   },
 });

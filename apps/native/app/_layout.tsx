@@ -6,18 +6,35 @@ import { env } from "@outia/env/native";
 import { DarkTheme, DefaultTheme, type Theme, ThemeProvider } from "@react-navigation/native";
 import { ConvexProviderWithClerk } from "convex/react-clerk";
 import { ConvexReactClient } from "convex/react";
+import { useFonts } from "expo-font";
 import { Stack } from "expo-router";
+import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
-import React, { useRef } from "react";
+import React, { useEffect, useRef } from "react";
 import { Platform, StyleSheet } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { HeroUINativeProvider } from "heroui-native";
+import {
+  JetBrainsMono_400Regular,
+  JetBrainsMono_500Medium,
+  JetBrainsMono_600SemiBold,
+  JetBrainsMono_700Bold,
+} from "@expo-google-fonts/jetbrains-mono";
+import * as Notifications from "expo-notifications";
+import { useMutation } from "convex/react";
+import { api } from "@outia/backend/convex/_generated/api";
 
 import { setAndroidNavigationBar } from "@/lib/android-navigation-bar";
 import { NAV_THEME } from "@/lib/constants";
 import { useColorScheme } from "@/lib/use-color-scheme";
 import { ToastProvider } from "@/components/ui/toast";
 import { RevenueCatProvider } from "@/providers/RevenueCatProvider";
+import {
+  registerForPushNotificationsAsync,
+  handleNotificationResponse,
+} from "@/lib/notifications";
+
+SplashScreen.preventAutoHideAsync();
 
 const LIGHT_THEME: Theme = {
   ...DefaultTheme,
@@ -45,10 +62,41 @@ const styles = StyleSheet.create({
   },
 });
 
+function NotificationInitializer() {
+  const savePushToken = useMutation(api.users.savePushToken);
+
+  useEffect(() => {
+    // Register for push notifications
+    registerForPushNotificationsAsync().then((token) => {
+      if (token) {
+        savePushToken({ expoPushToken: token }).catch((err) =>
+          console.warn("Failed to save push token:", err)
+        );
+      }
+    });
+
+    // Handle notification taps
+    const subscription = Notifications.addNotificationResponseReceivedListener(
+      handleNotificationResponse
+    );
+
+    return () => subscription.remove();
+  }, [savePushToken]);
+
+  return null;
+}
+
 export default function RootLayout() {
   const hasMounted = useRef(false);
   const { colorScheme, isDarkColorScheme } = useColorScheme();
   const [isColorSchemeLoaded, setIsColorSchemeLoaded] = React.useState(false);
+
+  const [fontsLoaded, fontError] = useFonts({
+    JetBrainsMono_400Regular,
+    JetBrainsMono_500Medium,
+    JetBrainsMono_600SemiBold,
+    JetBrainsMono_700Bold,
+  });
 
   useIsomorphicLayoutEffect(() => {
     if (hasMounted.current) {
@@ -59,7 +107,13 @@ export default function RootLayout() {
     hasMounted.current = true;
   }, []);
 
-  if (!isColorSchemeLoaded) {
+  useEffect(() => {
+    if ((fontsLoaded || fontError) && isColorSchemeLoaded) {
+      SplashScreen.hideAsync();
+    }
+  }, [fontsLoaded, fontError, isColorSchemeLoaded]);
+
+  if (!isColorSchemeLoaded || (!fontsLoaded && !fontError)) {
     return null;
   }
 
@@ -67,6 +121,7 @@ export default function RootLayout() {
     <ClerkProvider tokenCache={tokenCache} publishableKey={env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY}>
       <ConvexProviderWithClerk client={convex} useAuth={useAuth}>
         <RevenueCatProvider>
+          <NotificationInitializer />
           <ThemeProvider value={isDarkColorScheme ? DARK_THEME : LIGHT_THEME}>
             <StatusBar style={isDarkColorScheme ? "light" : "dark"} />
             <GestureHandlerRootView style={styles.container}>

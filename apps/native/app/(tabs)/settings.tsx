@@ -2,6 +2,8 @@ import { useAuth, useUser } from "@clerk/clerk-expo";
 import { useQuery } from "convex/react";
 import { api } from "@outia/backend/convex/_generated/api";
 import { useRouter } from "expo-router";
+import { useFocusEffect } from "@react-navigation/native";
+import { useState, useCallback } from "react";
 import {
   UserIcon,
   CrownIcon,
@@ -21,139 +23,165 @@ import {
   ScrollView,
   TouchableOpacity,
   Image,
+  Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Card } from "heroui-native";
 import { useCustomerInfo, useCustomerCenter } from "@/hooks/useSubscription";
+import { colors, spacing, borderRadius, typography } from "@/lib/design-tokens";
 
-type SettingsItem = {
+// ============================================================================
+// Profile Header Card Component
+// ============================================================================
+function ProfileCard({ user, isPro }: { user: any; isPro: boolean }) {
+  return (
+    <View style={styles.profileCard}>
+      <View style={styles.profileAvatar}>
+        {user?.imageUrl ? (
+          <Image
+            source={{ uri: user.imageUrl }}
+            style={styles.avatarImage}
+          />
+        ) : (
+          <HugeiconsIcon icon={UserIcon} size={32} color={colors.brand.primary} />
+        )}
+      </View>
+      <View style={styles.profileInfo}>
+        <View style={styles.nameRow}>
+          <Text style={styles.profileName}>
+            {user?.fullName || "User"}
+          </Text>
+          {isPro && (
+            <View style={styles.proBadge}>
+              <HugeiconsIcon icon={CrownIcon} size={12} color={colors.text.inverse} />
+              <Text style={styles.proBadgeText}>PRO</Text>
+            </View>
+          )}
+        </View>
+        <Text style={styles.profileEmail}>
+          {user?.emailAddresses?.[0]?.emailAddress || user?.primaryEmailAddress?.emailAddress}
+        </Text>
+      </View>
+    </View>
+  );
+}
+
+// ============================================================================
+// Settings Section Component
+// ============================================================================
+function SettingsSection({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <View style={styles.section}>
+      <Text style={styles.sectionTitle}>{title}</Text>
+      <View style={styles.sectionCard}>
+        {children}
+      </View>
+    </View>
+  );
+}
+
+// ============================================================================
+// Settings Item Component
+// ============================================================================
+function SettingsItem({
+  icon,
+  iconColor,
+  label,
+  sublabel,
+  onPress,
+  showArrow = true,
+  isLast = false,
+}: {
   icon: any;
   iconColor: string;
-  iconBg: string;
   label: string;
   sublabel?: string;
-  action: () => void;
+  onPress: () => void;
   showArrow?: boolean;
-};
+  isLast?: boolean;
+}) {
+  return (
+    <TouchableOpacity
+      style={[styles.settingsItem, !isLast && styles.settingsItemBorder]}
+      onPress={onPress}
+      activeOpacity={0.6}
+    >
+      <View style={[styles.settingsIcon, { backgroundColor: `${iconColor}15` }]}>
+        <HugeiconsIcon icon={icon} size={20} color={iconColor} />
+      </View>
+      <View style={styles.settingsContent}>
+        <Text style={styles.settingsLabel}>{label}</Text>
+        {sublabel && <Text style={styles.settingsSublabel}>{sublabel}</Text>}
+      </View>
+      {showArrow && (
+        <HugeiconsIcon icon={ArrowRight01Icon} size={18} color={colors.text.tertiary} />
+      )}
+    </TouchableOpacity>
+  );
+}
 
+// ============================================================================
+// Main Settings Screen
+// ============================================================================
 export default function SettingsScreen() {
   const router = useRouter();
   const { signOut } = useAuth();
   const { user } = useUser();
-  const currentUser = useQuery(api.users.getCurrentUser);
   const { isPro } = useCustomerInfo();
+
+  // ============================================================================
+  // OPTIMIZED: Conditional subscription - pauses when screen is not focused
+  // Settings data is mostly static, no need to keep subscription active
+  // ============================================================================
+  const [isScreenFocused, setIsScreenFocused] = useState(true);
+
+  useFocusEffect(
+    useCallback(() => {
+      setIsScreenFocused(true);
+      return () => setIsScreenFocused(false);
+    }, [])
+  );
+
+  const currentUser = useQuery(
+    api.users.getCurrentUser,
+    isScreenFocused ? {} : "skip"
+  );
+
+  const userStats = useQuery(
+    api.gamification.getMyStats,
+    isScreenFocused ? {} : "skip"
+  );
+
   const { presentCustomerCenter } = useCustomerCenter();
 
   const handleSubscriptionPress = async () => {
     if (isPro) {
-      // Show Customer Center for subscription management
       await presentCustomerCenter({
         onRestoreCompleted: (customerInfo) => {
           console.log("Purchases restored:", customerInfo);
         },
       });
     } else {
-      // Show paywall for non-pro users
       router.push("/paywall");
     }
   };
 
-  const accountItems: SettingsItem[] = [
-    {
-      icon: UserIcon,
-      iconColor: "#3B82F6",
-      iconBg: "#DBEAFE",
-      label: "Edit Profile",
-      sublabel: user?.fullName || user?.emailAddresses[0]?.emailAddress,
-      action: () => router.push("/edit-profile"),
-      showArrow: true,
-    },
-    {
-      icon: Award02Icon,
-      iconColor: "#10B981",
-      iconBg: "#D1FAE5",
-      label: "My Impact",
-      sublabel: "Badges, levels & contributions",
-      action: () => router.push("/my-impact"),
-      showArrow: true,
-    },
-    {
-      icon: CrownIcon,
-      iconColor: "#F59E0B",
-      iconBg: "#FEF3C7",
-      label: isPro ? "Manage Subscription" : "Upgrade to Pro",
-      sublabel: isPro ? "Pro Member" : "Unlock all features",
-      action: handleSubscriptionPress,
-      showArrow: true,
-    },
-  ];
-
-  const preferencesItems: SettingsItem[] = [
-    {
-      icon: Notification01Icon,
-      iconColor: "#8B5CF6",
-      iconBg: "#EDE9FE",
-      label: "Notifications",
-      sublabel: "Alerts, timing & preferences",
-      action: () => router.push("/notifications"),
-      showArrow: true,
-    },
-    {
-      icon: Location01Icon,
-      iconColor: "#10B981",
-      iconBg: "#D1FAE5",
-      label: "Saved Locations",
-      sublabel: "Home, Work, and more",
-      action: () => router.push("/saved-locations"),
-      showArrow: true,
-    },
-  ];
-
-  const supportItems: SettingsItem[] = [
-    {
-      icon: ShieldKeyIcon,
-      iconColor: "#6B7280",
-      iconBg: "#F3F4F6",
-      label: "Privacy Policy",
-      action: () => {},
-      showArrow: true,
-    },
-    {
-      icon: HelpCircleIcon,
-      iconColor: "#6B7280",
-      iconBg: "#F3F4F6",
-      label: "Help & Support",
-      action: () => {},
-      showArrow: true,
-    },
-  ];
-
-  const renderSettingsItem = (item: SettingsItem) => (
-    <TouchableOpacity
-      key={item.label}
-      style={styles.settingsItem}
-      onPress={item.action}
-    >
-      <View style={[styles.settingsIcon, { backgroundColor: item.iconBg }]}>
-        <HugeiconsIcon icon={item.icon} size={20} color={item.iconColor} />
-      </View>
-      <View style={styles.settingsContent}>
-        <Text style={styles.settingsLabel}>{item.label}</Text>
-        {item.sublabel && (
-          <Text style={styles.settingsSublabel}>{item.sublabel}</Text>
-        )}
-      </View>
-      {item.showArrow && (
-        <HugeiconsIcon icon={ArrowRight01Icon} size={20} color="#9CA3AF" />
-      )}
-    </TouchableOpacity>
-  );
+  const handleSignOut = () => {
+    Alert.alert(
+      "Sign Out",
+      "Are you sure you want to sign out?",
+      [
+        { text: "Cancel", style: "cancel" },
+        { text: "Sign Out", style: "destructive", onPress: () => signOut() },
+      ]
+    );
+  };
 
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
       >
         {/* Header */}
         <View style={styles.header}>
@@ -161,175 +189,224 @@ export default function SettingsScreen() {
         </View>
 
         {/* Profile Card */}
-        <Card style={styles.profileCard}>
-          <Card.Body style={styles.profileCardBody}>
-            <View style={styles.profileAvatar}>
-              {user?.imageUrl ? (
-                <Image
-                  source={{ uri: user.imageUrl }}
-                  style={styles.profileImage}
-                />
-              ) : (
-                <HugeiconsIcon icon={UserIcon} size={32} color="#6B7280" />
-              )}
-            </View>
-            <View style={styles.profileInfo}>
-              <Text style={styles.profileName}>
-                {user?.fullName || "User"}
-              </Text>
-              <Text style={styles.profileEmail}>
-                {user?.emailAddresses[0]?.emailAddress}
-              </Text>
-            </View>
-            {isPro && (
-              <View style={styles.proBadge}>
-                <Text style={styles.proBadgeText}>PRO</Text>
+        <ProfileCard user={user} isPro={isPro} />
+
+        {/* Upgrade Banner for free users */}
+        {!isPro && (
+          <TouchableOpacity style={styles.upgradeBanner} onPress={() => router.push("/paywall")} activeOpacity={0.8}>
+            <View style={styles.upgradeBannerContent}>
+              <View style={styles.upgradeBannerIcon}>
+                <HugeiconsIcon icon={CrownIcon} size={24} color={colors.text.inverse} />
               </View>
-            )}
-          </Card.Body>
-        </Card>
+              <View style={styles.upgradeBannerText}>
+                <Text style={styles.upgradeBannerTitle}>Unlock Smart Alerts</Text>
+                <Text style={styles.upgradeBannerSubtitle}>Get departure notifications at the perfect time</Text>
+              </View>
+            </View>
+            <HugeiconsIcon icon={ArrowRight01Icon} size={18} color={colors.text.inverse} />
+          </TouchableOpacity>
+        )}
 
         {/* Account Section */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Account</Text>
-          <Card style={styles.settingsCard}>
-            <Card.Body style={styles.settingsCardBody}>
-              {accountItems.map(renderSettingsItem)}
-            </Card.Body>
-          </Card>
-        </View>
+        <SettingsSection title="ACCOUNT">
+          <SettingsItem
+            icon={Award02Icon}
+            iconColor={colors.gamification.gold}
+            label="My Impact"
+            sublabel={userStats ? `Level ${userStats.level} · ${userStats.totalPoints.toLocaleString()} pts · ${userStats.accuracyPercent}% accuracy` : "Loading stats..."}
+            onPress={() => router.push("/my-impact")}
+          />
+          <SettingsItem
+            icon={CrownIcon}
+            iconColor="#8B5CF6"
+            label={isPro ? "Manage Subscription" : "Upgrade to Pro"}
+            sublabel={isPro ? "Pro Member" : "Unlock all features"}
+            onPress={handleSubscriptionPress}
+            isLast
+          />
+        </SettingsSection>
 
         {/* Preferences Section */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Preferences</Text>
-          <Card style={styles.settingsCard}>
-            <Card.Body style={styles.settingsCardBody}>
-              {preferencesItems.map(renderSettingsItem)}
-            </Card.Body>
-          </Card>
-        </View>
+        <SettingsSection title="PREFERENCES">
+          <SettingsItem
+            icon={Notification01Icon}
+            iconColor={colors.state.info}
+            label="Notifications"
+            sublabel={currentUser?.preferences?.alertAdvanceMinutes ? `Active · ${currentUser.preferences.alertAdvanceMinutes} min before departure` : "Alerts, timing & preferences"}
+            onPress={() => router.push("/notifications")}
+          />
+          <SettingsItem
+            icon={Location01Icon}
+            iconColor={colors.risk.low.primary}
+            label="Saved Locations"
+            sublabel="Home, Work, and more"
+            onPress={() => router.push("/saved-locations")}
+            isLast
+          />
+        </SettingsSection>
 
         {/* Support Section */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Support</Text>
-          <Card style={styles.settingsCard}>
-            <Card.Body style={styles.settingsCardBody}>
-              {supportItems.map(renderSettingsItem)}
-            </Card.Body>
-          </Card>
-        </View>
+        <SettingsSection title="SUPPORT">
+          <SettingsItem
+            icon={ShieldKeyIcon}
+            iconColor={colors.text.secondary}
+            label="Privacy Policy"
+            onPress={() => {}}
+          />
+          <SettingsItem
+            icon={HelpCircleIcon}
+            iconColor={colors.text.secondary}
+            label="Help & Support"
+            onPress={() => {}}
+            isLast
+          />
+        </SettingsSection>
 
         {/* Sign Out Button */}
-        <TouchableOpacity style={styles.signOutButton} onPress={() => signOut()}>
-          <HugeiconsIcon icon={Logout01Icon} size={20} color="#EF4444" />
+        <TouchableOpacity
+          style={styles.signOutButton}
+          onPress={handleSignOut}
+          activeOpacity={0.7}
+        >
+          <HugeiconsIcon icon={Logout01Icon} size={20} color={colors.state.error} />
           <Text style={styles.signOutText}>Sign Out</Text>
         </TouchableOpacity>
 
         {/* Version */}
         <Text style={styles.versionText}>Outia v1.0.0</Text>
+
+        {/* Bottom spacing for floating tab bar */}
+        <View style={{ height: 100 }} />
       </ScrollView>
     </SafeAreaView>
   );
 }
 
+// ============================================================================
+// Styles
+// ============================================================================
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#F9FAFB",
+    backgroundColor: colors.background.secondary,
   },
   scrollView: {
     flex: 1,
   },
   scrollContent: {
-    paddingBottom: 40,
+    paddingBottom: 100, // Extra padding for floating tab bar
   },
   header: {
-    paddingHorizontal: 24,
-    paddingTop: 16,
-    paddingBottom: 24,
+    paddingHorizontal: spacing[6],
+    paddingTop: spacing[2],
+    paddingBottom: spacing[4],
   },
   headerTitle: {
-    fontSize: 28,
-    fontWeight: "700",
-    color: "#111827",
+    fontSize: typography.size["3xl"],
+    fontWeight: typography.weight.bold,
+    color: colors.text.primary,
   },
+  // Profile Card
   profileCard: {
-    marginHorizontal: 16,
-    backgroundColor: "#fff",
-    borderRadius: 16,
-  },
-  profileCardBody: {
     flexDirection: "row",
     alignItems: "center",
-    padding: 16,
-    gap: 16,
+    backgroundColor: "#FFFFFF",
+    marginHorizontal: spacing[4],
+    marginBottom: spacing[6],
+    padding: spacing[4],
+    borderRadius: 20,
+    shadowColor: colors.brand.primary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 12,
+    elevation: 3,
   },
   profileAvatar: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: "#F3F4F6",
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: `${colors.brand.primary}15`,
     alignItems: "center",
     justifyContent: "center",
     overflow: "hidden",
   },
-  profileImage: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
+  avatarImage: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
   },
   profileInfo: {
     flex: 1,
+    marginLeft: spacing[4],
+  },
+  nameRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing[2],
   },
   profileName: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: "#111827",
+    fontSize: typography.size.xl,
+    fontWeight: typography.weight.bold,
+    color: colors.text.primary,
   },
   profileEmail: {
-    fontSize: 14,
-    color: "#6B7280",
+    fontSize: typography.size.sm,
+    color: colors.text.secondary,
     marginTop: 2,
   },
   proBadge: {
-    backgroundColor: "#F59E0B",
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 6,
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: colors.state.warning,
+    paddingHorizontal: spacing[2],
+    paddingVertical: spacing[1] - 1,
+    borderRadius: borderRadius.sm,
+    gap: 3,
   },
   proBadgeText: {
-    fontSize: 11,
-    fontWeight: "700",
-    color: "#fff",
+    fontSize: typography.size.xs,
+    fontWeight: typography.weight.bold,
+    color: colors.text.inverse,
+    letterSpacing: 0.5,
   },
+  // Sections
   section: {
-    marginTop: 24,
-    paddingHorizontal: 16,
+    marginBottom: spacing[6],
   },
   sectionTitle: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: "#6B7280",
-    marginBottom: 8,
-    marginLeft: 4,
+    fontSize: typography.size.xs,
+    fontWeight: typography.weight.semibold,
+    color: colors.text.tertiary,
+    marginLeft: spacing[6],
+    marginBottom: spacing[2],
+    letterSpacing: 0.8,
   },
-  settingsCard: {
-    backgroundColor: "#fff",
+  sectionCard: {
+    backgroundColor: "#FFFFFF",
+    marginHorizontal: spacing[4],
     borderRadius: 16,
+    overflow: "hidden",
+    shadowColor: colors.brand.primary,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    elevation: 2,
   },
-  settingsCardBody: {
-    padding: 4,
-  },
+  // Settings Items
   settingsItem: {
     flexDirection: "row",
     alignItems: "center",
-    padding: 12,
-    gap: 12,
+    padding: spacing[4],
+    gap: spacing[3],
+  },
+  settingsItemBorder: {
+    borderBottomWidth: 1,
+    borderBottomColor: colors.background.tertiary,
   },
   settingsIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 10,
+    width: 36,
+    height: 36,
+    borderRadius: borderRadius.md,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -337,35 +414,80 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   settingsLabel: {
-    fontSize: 15,
-    fontWeight: "600",
-    color: "#111827",
+    fontSize: typography.size.base,
+    fontWeight: typography.weight.semibold,
+    color: colors.text.primary,
   },
   settingsSublabel: {
-    fontSize: 13,
-    color: "#6B7280",
+    fontSize: typography.size.sm,
+    color: colors.text.secondary,
     marginTop: 1,
   },
+  // Sign Out
   signOutButton: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: 8,
-    marginTop: 32,
-    marginHorizontal: 16,
-    paddingVertical: 14,
-    backgroundColor: "#FEE2E2",
-    borderRadius: 12,
+    backgroundColor: `${colors.state.error}10`,
+    marginHorizontal: spacing[4],
+    marginTop: spacing[4],
+    padding: spacing[4],
+    borderRadius: 16,
+    gap: spacing[2],
   },
   signOutText: {
-    fontSize: 15,
-    fontWeight: "600",
-    color: "#EF4444",
+    fontSize: typography.size.base,
+    fontWeight: typography.weight.semibold,
+    color: colors.state.error,
   },
+  // Version
   versionText: {
-    fontSize: 12,
-    color: "#9CA3AF",
+    fontSize: typography.size.xs,
+    color: colors.text.tertiary,
     textAlign: "center",
-    marginTop: 24,
+    marginTop: spacing[6],
+  },
+  // Upgrade Banner
+  upgradeBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: colors.brand.primary,
+    marginHorizontal: spacing[4],
+    marginBottom: spacing[6],
+    padding: spacing[4],
+    borderRadius: borderRadius.xl,
+    shadowColor: colors.brand.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 12,
+    elevation: 4,
+  },
+  upgradeBannerContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    flex: 1,
+    gap: spacing[3],
+  },
+  upgradeBannerIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: borderRadius.full,
+    backgroundColor: "rgba(255,255,255,0.2)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  upgradeBannerText: {
+    flex: 1,
+  },
+  upgradeBannerTitle: {
+    fontSize: typography.size.base,
+    fontWeight: typography.weight.bold,
+    color: colors.text.inverse,
+  },
+  upgradeBannerSubtitle: {
+    fontSize: typography.size.sm,
+    color: "rgba(255,255,255,0.8)",
+    marginTop: 2,
   },
 });

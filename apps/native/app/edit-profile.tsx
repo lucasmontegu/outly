@@ -2,11 +2,12 @@ import { useState } from "react";
 import { useRouter } from "expo-router";
 import { useUser } from "@clerk/clerk-expo";
 import {
-  ArrowLeft01Icon,
   Camera01Icon,
   UserIcon,
   Mail01Icon,
-  Phone01Icon,
+  Notification01Icon,
+  Calendar01Icon,
+  Delete02Icon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react-native";
 import {
@@ -20,8 +21,11 @@ import {
   Alert,
   ActivityIndicator,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { Card } from "heroui-native";
+import Animated, { FadeInDown } from "react-native-reanimated";
+import * as Haptics from "expo-haptics";
+
+import { ScreenHeader } from "@/components/screen-header";
+import { colors, spacing, borderRadius, typography, shadows } from "@/lib/design-tokens";
 
 export default function EditProfileScreen() {
   const router = useRouter();
@@ -34,16 +38,19 @@ export default function EditProfileScreen() {
   const handleSave = async () => {
     if (!user) return;
 
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setIsSaving(true);
     try {
       await user.update({
         firstName: firstName.trim(),
         lastName: lastName.trim(),
       });
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       Alert.alert("Success", "Profile updated successfully", [
         { text: "OK", onPress: () => router.back() },
       ]);
     } catch (error) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       Alert.alert("Error", "Failed to update profile. Please try again.");
     } finally {
       setIsSaving(false);
@@ -51,6 +58,7 @@ export default function EditProfileScreen() {
   };
 
   const handleChangePhoto = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     Alert.alert(
       "Change Photo",
       "Choose an option",
@@ -64,11 +72,12 @@ export default function EditProfileScreen() {
 
   if (!isLoaded) {
     return (
-      <SafeAreaView style={styles.container} edges={["top"]}>
+      <View style={styles.container}>
+        <ScreenHeader title="Edit Profile" />
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#10B981" />
+          <ActivityIndicator size="large" color={colors.brand.secondary} />
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
 
@@ -77,318 +86,299 @@ export default function EditProfileScreen() {
     lastName.trim() !== (user?.lastName || "");
 
   return (
-    <SafeAreaView style={styles.container} edges={["top"]}>
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-          <HugeiconsIcon icon={ArrowLeft01Icon} size={24} color="#111827" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Edit Profile</Text>
-        <TouchableOpacity
-          style={[styles.saveButton, !hasChanges && styles.saveButtonDisabled]}
-          onPress={handleSave}
-          disabled={!hasChanges || isSaving}
-        >
-          {isSaving ? (
-            <ActivityIndicator size="small" color="#fff" />
-          ) : (
-            <Text
-              style={[
-                styles.saveButtonText,
-                !hasChanges && styles.saveButtonTextDisabled,
-              ]}
-            >
-              Save
-            </Text>
-          )}
-        </TouchableOpacity>
-      </View>
+    <View style={styles.container}>
+      <ScreenHeader
+        title="Edit Profile"
+        rightAction={{
+          label: isSaving ? "..." : "Save",
+          onPress: handleSave,
+          disabled: !hasChanges || isSaving,
+          loading: isSaving,
+        }}
+      />
 
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
       >
         {/* Profile Photo Section */}
-        <View style={styles.photoSection}>
+        <Animated.View entering={FadeInDown.duration(500).delay(100)} style={styles.photoSection}>
           <View style={styles.avatarContainer}>
             {user?.imageUrl ? (
               <Image source={{ uri: user.imageUrl }} style={styles.avatar} />
             ) : (
               <View style={styles.avatarPlaceholder}>
-                <HugeiconsIcon icon={UserIcon} size={48} color="#9CA3AF" />
+                <HugeiconsIcon icon={UserIcon} size={48} color={colors.text.tertiary} />
               </View>
             )}
             <TouchableOpacity
               style={styles.cameraButton}
               onPress={handleChangePhoto}
+              activeOpacity={0.8}
             >
-              <HugeiconsIcon icon={Camera01Icon} size={18} color="#fff" />
+              <HugeiconsIcon icon={Camera01Icon} size={18} color={colors.text.inverse} />
             </TouchableOpacity>
           </View>
-          <TouchableOpacity onPress={handleChangePhoto}>
+          <TouchableOpacity onPress={handleChangePhoto} activeOpacity={0.7}>
             <Text style={styles.changePhotoText}>Change Photo</Text>
           </TouchableOpacity>
-        </View>
+        </Animated.View>
 
-        {/* Form Section */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Personal Information</Text>
-          <Card style={styles.formCard}>
-            <Card.Body style={styles.formCardBody}>
-              {/* First Name */}
-              <View style={styles.inputGroup}>
-                <View style={styles.inputIcon}>
-                  <HugeiconsIcon icon={UserIcon} size={20} color="#6B7280" />
-                </View>
-                <View style={styles.inputContainer}>
-                  <Text style={styles.inputLabel}>First Name</Text>
-                  <TextInput
-                    style={styles.textInput}
-                    value={firstName}
-                    onChangeText={setFirstName}
-                    placeholder="Enter first name"
-                    placeholderTextColor="#9CA3AF"
-                    autoCapitalize="words"
-                  />
-                </View>
+        {/* Personal Information Section */}
+        <Animated.View entering={FadeInDown.duration(500).delay(200)}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>PERSONAL INFORMATION</Text>
+          </View>
+          <View style={styles.formCard}>
+            {/* First Name */}
+            <View style={styles.inputGroup}>
+              <View style={styles.inputIcon}>
+                <HugeiconsIcon icon={UserIcon} size={20} color={colors.text.secondary} />
               </View>
-
-              <View style={styles.divider} />
-
-              {/* Last Name */}
-              <View style={styles.inputGroup}>
-                <View style={styles.inputIcon}>
-                  <HugeiconsIcon icon={UserIcon} size={20} color="#6B7280" />
-                </View>
-                <View style={styles.inputContainer}>
-                  <Text style={styles.inputLabel}>Last Name</Text>
-                  <TextInput
-                    style={styles.textInput}
-                    value={lastName}
-                    onChangeText={setLastName}
-                    placeholder="Enter last name"
-                    placeholderTextColor="#9CA3AF"
-                    autoCapitalize="words"
-                  />
-                </View>
+              <View style={styles.inputContainer}>
+                <Text style={styles.inputLabel}>First Name</Text>
+                <TextInput
+                  style={styles.textInput}
+                  value={firstName}
+                  onChangeText={setFirstName}
+                  placeholder="Enter first name"
+                  placeholderTextColor={colors.text.tertiary}
+                  autoCapitalize="words"
+                />
               </View>
-            </Card.Body>
-          </Card>
-        </View>
+            </View>
 
-        {/* Email Section (Read-only) */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Contact Information</Text>
-          <Card style={styles.formCard}>
-            <Card.Body style={styles.formCardBody}>
-              {/* Email */}
-              <View style={styles.inputGroup}>
-                <View style={styles.inputIcon}>
-                  <HugeiconsIcon icon={Mail01Icon} size={20} color="#6B7280" />
-                </View>
-                <View style={styles.inputContainer}>
-                  <Text style={styles.inputLabel}>Email</Text>
-                  <Text style={styles.readOnlyText}>
-                    {user?.emailAddresses[0]?.emailAddress || "No email"}
-                  </Text>
-                </View>
+            <View style={styles.divider} />
+
+            {/* Last Name */}
+            <View style={styles.inputGroup}>
+              <View style={styles.inputIcon}>
+                <HugeiconsIcon icon={UserIcon} size={20} color={colors.text.secondary} />
               </View>
-
-              <View style={styles.divider} />
-
-              {/* Phone */}
-              <View style={styles.inputGroup}>
-                <View style={styles.inputIcon}>
-                  <HugeiconsIcon icon={Phone01Icon} size={20} color="#6B7280" />
-                </View>
-                <View style={styles.inputContainer}>
-                  <Text style={styles.inputLabel}>Phone</Text>
-                  <Text style={styles.readOnlyText}>
-                    {user?.phoneNumbers[0]?.phoneNumber || "Not set"}
-                  </Text>
-                </View>
+              <View style={styles.inputContainer}>
+                <Text style={styles.inputLabel}>Last Name</Text>
+                <TextInput
+                  style={styles.textInput}
+                  value={lastName}
+                  onChangeText={setLastName}
+                  placeholder="Enter last name"
+                  placeholderTextColor={colors.text.tertiary}
+                  autoCapitalize="words"
+                />
               </View>
-            </Card.Body>
-          </Card>
+            </View>
+          </View>
+        </Animated.View>
+
+        {/* Contact Information Section (Read-only) */}
+        <Animated.View entering={FadeInDown.duration(500).delay(300)}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>CONTACT INFORMATION</Text>
+          </View>
+          <View style={styles.formCard}>
+            {/* Email */}
+            <View style={styles.inputGroup}>
+              <View style={[styles.inputIcon, { backgroundColor: "#EFF6FF" }]}>
+                <HugeiconsIcon icon={Mail01Icon} size={20} color={colors.state.info} />
+              </View>
+              <View style={styles.inputContainer}>
+                <Text style={styles.inputLabel}>Email</Text>
+                <Text style={styles.readOnlyText}>
+                  {user?.emailAddresses[0]?.emailAddress || "No email"}
+                </Text>
+              </View>
+            </View>
+
+            <View style={styles.divider} />
+
+            {/* Phone */}
+            <View style={styles.inputGroup}>
+              <View style={[styles.inputIcon, { backgroundColor: "#ECFDF5" }]}>
+                <HugeiconsIcon icon={Notification01Icon} size={20} color={colors.state.success} />
+              </View>
+              <View style={styles.inputContainer}>
+                <Text style={styles.inputLabel}>Phone</Text>
+                <Text style={styles.readOnlyText}>
+                  {user?.phoneNumbers[0]?.phoneNumber || "Not set"}
+                </Text>
+              </View>
+            </View>
+          </View>
           <Text style={styles.infoText}>
             Contact information is managed through your authentication provider.
           </Text>
-        </View>
+        </Animated.View>
 
         {/* Account Section */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Account</Text>
-          <Card style={styles.formCard}>
-            <Card.Body style={styles.formCardBody}>
-              <View style={styles.infoRow}>
+        <Animated.View entering={FadeInDown.duration(500).delay(400)}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>ACCOUNT</Text>
+          </View>
+          <View style={styles.formCard}>
+            <View style={styles.infoRow}>
+              <View style={styles.infoRowLeft}>
+                <View style={[styles.inputIcon, { backgroundColor: colors.slate[100] }]}>
+                  <HugeiconsIcon icon={UserIcon} size={20} color={colors.text.secondary} />
+                </View>
                 <Text style={styles.infoLabel}>User ID</Text>
-                <Text style={styles.infoValue} numberOfLines={1}>
-                  {user?.id?.slice(0, 20)}...
-                </Text>
               </View>
-              <View style={styles.divider} />
-              <View style={styles.infoRow}>
-                <Text style={styles.infoLabel}>Created</Text>
-                <Text style={styles.infoValue}>
-                  {user?.createdAt
-                    ? new Date(user.createdAt).toLocaleDateString()
-                    : "Unknown"}
-                </Text>
-              </View>
-            </Card.Body>
-          </Card>
-        </View>
+              <Text style={styles.infoValue} numberOfLines={1}>
+                {user?.id?.slice(0, 12)}...
+              </Text>
+            </View>
 
-        {/* Delete Account */}
-        <TouchableOpacity
-          style={styles.deleteButton}
-          onPress={() =>
-            Alert.alert(
-              "Delete Account",
-              "Are you sure you want to delete your account? This action cannot be undone.",
-              [
-                { text: "Cancel", style: "cancel" },
-                {
-                  text: "Delete",
-                  style: "destructive",
-                  onPress: () => {},
-                },
-              ]
-            )
-          }
-        >
-          <Text style={styles.deleteButtonText}>Delete Account</Text>
-        </TouchableOpacity>
+            <View style={styles.divider} />
+
+            <View style={styles.infoRow}>
+              <View style={styles.infoRowLeft}>
+                <View style={[styles.inputIcon, { backgroundColor: "#EDE9FE" }]}>
+                  <HugeiconsIcon icon={Calendar01Icon} size={20} color={colors.gamification.xp} />
+                </View>
+                <Text style={styles.infoLabel}>Member Since</Text>
+              </View>
+              <Text style={styles.infoValue}>
+                {user?.createdAt
+                  ? new Date(user.createdAt).toLocaleDateString("en-US", {
+                      month: "short",
+                      year: "numeric",
+                    })
+                  : "Unknown"}
+              </Text>
+            </View>
+          </View>
+        </Animated.View>
+
+        {/* Danger Zone */}
+        <Animated.View entering={FadeInDown.duration(500).delay(500)} style={styles.dangerSection}>
+          <TouchableOpacity
+            style={styles.deleteButton}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+              Alert.alert(
+                "Delete Account",
+                "Are you sure you want to delete your account? This action cannot be undone and all your data will be permanently lost.",
+                [
+                  { text: "Cancel", style: "cancel" },
+                  {
+                    text: "Delete Account",
+                    style: "destructive",
+                    onPress: () => {},
+                  },
+                ]
+              );
+            }}
+            activeOpacity={0.7}
+          >
+            <View style={styles.deleteButtonIcon}>
+              <HugeiconsIcon icon={Delete02Icon} size={20} color={colors.state.error} />
+            </View>
+            <Text style={styles.deleteButtonText}>Delete Account</Text>
+          </TouchableOpacity>
+        </Animated.View>
+
+        {/* Bottom spacing */}
+        <View style={{ height: spacing[10] }} />
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#F9FAFB",
+    backgroundColor: colors.background.secondary,
   },
   loadingContainer: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
   },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: "#fff",
-    borderBottomWidth: 1,
-    borderBottomColor: "#E5E7EB",
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: "#111827",
-  },
-  saveButton: {
-    backgroundColor: "#10B981",
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 8,
-    minWidth: 60,
-    alignItems: "center",
-  },
-  saveButtonDisabled: {
-    backgroundColor: "#E5E7EB",
-  },
-  saveButtonText: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#fff",
-  },
-  saveButtonTextDisabled: {
-    color: "#9CA3AF",
-  },
   scrollView: {
     flex: 1,
   },
   scrollContent: {
-    padding: 16,
-    paddingBottom: 40,
+    padding: spacing[4],
+    paddingBottom: spacing[10],
   },
+
+  // Photo Section
   photoSection: {
     alignItems: "center",
-    marginBottom: 24,
-    paddingTop: 8,
+    marginBottom: spacing[6],
+    paddingTop: spacing[2],
   },
   avatarContainer: {
     position: "relative",
-    marginBottom: 12,
+    marginBottom: spacing[3],
   },
   avatar: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
+    width: 110,
+    height: 110,
+    borderRadius: 55,
+    borderWidth: 4,
+    borderColor: "#FFFFFF",
   },
   avatarPlaceholder: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: "#F3F4F6",
+    width: 110,
+    height: 110,
+    borderRadius: 55,
+    backgroundColor: colors.slate[100],
     alignItems: "center",
     justifyContent: "center",
+    borderWidth: 4,
+    borderColor: "#FFFFFF",
   },
   cameraButton: {
     position: "absolute",
-    bottom: 0,
-    right: 0,
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: "#10B981",
+    bottom: 4,
+    right: 4,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: colors.brand.secondary,
     alignItems: "center",
     justifyContent: "center",
-    borderWidth: 2,
-    borderColor: "#fff",
+    borderWidth: 3,
+    borderColor: "#FFFFFF",
+    ...shadows.md,
   },
   changePhotoText: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#10B981",
+    fontSize: typography.size.base,
+    fontWeight: typography.weight.semibold,
+    color: colors.brand.secondary,
   },
-  section: {
-    marginBottom: 24,
+
+  // Section Header
+  sectionHeader: {
+    marginBottom: spacing[3],
+    paddingHorizontal: spacing[1],
   },
   sectionTitle: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: "#6B7280",
-    marginBottom: 8,
-    marginLeft: 4,
+    fontSize: typography.size.sm,
+    fontWeight: typography.weight.semibold,
+    color: colors.text.secondary,
+    letterSpacing: 0.5,
   },
+
+  // Form Card
   formCard: {
-    backgroundColor: "#fff",
-    borderRadius: 16,
-  },
-  formCardBody: {
-    padding: 4,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 20,
+    marginBottom: spacing[4],
+    ...shadows.sm,
   },
   inputGroup: {
     flexDirection: "row",
     alignItems: "center",
-    padding: 12,
-    gap: 12,
+    padding: spacing[4],
+    gap: spacing[3],
   },
   inputIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 10,
-    backgroundColor: "#F3F4F6",
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: colors.slate[100],
     alignItems: "center",
     justifyContent: "center",
   },
@@ -396,59 +386,84 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   inputLabel: {
-    fontSize: 12,
-    fontWeight: "500",
-    color: "#6B7280",
+    fontSize: typography.size.sm,
+    fontWeight: typography.weight.medium,
+    color: colors.text.secondary,
     marginBottom: 4,
   },
   textInput: {
-    fontSize: 15,
-    fontWeight: "600",
-    color: "#111827",
+    fontSize: typography.size.md,
+    fontWeight: typography.weight.semibold,
+    color: colors.text.primary,
     padding: 0,
   },
   readOnlyText: {
-    fontSize: 15,
-    fontWeight: "600",
-    color: "#9CA3AF",
+    fontSize: typography.size.md,
+    fontWeight: typography.weight.semibold,
+    color: colors.text.tertiary,
   },
   divider: {
     height: 1,
-    backgroundColor: "#F3F4F6",
-    marginHorizontal: 12,
+    backgroundColor: colors.slate[100],
+    marginHorizontal: spacing[4],
   },
   infoText: {
-    fontSize: 12,
-    color: "#9CA3AF",
-    marginTop: 8,
-    marginLeft: 4,
+    fontSize: typography.size.sm,
+    color: colors.text.tertiary,
+    marginTop: -spacing[2],
+    marginBottom: spacing[4],
+    paddingHorizontal: spacing[1],
     lineHeight: 18,
   },
+
+  // Info Row
   infoRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    padding: 12,
+    padding: spacing[4],
+  },
+  infoRowLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing[3],
   },
   infoLabel: {
-    fontSize: 15,
-    fontWeight: "600",
-    color: "#111827",
+    fontSize: typography.size.md,
+    fontWeight: typography.weight.semibold,
+    color: colors.text.primary,
   },
   infoValue: {
-    fontSize: 14,
-    color: "#6B7280",
-    maxWidth: "60%",
+    fontSize: typography.size.base,
+    color: colors.text.secondary,
+    maxWidth: "40%",
     textAlign: "right",
   },
+
+  // Danger Section
+  dangerSection: {
+    marginTop: spacing[4],
+  },
   deleteButton: {
+    flexDirection: "row",
     alignItems: "center",
-    padding: 16,
-    marginTop: 8,
+    justifyContent: "center",
+    gap: spacing[3],
+    padding: spacing[4],
+    backgroundColor: colors.risk.high.light,
+    borderRadius: 16,
+  },
+  deleteButtonIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 10,
+    backgroundColor: "#FFFFFF",
+    alignItems: "center",
+    justifyContent: "center",
   },
   deleteButtonText: {
-    fontSize: 15,
-    fontWeight: "600",
-    color: "#EF4444",
+    fontSize: typography.size.md,
+    fontWeight: typography.weight.semibold,
+    color: colors.state.error,
   },
 });

@@ -1,15 +1,7 @@
 import { useRouter } from "expo-router";
 import { useMutation } from "convex/react";
 import { api } from "@outia/backend/convex/_generated/api";
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  ScrollView,
-} from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { Button } from "heroui-native";
+import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
 import {
   CloudIcon,
   Car01Icon,
@@ -19,6 +11,9 @@ import {
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react-native";
 import { useState } from "react";
+import Animated, { FadeIn } from "react-native-reanimated";
+import { SetupShell } from "@/components/setup-shell";
+import { colors, spacing, borderRadius, typography } from "@/lib/design-tokens";
 
 type PrimaryConcern = "weather" | "traffic" | "both";
 type AlertAdvance = 15 | 30 | 60;
@@ -67,136 +62,115 @@ export default function PreferencesScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* Header */}
-        <View style={styles.header}>
-          <Text style={styles.stepLabel}>PERSONALIZE</Text>
-          <Text style={styles.title}>Make Outia yours</Text>
-          <Text style={styles.description}>
-            Help us tailor your experience. You can change these anytime.
-          </Text>
+    <SetupShell
+      currentStep={3}
+      totalSteps={4}
+      title="What matters most to you?"
+      subtitle="We'll prioritize alerts based on your preferences."
+      primaryAction={{
+        label: "Continue",
+        onPress: handleContinue,
+        loading: isLoading,
+      }}
+      secondaryAction={{
+        label: "Skip for now",
+        onPress: skipPreferences,
+      }}
+    >
+      {/* Question 1: Primary Concern */}
+      <Animated.View entering={FadeIn.delay(400)} style={styles.section}>
+        <Text style={styles.questionLabel}>Choose your focus</Text>
+        <View style={styles.concernGrid}>
+          <ConcernCard
+            icon={CloudIcon}
+            label="Weather"
+            desc="Rain, storms & visibility"
+            isSelected={primaryConcern === "weather"}
+            onPress={() => setPrimaryConcern("weather")}
+          />
+          <ConcernCard
+            icon={Car01Icon}
+            label="Traffic"
+            desc="Accidents & delays"
+            isSelected={primaryConcern === "traffic"}
+            onPress={() => setPrimaryConcern("traffic")}
+          />
+          <ConcernCard
+            icon={CheckmarkCircle02Icon}
+            label="Both"
+            desc="Complete coverage"
+            isSelected={primaryConcern === "both"}
+            onPress={() => setPrimaryConcern("both")}
+            recommended
+          />
         </View>
+      </Animated.View>
 
-        {/* Question 1: Primary Concern */}
-        <View style={styles.questionSection}>
-          <Text style={styles.questionLabel}>What matters most to you?</Text>
-          <View style={styles.concernOptions}>
-            <ConcernOption
-              icon={CloudIcon}
-              color="#3B82F6"
-              label="Weather"
-              desc="Rain, storms, visibility"
-              isSelected={primaryConcern === "weather"}
-              onPress={() => setPrimaryConcern("weather")}
-            />
-            <ConcernOption
-              icon={Car01Icon}
-              color="#10B981"
-              label="Traffic"
-              desc="Accidents, delays"
-              isSelected={primaryConcern === "traffic"}
-              onPress={() => setPrimaryConcern("traffic")}
-            />
-            <ConcernOption
-              icon={CheckmarkCircle02Icon}
-              color="#8B5CF6"
-              label="Both"
-              desc="Complete picture"
-              isSelected={primaryConcern === "both"}
-              onPress={() => setPrimaryConcern("both")}
-              recommended
-            />
-          </View>
+      {/* Question 2: Commute Time */}
+      <Animated.View entering={FadeIn.delay(500)} style={styles.section}>
+        <View style={styles.questionHeader}>
+          <HugeiconsIcon icon={Time01Icon} size={18} color={colors.text.secondary} />
+          <Text style={styles.questionLabel}>When do you usually leave?</Text>
         </View>
-
-        {/* Question 2: Commute Time */}
-        <View style={styles.questionSection}>
-          <View style={styles.questionHeader}>
-            <HugeiconsIcon icon={Time01Icon} size={18} color="#6B7280" />
-            <Text style={styles.questionLabel}>When do you usually leave?</Text>
-          </View>
-          <View style={styles.timeOptions}>
-            {COMMUTE_TIMES.map((time) => (
-              <TouchableOpacity
-                key={time.label}
+        <View style={styles.timeOptions}>
+          {COMMUTE_TIMES.map((time) => (
+            <TouchableOpacity
+              key={time.label}
+              style={[
+                styles.timeOption,
+                commuteTime === time.value && styles.timeOptionSelected,
+              ]}
+              onPress={() => setCommuteTime(time.value)}
+            >
+              <Text
                 style={[
-                  styles.timeOption,
-                  commuteTime === time.value && styles.timeOptionSelected,
+                  styles.timeOptionText,
+                  commuteTime === time.value && styles.timeOptionTextSelected,
                 ]}
-                onPress={() => setCommuteTime(time.value)}
               >
-                <Text
-                  style={[
-                    styles.timeOptionText,
-                    commuteTime === time.value && styles.timeOptionTextSelected,
-                  ]}
-                >
-                  {time.label}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
+                {time.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
         </View>
+      </Animated.View>
 
-        {/* Question 3: Alert Timing */}
-        <View style={styles.questionSection}>
-          <View style={styles.questionHeader}>
-            <HugeiconsIcon icon={Notification03Icon} size={18} color="#6B7280" />
-            <Text style={styles.questionLabel}>How early should we alert you?</Text>
-          </View>
-          <View style={styles.alertOptions}>
-            {ALERT_OPTIONS.map((option) => (
-              <TouchableOpacity
-                key={option.value}
+      {/* Question 3: Alert Timing */}
+      <Animated.View entering={FadeIn.delay(600)} style={styles.section}>
+        <View style={styles.questionHeader}>
+          <HugeiconsIcon icon={Notification03Icon} size={18} color={colors.text.secondary} />
+          <Text style={styles.questionLabel}>How early should we alert you?</Text>
+        </View>
+        <View style={styles.alertOptions}>
+          {ALERT_OPTIONS.map((option) => (
+            <TouchableOpacity
+              key={option.value}
+              style={[
+                styles.alertOption,
+                alertAdvance === option.value && styles.alertOptionSelected,
+              ]}
+              onPress={() => setAlertAdvance(option.value)}
+            >
+              <Text
                 style={[
-                  styles.alertOption,
-                  alertAdvance === option.value && styles.alertOptionSelected,
+                  styles.alertOptionLabel,
+                  alertAdvance === option.value && styles.alertOptionLabelSelected,
                 ]}
-                onPress={() => setAlertAdvance(option.value)}
               >
-                <Text
-                  style={[
-                    styles.alertOptionLabel,
-                    alertAdvance === option.value && styles.alertOptionLabelSelected,
-                  ]}
-                >
-                  {option.label}
-                </Text>
-                <Text style={styles.alertOptionDesc}>{option.desc}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
+                {option.label}
+              </Text>
+              <Text style={styles.alertOptionDesc}>{option.desc}</Text>
+            </TouchableOpacity>
+          ))}
         </View>
-      </ScrollView>
-
-      {/* CTA */}
-      <View style={styles.footer}>
-        <Button
-          color="accent"
-          size="lg"
-          className="w-full h-14 rounded-xl"
-          onPress={handleContinue}
-          isDisabled={isLoading}
-        >
-          {isLoading ? "Saving..." : "Continue"}
-        </Button>
-        <TouchableOpacity style={styles.skipButton} onPress={skipPreferences}>
-          <Text style={styles.skipText}>Skip for now</Text>
-        </TouchableOpacity>
-      </View>
-    </SafeAreaView>
+      </Animated.View>
+    </SetupShell>
   );
 }
 
-// Concern Option Component
-function ConcernOption({
+// Concern Card Component
+function ConcernCard({
   icon,
-  color,
   label,
   desc,
   isSelected,
@@ -204,7 +178,6 @@ function ConcernOption({
   recommended,
 }: {
   icon: typeof CloudIcon;
-  color: string;
   label: string;
   desc: string;
   isSelected: boolean;
@@ -213,7 +186,7 @@ function ConcernOption({
 }) {
   return (
     <TouchableOpacity
-      style={[styles.concernOption, isSelected && styles.concernOptionSelected]}
+      style={[styles.concernCard, isSelected && styles.concernCardSelected]}
       onPress={onPress}
       activeOpacity={0.7}
     >
@@ -222,213 +195,159 @@ function ConcernOption({
           <Text style={styles.recommendedText}>RECOMMENDED</Text>
         </View>
       )}
-      <View
-        style={[
-          styles.concernIconWrapper,
-          { backgroundColor: `${color}15` },
-          isSelected && { backgroundColor: `${color}25` },
-        ]}
-      >
-        <HugeiconsIcon icon={icon} size={28} color={color} />
+      <View style={[styles.concernIconWrapper, isSelected && styles.concernIconWrapperSelected]}>
+        <HugeiconsIcon
+          icon={icon}
+          size={28}
+          color={isSelected ? colors.brand.secondary : colors.text.secondary}
+        />
       </View>
       <Text style={[styles.concernLabel, isSelected && styles.concernLabelSelected]}>
         {label}
       </Text>
       <Text style={styles.concernDesc}>{desc}</Text>
-      {isSelected && (
-        <View style={[styles.selectedIndicator, { backgroundColor: color }]} />
-      )}
+      {isSelected && <View style={styles.selectedIndicator} />}
     </TouchableOpacity>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#fff",
-  },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingHorizontal: 24,
-    paddingTop: 24,
-    paddingBottom: 24,
-  },
-  header: {
-    marginBottom: 32,
-  },
-  stepLabel: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: "#8B5CF6",
-    letterSpacing: 0.5,
-    textAlign: "center",
-    marginBottom: 8,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: "700",
-    color: "#111827",
-    textAlign: "center",
-  },
-  description: {
-    fontSize: 15,
-    color: "#6B7280",
-    lineHeight: 22,
-    marginTop: 8,
-    textAlign: "center",
-  },
-  questionSection: {
-    marginBottom: 28,
+  section: {
+    marginBottom: spacing[7],
   },
   questionHeader: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
-    marginBottom: 12,
+    gap: spacing[2],
+    marginBottom: spacing[3],
   },
   questionLabel: {
-    fontSize: 15,
-    fontWeight: "600",
-    color: "#374151",
-    marginBottom: 12,
+    fontSize: typography.size.base,
+    fontWeight: typography.weight.semibold,
+    color: colors.slate[700],
   },
-  concernOptions: {
+  concernGrid: {
     flexDirection: "row",
-    gap: 12,
+    gap: spacing[3],
   },
-  concernOption: {
+  concernCard: {
     flex: 1,
     alignItems: "center",
-    paddingVertical: 20,
-    paddingHorizontal: 8,
-    borderRadius: 16,
+    paddingVertical: spacing[5],
+    paddingHorizontal: spacing[2],
+    borderRadius: borderRadius.xl,
     borderWidth: 2,
-    borderColor: "#E5E7EB",
-    backgroundColor: "#fff",
+    borderColor: colors.border.light,
+    backgroundColor: colors.background.primary,
     position: "relative",
   },
-  concernOptionSelected: {
-    borderColor: "#8B5CF6",
-    backgroundColor: "#FAF5FF",
+  concernCardSelected: {
+    borderColor: colors.brand.secondary,
+    backgroundColor: "#EFF6FF",
   },
   recommendedBadge: {
     position: "absolute",
     top: -10,
-    backgroundColor: "#8B5CF6",
-    paddingHorizontal: 8,
+    backgroundColor: colors.brand.secondary,
+    paddingHorizontal: spacing[2],
     paddingVertical: 3,
-    borderRadius: 8,
+    borderRadius: borderRadius.md,
   },
   recommendedText: {
     fontSize: 8,
-    fontWeight: "700",
-    color: "#fff",
-    letterSpacing: 0.5,
+    fontWeight: typography.weight.bold,
+    color: colors.text.inverse,
+    letterSpacing: typography.tracking.wide,
   },
   concernIconWrapper: {
     width: 56,
     height: 56,
-    borderRadius: 28,
+    borderRadius: borderRadius["4xl"],
+    backgroundColor: colors.slate[100],
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 10,
+    marginBottom: spacing[2],
+  },
+  concernIconWrapperSelected: {
+    backgroundColor: "#DBEAFE",
   },
   concernLabel: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#374151",
+    fontSize: typography.size.base,
+    fontWeight: typography.weight.semibold,
+    color: colors.slate[700],
   },
   concernLabelSelected: {
-    color: "#8B5CF6",
+    color: colors.brand.secondary,
   },
   concernDesc: {
-    fontSize: 11,
-    color: "#9CA3AF",
+    fontSize: typography.size.xs,
+    color: colors.text.tertiary,
     marginTop: 2,
     textAlign: "center",
   },
   selectedIndicator: {
     position: "absolute",
-    bottom: 8,
-    width: 24,
+    bottom: spacing[2],
+    width: spacing[6],
     height: 3,
     borderRadius: 2,
+    backgroundColor: colors.brand.secondary,
   },
   timeOptions: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: 8,
+    gap: spacing[2],
   },
   timeOption: {
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 20,
+    paddingHorizontal: spacing[4],
+    paddingVertical: spacing[2],
+    borderRadius: borderRadius["2xl"],
     borderWidth: 1,
-    borderColor: "#E5E7EB",
-    backgroundColor: "#fff",
+    borderColor: colors.border.light,
+    backgroundColor: colors.background.primary,
   },
   timeOptionSelected: {
-    borderColor: "#8B5CF6",
-    backgroundColor: "#FAF5FF",
+    borderColor: colors.brand.secondary,
+    backgroundColor: "#EFF6FF",
   },
   timeOptionText: {
-    fontSize: 13,
-    fontWeight: "500",
-    color: "#6B7280",
+    fontSize: typography.size.sm,
+    fontWeight: typography.weight.medium,
+    color: colors.text.secondary,
   },
   timeOptionTextSelected: {
-    color: "#8B5CF6",
-    fontWeight: "600",
+    color: colors.brand.secondary,
+    fontWeight: typography.weight.semibold,
   },
   alertOptions: {
     flexDirection: "row",
-    gap: 12,
+    gap: spacing[3],
   },
   alertOption: {
     flex: 1,
     alignItems: "center",
-    paddingVertical: 16,
-    paddingHorizontal: 12,
-    borderRadius: 12,
+    paddingVertical: spacing[4],
+    paddingHorizontal: spacing[3],
+    borderRadius: borderRadius.lg,
     borderWidth: 2,
-    borderColor: "#E5E7EB",
-    backgroundColor: "#fff",
+    borderColor: colors.border.light,
+    backgroundColor: colors.background.primary,
   },
   alertOptionSelected: {
-    borderColor: "#8B5CF6",
-    backgroundColor: "#FAF5FF",
+    borderColor: colors.brand.secondary,
+    backgroundColor: "#EFF6FF",
   },
   alertOptionLabel: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: "#374151",
+    fontSize: typography.size.lg,
+    fontWeight: typography.weight.bold,
+    color: colors.slate[700],
   },
   alertOptionLabelSelected: {
-    color: "#8B5CF6",
+    color: colors.brand.secondary,
   },
   alertOptionDesc: {
-    fontSize: 11,
-    color: "#9CA3AF",
+    fontSize: typography.size.xs,
+    color: colors.text.tertiary,
     marginTop: 2,
-  },
-  footer: {
-    paddingHorizontal: 24,
-    paddingBottom: 24,
-    paddingTop: 16,
-    borderTopWidth: 1,
-    borderTopColor: "#F3F4F6",
-    backgroundColor: "#fff",
-  },
-  skipButton: {
-    alignItems: "center",
-    paddingVertical: 12,
-    marginTop: 8,
-  },
-  skipText: {
-    fontSize: 15,
-    color: "#9CA3AF",
-    fontWeight: "500",
   },
 });

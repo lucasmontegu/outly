@@ -3,7 +3,6 @@ import { useRouter } from "expo-router";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@outia/backend/convex/_generated/api";
 import {
-  ArrowLeft01Icon,
   Location01Icon,
   Building02Icon,
   WorkoutRunIcon,
@@ -26,10 +25,12 @@ import {
   Keyboard,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Card, Button } from "heroui-native";
+import { Button } from "heroui-native";
 import { LinearGradient } from "expo-linear-gradient";
 
+import { ScreenHeader } from "@/components/screen-header";
 import { useLocation } from "@/hooks/use-location";
+import { colors, spacing, borderRadius, typography, shadows } from "@/lib/design-tokens";
 
 type RouteIcon = "building" | "running" | "home";
 
@@ -48,11 +49,12 @@ type SearchResult = {
 };
 
 const DAYS = ["M", "T", "W", "T", "F", "S", "S"];
+const DAY_NAMES = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
 const ICONS: { type: RouteIcon; icon: any; label: string; color: string; bg: string }[] = [
-  { type: "building", icon: Building02Icon, label: "Work", color: "#3B82F6", bg: "#DBEAFE" },
-  { type: "home", icon: Home01Icon, label: "Home", color: "#10B981", bg: "#D1FAE5" },
-  { type: "running", icon: WorkoutRunIcon, label: "Activity", color: "#F97316", bg: "#FED7AA" },
+  { type: "building", icon: Building02Icon, label: "Work", color: colors.state.info, bg: "#EFF6FF" },
+  { type: "home", icon: Home01Icon, label: "Home", color: colors.state.success, bg: "#ECFDF5" },
+  { type: "running", icon: WorkoutRunIcon, label: "Activity", color: colors.risk.medium.primary, bg: "#FEF3C7" },
 ];
 
 export default function AddRouteScreen() {
@@ -140,7 +142,7 @@ export default function AddRouteScreen() {
   // Handle "From" field changes
   const handleFromChange = (text: string) => {
     setFromQuery(text);
-    setFromData(null); // Clear selected location when typing
+    setFromData(null);
 
     if (fromTimeoutRef.current) {
       clearTimeout(fromTimeoutRef.current);
@@ -159,7 +161,7 @@ export default function AddRouteScreen() {
   // Handle "To" field changes
   const handleToChange = (text: string) => {
     setToQuery(text);
-    setToData(null); // Clear selected location when typing
+    setToData(null);
 
     if (toTimeoutRef.current) {
       clearTimeout(toTimeoutRef.current);
@@ -234,228 +236,300 @@ export default function AddRouteScreen() {
     }
   };
 
+  const getThresholdLabel = () => {
+    if (alertThreshold <= 33) return { label: "Low", color: colors.state.success };
+    if (alertThreshold <= 66) return { label: "Medium", color: colors.state.warning };
+    return { label: "High", color: colors.state.error };
+  };
+
+  const thresholdInfo = getThresholdLabel();
+
   return (
-    <SafeAreaView style={styles.container} edges={["top"]}>
+    <View style={styles.container}>
+      <ScreenHeader
+        title="Add Route"
+        variant="close"
+      />
+
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         style={styles.keyboardView}
       >
-        {/* Header */}
-        <View style={styles.header}>
-          <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-            <HugeiconsIcon icon={ArrowLeft01Icon} size={24} color="#111827" />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Add Route</Text>
-          <View style={styles.headerSpacer} />
-        </View>
-
         <ScrollView
           style={styles.scrollView}
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
         >
-          {/* Route Name */}
-          <View style={styles.section}>
-            <Text style={styles.label}>Route Name</Text>
-            <View style={styles.inputContainer}>
+          {/* Route Name Card */}
+          <View style={styles.formCard}>
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Route Name</Text>
               <TextInput
                 style={styles.input}
                 placeholder="e.g., Daily Commute"
-                placeholderTextColor="#9CA3AF"
+                placeholderTextColor={colors.text.tertiary}
                 value={name}
                 onChangeText={setName}
               />
             </View>
-          </View>
 
-          {/* Icon Selection */}
-          <View style={styles.section}>
-            <Text style={styles.label}>Icon</Text>
-            <View style={styles.iconRow}>
-              {ICONS.map((item) => (
-                <TouchableOpacity
-                  key={item.type}
-                  style={[
-                    styles.iconOption,
-                    selectedIcon === item.type && styles.iconOptionSelected,
-                    { borderColor: selectedIcon === item.type ? item.color : "#E5E7EB" },
-                  ]}
-                  onPress={() => setSelectedIcon(item.type)}
-                >
-                  <View style={[styles.iconCircle, { backgroundColor: item.bg }]}>
-                    <HugeiconsIcon icon={item.icon} size={24} color={item.color} />
-                  </View>
-                  <Text style={styles.iconLabel}>{item.label}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </View>
-
-          {/* From Location */}
-          <View style={[styles.section, { zIndex: 20 }]}>
-            <Text style={styles.label}>From</Text>
-            <View style={styles.locationInputContainer}>
-              <HugeiconsIcon icon={Location01Icon} size={20} color="#10B981" />
-              <TextInput
-                style={styles.locationInput}
-                placeholder="Starting location"
-                placeholderTextColor="#9CA3AF"
-                value={fromData ? fromData.name : fromQuery}
-                onChangeText={handleFromChange}
-                onFocus={() => fromQuery.length >= 3 && setShowFromResults(true)}
-              />
-              {fromSearching && <ActivityIndicator size="small" color="#10B981" />}
-              {(fromQuery.length > 0 || fromData) && !fromSearching && (
-                <TouchableOpacity onPress={() => { setFromQuery(""); setFromData(null); setFromResults([]); }}>
-                  <HugeiconsIcon icon={Cancel01Icon} size={18} color="#9CA3AF" />
-                </TouchableOpacity>
-              )}
-            </View>
-            {/* From Search Results Dropdown */}
-            {showFromResults && fromResults.length > 0 && (
-              <View style={styles.searchDropdown}>
-                {fromResults.map((result) => (
+            {/* Icon Selection */}
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Route Type</Text>
+              <View style={styles.iconRow}>
+                {ICONS.map((item) => (
                   <TouchableOpacity
-                    key={result.placeId}
-                    style={styles.searchResultItem}
-                    onPress={() => selectFromResult(result)}
-                  >
-                    <HugeiconsIcon icon={Location01Icon} size={16} color="#10B981" />
-                    <View style={styles.searchResultText}>
-                      <Text style={styles.searchResultName} numberOfLines={1}>{result.name}</Text>
-                      <Text style={styles.searchResultAddress} numberOfLines={1}>{result.displayName}</Text>
-                    </View>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            )}
-            {address && location && !fromData && !showFromResults && (
-              <TouchableOpacity
-                style={styles.currentLocationSuggestion}
-                onPress={() => {
-                  setFromData({ name: address, lat: location.lat, lng: location.lng });
-                  setFromQuery(address);
-                }}
-              >
-                <Text style={styles.suggestionText}>Use current: {address}</Text>
-              </TouchableOpacity>
-            )}
-          </View>
-
-          {/* To Location */}
-          <View style={[styles.section, { zIndex: 10 }]}>
-            <Text style={styles.label}>To</Text>
-            <View style={styles.locationInputContainer}>
-              <HugeiconsIcon icon={Location01Icon} size={20} color="#EF4444" />
-              <TextInput
-                style={styles.locationInput}
-                placeholder="Destination"
-                placeholderTextColor="#9CA3AF"
-                value={toData ? toData.name : toQuery}
-                onChangeText={handleToChange}
-                onFocus={() => toQuery.length >= 3 && setShowToResults(true)}
-              />
-              {toSearching && <ActivityIndicator size="small" color="#EF4444" />}
-              {(toQuery.length > 0 || toData) && !toSearching && (
-                <TouchableOpacity onPress={() => { setToQuery(""); setToData(null); setToResults([]); }}>
-                  <HugeiconsIcon icon={Cancel01Icon} size={18} color="#9CA3AF" />
-                </TouchableOpacity>
-              )}
-            </View>
-            {/* To Search Results Dropdown */}
-            {showToResults && toResults.length > 0 && (
-              <View style={styles.searchDropdown}>
-                {toResults.map((result) => (
-                  <TouchableOpacity
-                    key={result.placeId}
-                    style={styles.searchResultItem}
-                    onPress={() => selectToResult(result)}
-                  >
-                    <HugeiconsIcon icon={Location01Icon} size={16} color="#EF4444" />
-                    <View style={styles.searchResultText}>
-                      <Text style={styles.searchResultName} numberOfLines={1}>{result.name}</Text>
-                      <Text style={styles.searchResultAddress} numberOfLines={1}>{result.displayName}</Text>
-                    </View>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            )}
-            {/* Saved locations suggestions */}
-            {savedLocations && savedLocations.length > 0 && !toData && !showToResults && (
-              <View style={styles.savedLocationsList}>
-                {savedLocations.slice(0, 3).map((loc) => (
-                  <TouchableOpacity
-                    key={loc._id}
-                    style={styles.savedLocationItem}
-                    onPress={() => {
-                      setToData({ name: loc.name, lat: loc.location.lat, lng: loc.location.lng });
-                      setToQuery(loc.name);
-                    }}
-                  >
-                    <Text style={styles.savedLocationText}>{loc.name}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            )}
-          </View>
-
-          {/* Map Preview */}
-          <View style={styles.mapPreviewSection}>
-            <LinearGradient
-              colors={["#E2E8F0", "#CBD5E1"]}
-              style={styles.mapPreview}
-            >
-              <Text style={styles.mapPreviewText}>Route Preview</Text>
-            </LinearGradient>
-          </View>
-
-          {/* Monitor Days */}
-          <View style={styles.section}>
-            <Text style={styles.label}>Monitor Days</Text>
-            <View style={styles.daysRow}>
-              {DAYS.map((day, index) => (
-                <TouchableOpacity
-                  key={index}
-                  style={[
-                    styles.dayButton,
-                    monitorDays[index] && styles.dayButtonActive,
-                  ]}
-                  onPress={() => toggleDay(index)}
-                >
-                  <Text
+                    key={item.type}
                     style={[
+                      styles.iconOption,
+                      selectedIcon === item.type && styles.iconOptionSelected,
+                      selectedIcon === item.type && { borderColor: item.color },
+                    ]}
+                    onPress={() => setSelectedIcon(item.type)}
+                    activeOpacity={0.7}
+                  >
+                    <View style={[styles.iconCircle, { backgroundColor: item.bg }]}>
+                      <HugeiconsIcon icon={item.icon} size={24} color={item.color} />
+                    </View>
+                    <Text style={[
+                      styles.iconLabel,
+                      selectedIcon === item.type && { color: item.color },
+                    ]}>
+                      {item.label}
+                    </Text>
+                    {selectedIcon === item.type && (
+                      <View style={[styles.selectedDot, { backgroundColor: item.color }]} />
+                    )}
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+          </View>
+
+          {/* Locations Card */}
+          <View style={styles.formCard}>
+            <Text style={styles.cardTitle}>Locations</Text>
+
+            {/* From Location */}
+            <View style={[styles.inputGroup, { zIndex: 20 }]}>
+              <Text style={styles.inputLabel}>From</Text>
+              <View style={styles.locationInputContainer}>
+                <View style={[styles.locationDot, { backgroundColor: colors.state.success }]} />
+                <TextInput
+                  style={styles.locationInput}
+                  placeholder="Starting location"
+                  placeholderTextColor={colors.text.tertiary}
+                  value={fromData ? fromData.name : fromQuery}
+                  onChangeText={handleFromChange}
+                  onFocus={() => fromQuery.length >= 3 && setShowFromResults(true)}
+                />
+                {fromSearching && <ActivityIndicator size="small" color={colors.state.success} />}
+                {(fromQuery.length > 0 || fromData) && !fromSearching && (
+                  <TouchableOpacity
+                    onPress={() => { setFromQuery(""); setFromData(null); setFromResults([]); }}
+                    style={styles.clearButton}
+                  >
+                    <HugeiconsIcon icon={Cancel01Icon} size={16} color={colors.text.tertiary} />
+                  </TouchableOpacity>
+                )}
+              </View>
+
+              {/* From Search Results Dropdown */}
+              {showFromResults && fromResults.length > 0 && (
+                <View style={styles.searchDropdown}>
+                  {fromResults.map((result) => (
+                    <TouchableOpacity
+                      key={result.placeId}
+                      style={styles.searchResultItem}
+                      onPress={() => selectFromResult(result)}
+                    >
+                      <View style={[styles.resultDot, { backgroundColor: colors.state.success }]} />
+                      <View style={styles.searchResultText}>
+                        <Text style={styles.searchResultName} numberOfLines={1}>{result.name}</Text>
+                        <Text style={styles.searchResultAddress} numberOfLines={1}>{result.displayName}</Text>
+                      </View>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
+
+              {address && location && !fromData && !showFromResults && (
+                <TouchableOpacity
+                  style={styles.currentLocationSuggestion}
+                  onPress={() => {
+                    setFromData({ name: address, lat: location.lat, lng: location.lng });
+                    setFromQuery(address);
+                  }}
+                >
+                  <HugeiconsIcon icon={Location01Icon} size={14} color={colors.risk.low.dark} />
+                  <Text style={styles.suggestionText}>Use current location</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+
+            {/* Route Line Connector */}
+            <View style={styles.routeConnector}>
+              <View style={styles.connectorLine} />
+            </View>
+
+            {/* To Location */}
+            <View style={[styles.inputGroup, { zIndex: 10 }]}>
+              <Text style={styles.inputLabel}>To</Text>
+              <View style={styles.locationInputContainer}>
+                <View style={[styles.locationDot, { backgroundColor: colors.state.error }]} />
+                <TextInput
+                  style={styles.locationInput}
+                  placeholder="Destination"
+                  placeholderTextColor={colors.text.tertiary}
+                  value={toData ? toData.name : toQuery}
+                  onChangeText={handleToChange}
+                  onFocus={() => toQuery.length >= 3 && setShowToResults(true)}
+                />
+                {toSearching && <ActivityIndicator size="small" color={colors.state.error} />}
+                {(toQuery.length > 0 || toData) && !toSearching && (
+                  <TouchableOpacity
+                    onPress={() => { setToQuery(""); setToData(null); setToResults([]); }}
+                    style={styles.clearButton}
+                  >
+                    <HugeiconsIcon icon={Cancel01Icon} size={16} color={colors.text.tertiary} />
+                  </TouchableOpacity>
+                )}
+              </View>
+
+              {/* To Search Results Dropdown */}
+              {showToResults && toResults.length > 0 && (
+                <View style={styles.searchDropdown}>
+                  {toResults.map((result) => (
+                    <TouchableOpacity
+                      key={result.placeId}
+                      style={styles.searchResultItem}
+                      onPress={() => selectToResult(result)}
+                    >
+                      <View style={[styles.resultDot, { backgroundColor: colors.state.error }]} />
+                      <View style={styles.searchResultText}>
+                        <Text style={styles.searchResultName} numberOfLines={1}>{result.name}</Text>
+                        <Text style={styles.searchResultAddress} numberOfLines={1}>{result.displayName}</Text>
+                      </View>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
+
+              {/* Saved locations suggestions */}
+              {savedLocations && savedLocations.length > 0 && !toData && !showToResults && (
+                <View style={styles.savedLocationsList}>
+                  <Text style={styles.savedLocationsLabel}>Quick select:</Text>
+                  <View style={styles.savedLocationsPills}>
+                    {savedLocations.slice(0, 3).map((loc) => (
+                      <TouchableOpacity
+                        key={loc._id}
+                        style={styles.savedLocationPill}
+                        onPress={() => {
+                          setToData({ name: loc.name, lat: loc.location.lat, lng: loc.location.lng });
+                          setToQuery(loc.name);
+                        }}
+                      >
+                        <Text style={styles.savedLocationText}>{loc.name}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
+              )}
+            </View>
+          </View>
+
+          {/* Schedule Card */}
+          <View style={styles.formCard}>
+            <Text style={styles.cardTitle}>Schedule</Text>
+
+            {/* Monitor Days */}
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Monitor Days</Text>
+              <View style={styles.daysGrid}>
+                {DAYS.map((day, index) => (
+                  <TouchableOpacity
+                    key={index}
+                    style={[
+                      styles.dayButton,
+                      monitorDays[index] && styles.dayButtonActive,
+                    ]}
+                    onPress={() => toggleDay(index)}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={[
                       styles.dayText,
                       monitorDays[index] && styles.dayTextActive,
+                    ]}>
+                      {day}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+
+            {/* Alert Time */}
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Alert Time</Text>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.timeRow}
+              >
+                {["6:00 AM", "7:00 AM", "7:30 AM", "8:00 AM", "8:30 AM", "9:00 AM"].map((time) => (
+                  <TouchableOpacity
+                    key={time}
+                    style={[
+                      styles.timeButton,
+                      alertTime === time && styles.timeButtonActive,
                     ]}
+                    onPress={() => setAlertTime(time)}
+                    activeOpacity={0.7}
                   >
-                    {day}
-                  </Text>
-                </TouchableOpacity>
-              ))}
+                    <Text style={[
+                      styles.timeButtonText,
+                      alertTime === time && styles.timeButtonTextActive,
+                    ]}>
+                      {time}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
             </View>
           </View>
 
-          {/* Alert Threshold */}
-          <View style={styles.section}>
+          {/* Alert Threshold Card */}
+          <View style={styles.formCard}>
             <View style={styles.thresholdHeader}>
-              <Text style={styles.label}>Alert Threshold</Text>
-              <Text style={styles.thresholdValue}>
-                {alertThreshold <= 33 ? "Low" : alertThreshold <= 66 ? "Medium" : "High"} Risk (&gt;{alertThreshold})
-              </Text>
+              <Text style={styles.cardTitle}>Alert Threshold</Text>
+              <View style={[styles.thresholdBadge, { backgroundColor: `${thresholdInfo.color}15` }]}>
+                <Text style={[styles.thresholdBadgeText, { color: thresholdInfo.color }]}>
+                  {thresholdInfo.label} Risk
+                </Text>
+              </View>
             </View>
-            <View style={styles.sliderContainer}>
-              <Text style={styles.sliderLabel}>All</Text>
+            <Text style={styles.thresholdDescription}>
+              Alert me when risk score exceeds this level
+            </Text>
+
+            <View style={styles.thresholdSliderContainer}>
               <View style={styles.sliderTrack}>
                 <LinearGradient
-                  colors={["#10B981", "#F59E0B", "#EF4444"]}
+                  colors={[colors.state.success, colors.state.warning, colors.state.error]}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 0 }}
                   style={styles.sliderGradient}
                 />
-                <View style={[styles.sliderThumb, { left: `${alertThreshold}%` }]} />
+                <View style={[styles.sliderThumb, { left: `${alertThreshold}%` }]}>
+                  <Text style={styles.sliderThumbText}>{alertThreshold}</Text>
+                </View>
               </View>
-              <Text style={styles.sliderLabel}>Critical</Text>
+              <View style={styles.sliderLabels}>
+                <Text style={styles.sliderLabel}>Low (20)</Text>
+                <Text style={styles.sliderLabel}>High (80)</Text>
+              </View>
             </View>
+
             <View style={styles.thresholdButtons}>
               {[20, 40, 60, 80].map((value) => (
                 <TouchableOpacity
@@ -465,13 +539,12 @@ export default function AddRouteScreen() {
                     alertThreshold === value && styles.thresholdButtonActive,
                   ]}
                   onPress={() => setAlertThreshold(value)}
+                  activeOpacity={0.7}
                 >
-                  <Text
-                    style={[
-                      styles.thresholdButtonText,
-                      alertThreshold === value && styles.thresholdButtonTextActive,
-                    ]}
-                  >
+                  <Text style={[
+                    styles.thresholdButtonText,
+                    alertThreshold === value && styles.thresholdButtonTextActive,
+                  ]}>
                     {value}
                   </Text>
                 </TouchableOpacity>
@@ -479,31 +552,8 @@ export default function AddRouteScreen() {
             </View>
           </View>
 
-          {/* Alert Time */}
-          <View style={styles.section}>
-            <Text style={styles.label}>Alert Time</Text>
-            <View style={styles.timeRow}>
-              {["6:00 AM", "7:00 AM", "7:30 AM", "8:00 AM", "8:30 AM"].map((time) => (
-                <TouchableOpacity
-                  key={time}
-                  style={[
-                    styles.timeButton,
-                    alertTime === time && styles.timeButtonActive,
-                  ]}
-                  onPress={() => setAlertTime(time)}
-                >
-                  <Text
-                    style={[
-                      styles.timeButtonText,
-                      alertTime === time && styles.timeButtonTextActive,
-                    ]}
-                  >
-                    {time}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </View>
+          {/* Bottom spacing for footer */}
+          <View style={{ height: 100 }} />
         </ScrollView>
 
         {/* Submit Button */}
@@ -511,319 +561,370 @@ export default function AddRouteScreen() {
           <Button
             color="accent"
             size="lg"
-            className="w-full h-14 rounded-xl"
+            className="w-full h-14 rounded-2xl"
             onPress={handleSubmit}
             isDisabled={isSubmitting || !name.trim() || !fromLocation || !toLocation}
           >
-            {isSubmitting ? "Creating..." : "Create Route"}
+            {isSubmitting ? "Creating Route..." : "Create Route"}
           </Button>
         </View>
       </KeyboardAvoidingView>
-
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#fff",
+    backgroundColor: colors.background.secondary,
   },
   keyboardView: {
     flex: 1,
-  },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: "#E5E7EB",
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: "#111827",
-  },
-  headerSpacer: {
-    width: 40,
   },
   scrollView: {
     flex: 1,
   },
   scrollContent: {
-    padding: 20,
-    paddingBottom: 40,
+    padding: spacing[4],
+    paddingBottom: spacing[10],
   },
-  section: {
-    marginBottom: 24,
+  formCard: {
+    backgroundColor: "#FFFFFF",
+    marginBottom: spacing[4],
+    borderRadius: 20,
+    padding: spacing[5],
+    shadowColor: colors.brand.primary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 12,
+    elevation: 3,
   },
-  label: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#374151",
-    marginBottom: 10,
+  cardTitle: {
+    fontSize: typography.size.lg,
+    fontWeight: typography.weight.bold,
+    color: colors.text.primary,
+    marginBottom: spacing[4],
   },
-  inputContainer: {
-    backgroundColor: "#F9FAFB",
-    borderWidth: 1,
-    borderColor: "#E5E7EB",
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    height: 52,
-    justifyContent: "center",
+  inputGroup: {
+    marginBottom: spacing[4],
+  },
+  inputLabel: {
+    fontSize: typography.size.sm,
+    fontWeight: typography.weight.semibold,
+    color: colors.text.secondary,
+    marginBottom: spacing[2],
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
   },
   input: {
-    fontSize: 15,
-    color: "#111827",
+    backgroundColor: colors.background.tertiary,
+    borderRadius: 12,
+    paddingHorizontal: spacing[4],
+    paddingVertical: spacing[3] + 2,
+    fontSize: typography.size.md,
+    color: colors.text.primary,
   },
   iconRow: {
     flexDirection: "row",
-    gap: 12,
+    gap: spacing[3],
   },
   iconOption: {
     flex: 1,
     alignItems: "center",
-    padding: 16,
-    borderRadius: 12,
+    padding: spacing[4],
+    borderRadius: 16,
     borderWidth: 2,
-    backgroundColor: "#F9FAFB",
+    borderColor: colors.border.light,
+    backgroundColor: colors.background.secondary,
+    position: "relative",
   },
   iconOptionSelected: {
-    backgroundColor: "#fff",
+    backgroundColor: "#FFFFFF",
   },
   iconCircle: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 52,
+    height: 52,
+    borderRadius: 26,
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 8,
+    marginBottom: spacing[2],
   },
   iconLabel: {
     fontSize: 13,
-    fontWeight: "600",
-    color: "#374151",
+    fontWeight: typography.weight.semibold,
+    color: colors.text.secondary,
+  },
+  selectedDot: {
+    position: "absolute",
+    top: spacing[2],
+    right: spacing[2],
+    width: 8,
+    height: 8,
+    borderRadius: 4,
   },
   locationInputContainer: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#F9FAFB",
-    borderWidth: 1,
-    borderColor: "#E5E7EB",
+    backgroundColor: colors.background.tertiary,
     borderRadius: 12,
-    paddingHorizontal: 16,
-    height: 52,
-    gap: 12,
+    paddingHorizontal: spacing[4],
+    paddingVertical: spacing[3],
+    gap: spacing[3],
+  },
+  locationDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
   },
   locationInput: {
     flex: 1,
-    fontSize: 15,
-    color: "#111827",
+    fontSize: typography.size.md,
+    color: colors.text.primary,
   },
-  locationPlaceholder: {
-    color: "#9CA3AF",
+  clearButton: {
+    padding: 4,
+  },
+  routeConnector: {
+    paddingLeft: spacing[6],
+    marginVertical: -spacing[2],
+    marginBottom: spacing[2],
+  },
+  connectorLine: {
+    width: 2,
+    height: 20,
+    backgroundColor: colors.slate[200],
+    borderRadius: 1,
   },
   searchDropdown: {
     position: "absolute",
     top: 78,
     left: 0,
     right: 0,
-    backgroundColor: "#fff",
+    backgroundColor: colors.background.primary,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: "#E5E7EB",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
-    zIndex: 100,
+    borderColor: colors.border.light,
+    ...shadows.lg,
+    zIndex: 1000,
+    elevation: 10,
     maxHeight: 220,
+    overflow: "hidden",
   },
   searchResultItem: {
     flexDirection: "row",
     alignItems: "center",
-    padding: 14,
-    gap: 12,
+    padding: spacing[3],
+    gap: spacing[3],
     borderBottomWidth: 1,
-    borderBottomColor: "#F3F4F6",
+    borderBottomColor: colors.slate[100],
+    backgroundColor: colors.background.primary,
+  },
+  resultDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
   },
   searchResultText: {
     flex: 1,
+    overflow: "hidden",
   },
   searchResultName: {
-    fontSize: 15,
-    fontWeight: "600",
-    color: "#111827",
+    fontSize: typography.size.md,
+    fontWeight: typography.weight.semibold,
+    color: colors.text.primary,
     marginBottom: 2,
   },
   searchResultAddress: {
-    fontSize: 12,
-    color: "#6B7280",
+    fontSize: typography.size.sm,
+    color: colors.text.secondary,
   },
   currentLocationSuggestion: {
-    marginTop: 8,
-    padding: 10,
-    backgroundColor: "#D1FAE5",
-    borderRadius: 8,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing[2],
+    marginTop: spacing[2],
+    padding: spacing[3],
+    backgroundColor: colors.risk.low.light,
+    borderRadius: 10,
   },
   suggestionText: {
     fontSize: 13,
-    color: "#059669",
+    color: colors.risk.low.dark,
+    fontWeight: typography.weight.medium,
   },
   savedLocationsList: {
+    marginTop: spacing[3],
+  },
+  savedLocationsLabel: {
+    fontSize: typography.size.sm,
+    color: colors.text.tertiary,
+    marginBottom: spacing[2],
+  },
+  savedLocationsPills: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: 8,
-    marginTop: 8,
+    gap: spacing[2],
   },
-  savedLocationItem: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    backgroundColor: "#F3F4F6",
-    borderRadius: 16,
+  savedLocationPill: {
+    paddingHorizontal: spacing[3],
+    paddingVertical: spacing[2],
+    backgroundColor: colors.slate[100],
+    borderRadius: 20,
   },
   savedLocationText: {
     fontSize: 13,
-    color: "#374151",
+    color: colors.slate[700],
+    fontWeight: typography.weight.medium,
   },
-  mapPreviewSection: {
-    marginBottom: 24,
-    borderRadius: 16,
-    overflow: "hidden",
-  },
-  mapPreview: {
-    height: 140,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  mapPreviewText: {
-    fontSize: 14,
-    color: "#6B7280",
-  },
-  daysRow: {
+  daysGrid: {
     flexDirection: "row",
-    gap: 8,
+    gap: spacing[2],
   },
   dayButton: {
     flex: 1,
     height: 44,
-    borderRadius: 22,
-    backgroundColor: "#F3F4F6",
+    borderRadius: 12,
+    backgroundColor: colors.slate[100],
     alignItems: "center",
     justifyContent: "center",
   },
   dayButtonActive: {
-    backgroundColor: "#111827",
+    backgroundColor: colors.brand.primary,
   },
   dayText: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#9CA3AF",
+    fontSize: typography.size.base,
+    fontWeight: typography.weight.semibold,
+    color: colors.text.tertiary,
   },
   dayTextActive: {
-    color: "#fff",
+    color: colors.text.inverse,
+  },
+  timeRow: {
+    flexDirection: "row",
+    gap: spacing[2],
+    paddingRight: spacing[4],
+  },
+  timeButton: {
+    paddingHorizontal: spacing[4],
+    paddingVertical: spacing[3],
+    borderRadius: 12,
+    backgroundColor: colors.slate[100],
+  },
+  timeButtonActive: {
+    backgroundColor: colors.brand.primary,
+  },
+  timeButtonText: {
+    fontSize: 13,
+    fontWeight: typography.weight.semibold,
+    color: colors.text.secondary,
+  },
+  timeButtonTextActive: {
+    color: colors.text.inverse,
   },
   thresholdHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 12,
+    marginBottom: spacing[1],
   },
-  thresholdValue: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: "#F59E0B",
+  thresholdBadge: {
+    paddingHorizontal: spacing[3],
+    paddingVertical: 4,
+    borderRadius: 8,
   },
-  sliderContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
+  thresholdBadgeText: {
+    fontSize: typography.size.sm,
+    fontWeight: typography.weight.semibold,
   },
-  sliderLabel: {
-    fontSize: 11,
-    color: "#9CA3AF",
-    width: 45,
+  thresholdDescription: {
+    fontSize: typography.size.sm,
+    color: colors.text.tertiary,
+    marginBottom: spacing[4],
+  },
+  thresholdSliderContainer: {
+    marginBottom: spacing[4],
   },
   sliderTrack: {
-    flex: 1,
     height: 8,
     borderRadius: 4,
-    overflow: "hidden",
+    overflow: "visible",
     position: "relative",
   },
   sliderGradient: {
     flex: 1,
     borderRadius: 4,
+    height: 8,
   },
   sliderThumb: {
     position: "absolute",
-    top: -4,
-    width: 16,
-    height: 16,
-    borderRadius: 8,
-    backgroundColor: "#fff",
-    borderWidth: 2,
-    borderColor: "#111827",
-    marginLeft: -8,
+    top: -10,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: colors.background.primary,
+    borderWidth: 3,
+    borderColor: colors.brand.primary,
+    marginLeft: -14,
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  sliderThumbText: {
+    fontSize: 10,
+    fontWeight: typography.weight.bold,
+    color: colors.brand.primary,
+  },
+  sliderLabels: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginTop: spacing[3],
+  },
+  sliderLabel: {
+    fontSize: typography.size.xs,
+    color: colors.text.tertiary,
   },
   thresholdButtons: {
     flexDirection: "row",
-    gap: 8,
-    marginTop: 12,
+    gap: spacing[2],
   },
   thresholdButton: {
     flex: 1,
-    height: 36,
-    borderRadius: 8,
-    backgroundColor: "#F3F4F6",
+    height: 40,
+    borderRadius: 10,
+    backgroundColor: colors.slate[100],
     alignItems: "center",
     justifyContent: "center",
   },
   thresholdButtonActive: {
-    backgroundColor: "#111827",
+    backgroundColor: colors.brand.primary,
   },
   thresholdButtonText: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#6B7280",
+    fontSize: typography.size.base,
+    fontWeight: typography.weight.semibold,
+    color: colors.text.secondary,
   },
   thresholdButtonTextActive: {
-    color: "#fff",
-  },
-  timeRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
-  },
-  timeButton: {
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 8,
-    backgroundColor: "#F3F4F6",
-  },
-  timeButtonActive: {
-    backgroundColor: "#111827",
-  },
-  timeButtonText: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: "#6B7280",
-  },
-  timeButtonTextActive: {
-    color: "#fff",
+    color: colors.text.inverse,
   },
   footer: {
-    padding: 16,
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: "#FFFFFF",
+    paddingHorizontal: spacing[4],
+    paddingVertical: spacing[4],
+    paddingBottom: spacing[8],
     borderTopWidth: 1,
-    borderTopColor: "#E5E7EB",
+    borderTopColor: colors.background.tertiary,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 8,
   },
 });
