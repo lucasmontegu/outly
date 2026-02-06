@@ -3,9 +3,7 @@ import { useRouter, useLocalSearchParams } from "expo-router";
 import {
   ArrowLeft01Icon,
   AlarmClockIcon,
-  CloudIcon,
   CheckmarkCircle02Icon,
-  Alert02Icon,
   Navigation03Icon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react-native";
@@ -18,8 +16,9 @@ import {
   Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import * as Notifications from "expo-notifications";
 import Animated, { FadeIn, FadeInDown } from "react-native-reanimated";
+import { useMutation } from "convex/react";
+import { api } from "@outia/backend/convex/_generated/api";
 import { colors, spacing, borderRadius, typography, shadows } from "@/lib/design-tokens";
 import { lightHaptic, riskLevelHaptic } from "@/lib/haptics";
 import { useCustomerInfo } from "@/hooks/useSubscription";
@@ -38,7 +37,8 @@ export default function SmartDepartureScreen() {
   const [alertScheduled, setAlertScheduled] = useState(false);
   const [scheduling, setScheduling] = useState(false);
   const { isPro } = useCustomerInfo();
-  const [showUpgradePrompt, setShowUpgradePrompt] = useState(false);
+  const setDepartureAlert = useMutation(api.users.setDepartureAlert);
+  const cancelDepartureAlert = useMutation(api.users.cancelDepartureAlert);
 
   // Parse params with fallbacks
   const optimalTime = params.optimalTime || "7:45";
@@ -70,40 +70,7 @@ export default function SmartDepartureScreen() {
     setScheduling(true);
     lightHaptic();
 
-    // Check if free user has already scheduled an alert today
-    if (!isPro) {
-      const scheduled = await Notifications.getAllScheduledNotificationsAsync();
-      const departureAlerts = scheduled.filter(
-        (n) => n.content.data?.type === "departure_alert"
-      );
-
-      if (departureAlerts.length >= 1) {
-        setScheduling(false);
-        setShowUpgradePrompt(true);
-        return;
-      }
-    }
-
     try {
-      // Request permission
-      const { status: existingStatus } = await Notifications.getPermissionsAsync();
-      let finalStatus = existingStatus;
-
-      if (existingStatus !== "granted") {
-        const { status } = await Notifications.requestPermissionsAsync();
-        finalStatus = status;
-      }
-
-      if (finalStatus !== "granted") {
-        Alert.alert(
-          "Notifications Disabled",
-          "Enable notifications in Settings to receive departure alerts.",
-          [{ text: "OK" }]
-        );
-        setScheduling(false);
-        return;
-      }
-
       if (isOptimalNow) {
         // Optimal now — no need to schedule, just confirm
         riskLevelHaptic("low");
@@ -112,20 +79,14 @@ export default function SmartDepartureScreen() {
         return;
       }
 
-      // Schedule notification for optimal departure time
-      const triggerSeconds = Math.max(60, optimalMinutes * 60);
+      // Calculate alert timestamp (now + optimalMinutes)
+      const alertAt = Date.now() + Math.max(1, optimalMinutes) * 60 * 1000;
 
-      await Notifications.scheduleNotificationAsync({
-        content: {
-          title: "Time to leave!",
-          body: `Conditions are best now. ${reason}`,
-          sound: true,
-          data: { type: "departure_alert" },
-        },
-        trigger: {
-          type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
-          seconds: triggerSeconds,
-        },
+      // Save to server — cron will pick it up and send push notification
+      await setDepartureAlert({
+        alertAt,
+        message: `Conditions are best now. ${reason}`,
+        reason,
       });
 
       riskLevelHaptic("low");
@@ -140,7 +101,11 @@ export default function SmartDepartureScreen() {
 
   const cancelAlert = async () => {
     lightHaptic();
-    await Notifications.cancelAllScheduledNotificationsAsync();
+    try {
+      await cancelDepartureAlert();
+    } catch (error) {
+      console.error("Error cancelling alert:", error);
+    }
     setAlertScheduled(false);
   };
 
@@ -242,34 +207,6 @@ export default function SmartDepartureScreen() {
           </Animated.View>
         )}
 
-        {/* PRO Upgrade Prompt */}
-        {showUpgradePrompt && (
-          <Animated.View entering={FadeIn.duration(300)} style={styles.upgradeCard}>
-            <View style={styles.upgradeHeader}>
-              <HugeiconsIcon icon={Alert02Icon} size={24} color={colors.state.warning} />
-              <Text style={styles.upgradeTitle}>Free Plan Limit</Text>
-            </View>
-            <Text style={styles.upgradeText}>
-              Free accounts can set 1 departure alert per day. Upgrade to Pro for unlimited alerts on all routes.
-            </Text>
-            <TouchableOpacity
-              style={styles.upgradeButton}
-              onPress={() => {
-                lightHaptic();
-                router.push("/paywall");
-              }}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.upgradeButtonText}>Upgrade to Pro</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.dismissButton}
-              onPress={() => setShowUpgradePrompt(false)}
-            >
-              <Text style={styles.dismissButtonText}>Maybe later</Text>
-            </TouchableOpacity>
-          </Animated.View>
-        )}
       </ScrollView>
 
       {/* Bottom CTA */}
@@ -536,50 +473,5 @@ const styles = StyleSheet.create({
     fontWeight: typography.weight.bold,
     color: colors.text.inverse,
     letterSpacing: 0.5,
-  },
-  upgradeCard: {
-    backgroundColor: colors.state.warning + "10",
-    borderRadius: borderRadius.xl,
-    padding: spacing[5],
-    borderWidth: 1,
-    borderColor: colors.state.warning + "30",
-    marginBottom: spacing[4],
-  },
-  upgradeHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing[3],
-    marginBottom: spacing[3],
-  },
-  upgradeTitle: {
-    fontSize: typography.size.lg,
-    fontWeight: typography.weight.bold,
-    color: colors.text.primary,
-  },
-  upgradeText: {
-    fontSize: typography.size.base,
-    color: colors.text.secondary,
-    lineHeight: 22,
-    marginBottom: spacing[4],
-  },
-  upgradeButton: {
-    backgroundColor: colors.brand.secondary,
-    paddingVertical: spacing[4],
-    borderRadius: borderRadius.xl,
-    alignItems: "center",
-    marginBottom: spacing[3],
-  },
-  upgradeButtonText: {
-    fontSize: typography.size.base,
-    fontWeight: typography.weight.bold,
-    color: colors.text.inverse,
-  },
-  dismissButton: {
-    alignItems: "center",
-    paddingVertical: spacing[2],
-  },
-  dismissButtonText: {
-    fontSize: typography.size.sm,
-    color: colors.text.tertiary,
   },
 });

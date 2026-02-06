@@ -1,13 +1,24 @@
 "use node";
 
-import { internalAction } from "../_generated/server";
+import { v } from "convex/values";
+import { internalAction, internalMutation } from "../_generated/server";
 import { internal } from "../_generated/api";
+
+// Clear a one-time departure alert after it's been sent
+export const clearPendingAlert = internalMutation({
+  args: { userId: v.id("users") },
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.userId, {
+      pendingDepartureAlert: undefined,
+    });
+  },
+});
 
 // Check departure alerts every 5 minutes
 export const checkDepartureAlerts = internalAction({
   args: {},
   handler: async (ctx) => {
-    // Get all routes that need alerts checked
+    // Get all routes and one-time alerts that need notifications
     const alertData = await ctx.runQuery(
       internal.scheduled.departureAlertQueries.getRoutesNeedingAlerts
     );
@@ -22,13 +33,26 @@ export const checkDepartureAlerts = internalAction({
       try {
         await sendPushNotification({
           to: data.pushToken,
-          title: `Time to leave: ${data.routeName}`,
+          title: data.isOneTime
+            ? "Time to leave!"
+            : `Time to leave: ${data.routeName}`,
           body: data.message,
-          data: { routeId: data.routeId, type: "departure_alert" },
+          data: {
+            routeId: data.routeId ?? "",
+            type: "departure_alert",
+          },
         });
         sent++;
+
+        // Clear one-time alerts after sending
+        if (data.isOneTime) {
+          await ctx.runMutation(
+            internal.scheduled.departureAlerts.clearPendingAlert,
+            { userId: data.userId as any }
+          );
+        }
       } catch (error) {
-        console.error(`Failed to send notification for route ${data.routeId}:`, error);
+        console.error(`Failed to send notification for ${data.routeName}:`, error);
       }
     }
 

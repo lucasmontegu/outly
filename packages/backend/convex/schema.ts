@@ -37,6 +37,14 @@ export default defineSchema({
     ),
     // Expo push notification token for server-side notifications
     expoPushToken: v.optional(v.string()),
+    // One-time departure alert set from smart-departure screen
+    pendingDepartureAlert: v.optional(
+      v.object({
+        alertAt: v.number(), // Unix timestamp when to send
+        message: v.string(),
+        reason: v.string(),
+      })
+    ),
   })
     .index("by_clerk_id", ["clerkId"])
     .index("by_email", ["email"])

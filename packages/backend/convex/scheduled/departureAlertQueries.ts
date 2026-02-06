@@ -5,6 +5,7 @@ export const getRoutesNeedingAlerts = internalQuery({
   args: {},
   handler: async (ctx) => {
     const now = new Date();
+    const nowMs = now.getTime();
     const currentDay = now.getDay(); // 0=Sunday
     // Convert to our format: 0=Monday
     const dayIndex = currentDay === 0 ? 6 : currentDay - 1;
@@ -14,35 +15,30 @@ export const getRoutesNeedingAlerts = internalQuery({
     const currentMinutes = now.getMinutes();
     const currentTimeMinutes = currentHours * 60 + currentMinutes;
 
-    // Get all active routes
-    const allRoutes = await ctx.db.query("routes").collect();
-
     const results: Array<{
-      routeId: string;
+      routeId: string | null;
       routeName: string;
       pushToken: string;
       message: string;
+      userId: string; // Convex doc ID for clearing one-time alerts
+      isOneTime: boolean;
     }> = [];
 
-    for (const route of allRoutes) {
-      // Skip inactive routes
-      if (!route.isActive) continue;
+    // ========================================================================
+    // 1. Recurring route alerts (existing behavior)
+    // ========================================================================
+    const allRoutes = await ctx.db.query("routes").collect();
 
-      // Skip if today is not a monitored day
+    for (const route of allRoutes) {
+      if (!route.isActive) continue;
       if (!route.monitorDays[dayIndex]) continue;
 
-      // Parse alert time (format: "7:30 AM" or "07:30")
       const alertTimeMinutes = parseTimeToMinutes(route.alertTime);
       if (alertTimeMinutes === null) continue;
 
-      // Check if we're within the 5-minute alert window
-      // We want to alert ~30 min before the alert time (or based on user preference)
       const diff = alertTimeMinutes - currentTimeMinutes;
-
-      // Alert if we're within 0-5 minutes of the alert time
       if (diff < 0 || diff > 5) continue;
 
-      // Get the user for this route
       const user = await ctx.db
         .query("users")
         .withIndex("by_clerk_id", (q) => q.eq("clerkId", route.userId))
@@ -50,7 +46,6 @@ export const getRoutesNeedingAlerts = internalQuery({
 
       if (!user?.expoPushToken) continue;
 
-      // Build the message based on cached score
       const score = route.cachedScore ?? 50;
       const classification = route.cachedClassification ?? "medium";
 
@@ -68,6 +63,34 @@ export const getRoutesNeedingAlerts = internalQuery({
         routeName: route.name,
         pushToken: user.expoPushToken,
         message,
+        userId: user._id,
+        isOneTime: false,
+      });
+    }
+
+    // ========================================================================
+    // 2. One-time alerts from smart-departure screen
+    // ========================================================================
+    const usersWithAlerts = await ctx.db.query("users").collect();
+
+    for (const user of usersWithAlerts) {
+      if (!user.pendingDepartureAlert) continue;
+      if (!user.expoPushToken) continue;
+
+      const alert = user.pendingDepartureAlert;
+
+      // Check if alert time has arrived (within 5-min window)
+      // alertAt is a Unix timestamp in ms
+      const diffMs = alert.alertAt - nowMs;
+      if (diffMs < -60_000 || diffMs > 5 * 60_000) continue;
+
+      results.push({
+        routeId: null,
+        routeName: "Smart Departure",
+        pushToken: user.expoPushToken,
+        message: alert.message,
+        userId: user._id,
+        isOneTime: true,
       });
     }
 
