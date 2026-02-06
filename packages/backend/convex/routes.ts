@@ -1,6 +1,7 @@
 import { v } from "convex/values";
-import { query, mutation, internalMutation } from "./_generated/server";
+import { query, mutation, internalMutation, action } from "./_generated/server";
 import { getIntersectingGridCells } from "./events";
+import { internal } from "./_generated/api";
 
 // Cache TTL: 15 minutes in milliseconds
 const ROUTE_CACHE_TTL_MS = 15 * 60 * 1000;
@@ -33,6 +34,31 @@ const routeDoc = v.object({
     v.union(v.literal("low"), v.literal("medium"), v.literal("high"))
   ),
   cachedAt: v.optional(v.number()),
+  polyline: v.optional(
+    v.array(
+      v.object({
+        lat: v.number(),
+        lng: v.number(),
+      })
+    )
+  ),
+  alternatives: v.optional(
+    v.array(
+      v.object({
+        polyline: v.array(
+          v.object({
+            lat: v.number(),
+            lng: v.number(),
+          })
+        ),
+        distance: v.number(),
+        duration: v.number(),
+        typicalDuration: v.number(),
+        trafficDelay: v.number(),
+      })
+    )
+  ),
+  polylineFetchedAt: v.optional(v.number()),
 });
 
 // Get all routes for current user
@@ -109,6 +135,11 @@ export const createRoute = mutation({
       alertThreshold: args.alertThreshold,
       alertTime: args.alertTime,
       isActive: true,
+    });
+
+    // Trigger async polyline fetch from HERE Routing API
+    await ctx.scheduler.runAfter(0, internal.routes.fetchRoutePolylines, {
+      routeId,
     });
 
     return routeId;
@@ -430,3 +461,121 @@ function haversineDistance(lat1: number, lng1: number, lat2: number, lng2: numbe
 function toRad(deg: number): number {
   return deg * (Math.PI / 180);
 }
+
+/**
+ * Fetch and store road-following polylines from HERE Routing API
+ * Called automatically after route creation and daily for all active routes
+ */
+export const fetchRoutePolylines = action({
+  args: {
+    routeId: v.id("routes"),
+  },
+  handler: async (ctx, args) => {
+    // Get route data
+    const route = await ctx.runQuery(internal.routes.getRoute, {
+      routeId: args.routeId,
+    });
+
+    if (!route) return;
+
+    try {
+      // Fetch routing data from HERE API
+      const routingData = await ctx.runAction(internal.integrations.routing.getRouteAlternatives, {
+        origin: route.fromLocation,
+        destination: route.toLocation,
+        departureTime: "now",
+        alternatives: 3,
+      });
+
+      // Import decoder from routing integration
+      const { decodeFlexiblePolyline } = await import("./integrations/routing");
+
+      // Decode all polylines
+      const alternatives = routingData.routes.map((r: any) => ({
+        polyline: decodeFlexiblePolyline(r.encodedPolyline),
+        distance: r.distance,
+        duration: r.durationWithTraffic,
+        typicalDuration: r.typicalDuration || r.durationWithTraffic,
+        trafficDelay: r.trafficDelay || 0,
+      }));
+
+      // Use fastest route as primary
+      const primaryRoute = alternatives.reduce((best: any, current: any) =>
+        current.duration < best.duration ? current : best
+      );
+
+      // Update route with polyline data
+      await ctx.runMutation(internal.routes.updatePolylines, {
+        routeId: args.routeId,
+        polyline: primaryRoute.polyline,
+        alternatives,
+        polylineFetchedAt: Date.now(),
+      });
+    } catch (error) {
+      console.error(`Failed to fetch polylines for route ${args.routeId}:`, error);
+      // Don't throw - route still works with straight line fallback
+    }
+  },
+});
+
+/**
+ * Internal mutation to update polylines
+ */
+export const updatePolylines = internalMutation({
+  args: {
+    routeId: v.id("routes"),
+    polyline: v.array(v.object({ lat: v.number(), lng: v.number() })),
+    alternatives: v.array(
+      v.object({
+        polyline: v.array(v.object({ lat: v.number(), lng: v.number() })),
+        distance: v.number(),
+        duration: v.number(),
+        typicalDuration: v.number(),
+        trafficDelay: v.number(),
+      })
+    ),
+    polylineFetchedAt: v.number(),
+  },
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.routeId, {
+      polyline: args.polyline,
+      alternatives: args.alternatives,
+      polylineFetchedAt: args.polylineFetchedAt,
+    });
+  },
+});
+
+/**
+ * Refresh polylines for all active routes (cron job - run daily at 3 AM)
+ * Add to convex.config.ts: crons.daily("3:00", internal.routes.refreshAllPolylines)
+ */
+export const refreshAllPolylines = action({
+  handler: async (ctx) => {
+    const routes = await ctx.runQuery(internal.routes.getAllActiveRoutesInternal);
+
+    for (const route of routes) {
+      // Only refresh if older than 24 hours or never fetched
+      const shouldRefresh =
+        !route.polylineFetchedAt ||
+        Date.now() - route.polylineFetchedAt > 24 * 60 * 60 * 1000;
+
+      if (shouldRefresh) {
+        await ctx.scheduler.runAfter(0, internal.routes.fetchRoutePolylines, {
+          routeId: route._id,
+        });
+      }
+    }
+  },
+});
+
+/**
+ * Get all active routes (internal query for cron job)
+ */
+export const getAllActiveRoutesInternal = query({
+  handler: async (ctx) => {
+    return await ctx.db
+      .query("routes")
+      .filter((q) => q.eq(q.field("isActive"), true))
+      .collect();
+  },
+});
